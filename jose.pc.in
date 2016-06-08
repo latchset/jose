@@ -1,0 +1,10 @@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+includedir=${prefix}/include
+
+Name: JOSE
+Description: Library for managing JOSE objects
+Version: @VERSION@
+Libs: -L${libdir} -ljose
+Cflags: -I${includedir}
