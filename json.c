@@ -1,18 +1,91 @@
 /* vim: set tabstop=8 shiftwidth=4 softtabstop=4 expandtab smarttab colorcolumn=80: */
 
 #include "json.h"
+
+#include <stdbool.h>
 #include <string.h>
 
-#include <openssl/bio.h>
-#include <openssl/evp.h>
+static const char table[] =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    "abcdefghijklmnopqrstuvwxyz"
+    "0123456789-_";
+
+static void
+b64url_enc(const jose_key_t *key, char b64[])
+{
+    uint8_t rem = 0;
+
+    for (size_t i = 0; i < key->len; i++) {
+        uint8_t c = key->key[i];
+
+        switch (i % 3) {
+        case 0:
+            *b64++ = table[c >> 2];
+            *b64++ = table[rem = (c & 0x03) << 4];
+            break;
+
+        case 1:
+            b64[-1] = table[rem | (c >> 4)];
+            *b64++ = table[rem = (c & 0x0F) << 2];
+            break;
+
+        case 2:
+            b64[-1] = table[rem | (c >> 6)];
+            *b64++ = table[c & 0x3F];
+            break;
+        }
+    }
+
+    *b64 = 0;
+}
+
+static bool
+b64url_dec(const char b64[], jose_key_t *key)
+{
+    uint8_t rem = 0;
+
+    key->len = 0;
+
+    for (size_t i = 0; b64[i]; i++) {
+        uint8_t v = 0;
+
+        for (char c = b64[i]; v < sizeof(table) && table[v] != c; v++)
+            continue;
+
+        if (v >= sizeof(table))
+            return false;
+
+        switch (i % 4) {
+        case 0:
+            if (!b64[i+1])
+                return false;
+
+            rem = v << 2;
+            break;
+
+        case 1:
+            key->key[key->len++] = rem | (v >> 4);
+            rem = v << 4;
+            break;
+
+        case 2:
+            key->key[key->len++] = rem | (v >> 2);
+            rem = v << 6;
+            break;
+
+        case 3:
+            key->key[key->len++] = rem | v;
+            break;
+        }
+    }
+
+    return true;
+}
 
 jose_key_t *
 json_to_key(const json_t *json)
 {
     jose_key_t *key = NULL;
-    BIO *mem = NULL;
-    BIO *b64 = NULL;
-    int len = 0;
 
     if (!json_is_string(json))
         return NULL;
@@ -21,28 +94,9 @@ json_to_key(const json_t *json)
     if (!key)
         return NULL;
 
-    b64 = BIO_new(BIO_f_base64());
-    if (!b64)
-        goto error;
+    if (b64url_dec(json_string_value(json), key))
+        return key;
 
-    BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL);
-
-    mem = BIO_new_mem_buf(json_string_value(json), json_string_length(json));
-    if (!mem)
-        goto error;
-
-    b64 = BIO_push(b64, mem);
-
-    len = BIO_read(b64, key->key, key->len);
-    if (len < 0)
-        goto error;
-
-    BIO_free_all(b64);
-    key->len = len;
-    return key;
-
-error:
-    BIO_free_all(b64);
     jose_key_free(key);
     return NULL;
 }
@@ -52,41 +106,15 @@ json_from_key(const jose_key_t *key)
 {
     json_t *json = NULL;
     char *buf = NULL;
-    BIO *mem = NULL;
-    BIO *b64 = NULL;
-    long len = 0;
 
-    if (!key)
+    buf = malloc((key->len + 2) / 3 * 4 + 1);
+    if (!buf)
         return NULL;
 
-    b64 = BIO_new(BIO_f_base64());
-    if (!b64)
-        goto error;
+    b64url_enc(key, buf);
 
-    BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL);
-
-    mem = BIO_new(BIO_s_mem());
-    if (!mem)
-        goto error;
-
-    b64 = BIO_push(b64, mem);
-
-    if (BIO_write(b64, key->key, key->len) != (int) key->len)
-        goto error;
-
-    BIO_flush(b64);
-
-    len = BIO_get_mem_data(mem, &buf);
-    if (len < (int) key->len / 3 * 4)
-        goto error;
-
-    if (len == 0)
-        json = json_string("");
-    else
-        json = json_stringn(buf, len);
-
-error:
-    BIO_free_all(b64);
+    json = json_string(buf);
+    free(buf);
     return json;
 }
 

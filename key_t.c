@@ -10,12 +10,13 @@ struct {
     const char *enc;
 } vectors[] = {
     { "", "" },
-    { "f", "Zg==" },
-    { "fo", "Zm8=" },
+    { "f", "Zg" },
+    { "fo", "Zm8" },
     { "foo", "Zm9v" },
-    { "foob", "Zm9vYg==" },
-    { "fooba", "Zm9vYmE=" },
+    { "foob", "Zm9vYg" },
+    { "fooba", "Zm9vYmE" },
     { "foobar", "Zm9vYmFy" },
+    { "\xc7\xf1\x44\xcd\x1b\xbd\x9b~\x87,\xdf\xed", "x_FEzRu9m36HLN_t" },
     {}
 };
 
