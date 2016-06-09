@@ -10,8 +10,9 @@ noinst_HEADERS = json.h
 libjose_la_SOURCES = key.c json.c jwk_ec.c jwk_oct.c jwk_rsa.c jws.c
 libjose_la_LIBADD = @libcrypto_LIBS@ @jansson_LIBS@
 
-check_PROGRAMS = key_t
+check_PROGRAMS = key_t jwk_t
 key_t_LDADD = libjose.la
+jwk_t_LDADD = libjose.la
 
 TESTS = $(check_PROGRAMS)
 
