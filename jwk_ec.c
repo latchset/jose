@@ -1,54 +1,11 @@
 /* vim: set tabstop=8 shiftwidth=4 softtabstop=4 expandtab smarttab colorcolumn=80: */
 
-#include "jose.h"
-#include "bin.h"
+#include "json.h"
 #include <openssl/objects.h>
 #include <string.h>
 
-static BIGNUM *
-json2bn(const json_t *json)
-{
-    struct bin *bin = NULL;
-    BIGNUM *bn = NULL;
-
-    if (!json_is_string(json))
-        return NULL;
-
-    bin = bin_from_json(json);
-    if (!bin)
-        return NULL;
-
-    bn = BN_bin2bn(bin->buf, bin->len, NULL);
-    bin_free(bin);
-    return bn;
-}
-
-static json_t *
-bn2json(const BIGNUM *bn, int degree)
-{
-    int len = (degree + 7) / 8;
-    struct bin *bin = NULL;
-    json_t *json = NULL;
-
-    if (!bn || len <= 0 || BN_num_bytes(bn) > len)
-        return NULL;
-
-    bin = bin_new(len);
-    if (!bin)
-        return NULL;
-
-    memset(bin->buf, 0, bin->len);
-
-    len = BN_bn2bin(bn, &bin->buf[bin->len - len]);
-    if (len > 0)
-        json = bin_to_json(bin);
-
-    bin_free(bin);
-    return json;
-}
-
 json_t *
-jose_jwk_from_ec_key(const EC_KEY *key, BN_CTX *ctx)
+jose_jwk_from_ec(const EC_KEY *key, BN_CTX *ctx)
 {
     const EC_GROUP *grp = NULL;
     const EC_POINT *pub = NULL;
@@ -56,7 +13,7 @@ jose_jwk_from_ec_key(const EC_KEY *key, BN_CTX *ctx)
     json_t *jwk = NULL;
     BIGNUM *x = NULL;
     BIGNUM *y = NULL;
-    int deg = 0;
+    int len = 0;
 
     jwk = json_object();
     if (!jwk)
@@ -69,7 +26,7 @@ jose_jwk_from_ec_key(const EC_KEY *key, BN_CTX *ctx)
     if (!grp)
         goto error;
 
-    deg = EC_GROUP_get_degree(grp);
+    len = (EC_GROUP_get_degree(grp) + 7) / 8;
 
     switch (EC_GROUP_get_curve_name(grp)) {
     case NID_X9_62_prime256v1:
@@ -105,19 +62,19 @@ jose_jwk_from_ec_key(const EC_KEY *key, BN_CTX *ctx)
         if (EC_POINT_get_affine_coordinates_GFp(grp, pub, x, y, ctx) < 0)
             goto error;
 
-        if (json_object_set_new(jwk, "x", bn2json(x, deg)) == -1)
+        if (json_object_set_new(jwk, "x", json_from_bn(x, len)) == -1)
             goto error;
 
-        if (json_object_set_new(jwk, "y", bn2json(y, deg)) == -1)
+        if (json_object_set_new(jwk, "y", json_from_bn(y, len)) == -1)
             goto error;
     }
 
-    if (prv && json_object_set_new(jwk, "d", bn2json(prv, deg)) == -1)
+    if (prv && json_object_set_new(jwk, "d", json_from_bn(prv, len)) == -1)
         goto error;
 
     BN_free(x);
     BN_free(y);
-    return NULL;
+    return jwk;
 
 error:
     BN_free(x);
@@ -127,7 +84,7 @@ error:
 }
 
 EC_KEY *
-jose_jwk_to_ec_key(const json_t *jwk, BN_CTX *ctx)
+jose_jwk_to_ec(const json_t *jwk, BN_CTX *ctx)
 {
     const json_t *tmp = NULL;
     int nid = NID_undef;
@@ -159,7 +116,7 @@ jose_jwk_to_ec_key(const json_t *jwk, BN_CTX *ctx)
 
     tmp = json_object_get(jwk, "d");
     if (json_is_string(tmp)) {
-        prv = json2bn(tmp);
+        prv = json_to_bn(tmp);
         if (!prv)
             goto error;
 
@@ -170,8 +127,8 @@ jose_jwk_to_ec_key(const json_t *jwk, BN_CTX *ctx)
 
     if (json_is_string(json_object_get(jwk, "x")) &&
         json_is_string(json_object_get(jwk, "y"))) {
-        x = json2bn(json_object_get(jwk, "x"));
-        y = json2bn(json_object_get(jwk, "y"));
+        x = json_to_bn(json_object_get(jwk, "x"));
+        y = json_to_bn(json_object_get(jwk, "y"));
         if (!x || !y)
             goto error;
 
