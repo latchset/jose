@@ -6,16 +6,16 @@
 #include <stddef.h>
 #include <string.h>
 
-jose_key_t *
+struct jose_key *
 jose_key_new(size_t len)
 {
-    jose_key_t *key = NULL;
+    struct jose_key *key = NULL;
 
-    key = malloc(offsetof(jose_key_t, key) + len);
+    key = malloc(offsetof(struct jose_key, key) + len);
     if (!key)
         return NULL;
 
-    if (mlock(key, offsetof(jose_key_t, key) + len) == -1) {
+    if (mlock(key, offsetof(struct jose_key, key) + len) == -1) {
         free(key);
         return NULL;
     }
@@ -25,11 +25,11 @@ jose_key_new(size_t len)
 }
 
 void
-jose_key_free(jose_key_t *key)
+jose_key_free(struct jose_key *key)
 {
     if (key) {
-        memset(key, 0, offsetof(jose_key_t, key) + key->len);
-        munlock(key, offsetof(jose_key_t, key) + key->len);
+        memset(key, 0, offsetof(struct jose_key, key) + key->len);
+        munlock(key, offsetof(struct jose_key, key) + key->len);
     }
 
     free(key);

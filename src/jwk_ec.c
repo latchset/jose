@@ -120,20 +120,35 @@ jose_jwk_to_ec(const json_t *jwk, BN_CTX *ctx)
         if (!prv)
             goto error;
 
-        if (EC_KEY_set_private_key(key, prv) < 0) {
+        if (EC_KEY_set_private_key(key, prv) < 0)
             goto error;
-        }
     }
 
     if (json_is_string(json_object_get(jwk, "x")) &&
         json_is_string(json_object_get(jwk, "y"))) {
+        EC_POINT *pnt = NULL;
+
         x = json_to_bn(json_object_get(jwk, "x"));
         y = json_to_bn(json_object_get(jwk, "y"));
         if (!x || !y)
             goto error;
 
-        if (EC_KEY_set_public_key_affine_coordinates(key, x, y) < 0)
+        pnt = EC_POINT_new(EC_KEY_get0_group(key));
+        if (!pnt)
             goto error;
+
+        if (EC_POINT_set_affine_coordinates_GFp(EC_KEY_get0_group(key),
+                                                pnt, x, y, ctx) < 0) {
+            EC_POINT_free(pnt);
+            goto error;
+        }
+
+        if (EC_KEY_set_public_key(key, pnt) < 0) {
+            EC_POINT_free(pnt);
+            goto error;
+        }
+
+        EC_POINT_free(pnt);
     } else if (prv) {
         p = EC_POINT_new(EC_KEY_get0_group(key));
         if (!p)

@@ -5,12 +5,12 @@
 #include <string.h>
 
 json_t *
-jose_jwk_from_key(const jose_key_t *key)
+jose_jwk_from_key(const struct jose_key *key)
 {
     return json_pack("{s:s, s:o}", "kty", "oct", "k", json_from_key(key));
 }
 
-jose_key_t *
+struct jose_key *
 jose_jwk_to_key(const json_t *jwk)
 {
     const char *kty = NULL;

@@ -11,12 +11,12 @@ static const char table[] =
     "0123456789-_";
 
 static void
-b64url_enc(const jose_key_t *key, char b64[])
+b64url_enc(const uint8_t buf[], size_t len, char b64[])
 {
     uint8_t rem = 0;
 
-    for (size_t i = 0; i < key->len; i++) {
-        uint8_t c = key->key[i];
+    for (size_t i = 0; i < len; i++) {
+        uint8_t c = buf[i];
 
         switch (i % 3) {
         case 0:
@@ -40,11 +40,11 @@ b64url_enc(const jose_key_t *key, char b64[])
 }
 
 static bool
-b64url_dec(const char b64[], jose_key_t *key)
+b64url_dec(const char b64[], uint8_t buf[], size_t *len)
 {
     uint8_t rem = 0;
 
-    key->len = 0;
+    *len = 0;
 
     for (size_t i = 0; b64[i]; i++) {
         uint8_t v = 0;
@@ -64,17 +64,17 @@ b64url_dec(const char b64[], jose_key_t *key)
             break;
 
         case 1:
-            key->key[key->len++] = rem | (v >> 4);
+            buf[(*len)++] = rem | (v >> 4);
             rem = v << 4;
             break;
 
         case 2:
-            key->key[key->len++] = rem | (v >> 2);
+            buf[(*len)++] = rem | (v >> 2);
             rem = v << 6;
             break;
 
         case 3:
-            key->key[key->len++] = rem | v;
+            buf[(*len)++] = rem | v;
             break;
         }
     }
@@ -82,46 +82,10 @@ b64url_dec(const char b64[], jose_key_t *key)
     return true;
 }
 
-jose_key_t *
-json_to_key(const json_t *json)
-{
-    jose_key_t *key = NULL;
-
-    if (!json_is_string(json))
-        return NULL;
-
-    key = jose_key_new((json_string_length(json) + 3) / 4 * 3);
-    if (!key)
-        return NULL;
-
-    if (b64url_dec(json_string_value(json), key))
-        return key;
-
-    jose_key_free(key);
-    return NULL;
-}
-
-json_t *
-json_from_key(const jose_key_t *key)
-{
-    json_t *json = NULL;
-    char *buf = NULL;
-
-    buf = malloc((key->len + 2) / 3 * 4 + 1);
-    if (!buf)
-        return NULL;
-
-    b64url_enc(key, buf);
-
-    json = json_string(buf);
-    free(buf);
-    return json;
-}
-
 BIGNUM *
 json_to_bn(const json_t *json)
 {
-    jose_key_t *key = NULL;
+    struct jose_key *key = NULL;
     BIGNUM *bn = NULL;
 
     if (!json_is_string(json))
@@ -136,10 +100,48 @@ json_to_bn(const json_t *json)
     return bn;
 }
 
+uint8_t *
+json_to_buf(const json_t *json, size_t *len)
+{
+    uint8_t *buf = NULL;
+
+    if (!json_is_string(json))
+        return NULL;
+
+    buf = malloc((json_string_length(json) + 3) / 4 * 3);
+    if (!buf)
+        return NULL;
+
+    if (b64url_dec(json_string_value(json), buf, len))
+        return buf;
+
+    free(buf);
+    return NULL;
+}
+
+struct jose_key *
+json_to_key(const json_t *json)
+{
+    struct jose_key *key = NULL;
+
+    if (!json_is_string(json))
+        return NULL;
+
+    key = jose_key_new((json_string_length(json) + 3) / 4 * 3);
+    if (!key)
+        return NULL;
+
+    if (b64url_dec(json_string_value(json), key->key, &key->len))
+        return key;
+
+    jose_key_free(key);
+    return NULL;
+}
+
 json_t *
 json_from_bn(const BIGNUM *bn, size_t len)
 {
-    jose_key_t *key = NULL;
+    struct jose_key *key = NULL;
     json_t *json = NULL;
     int bytes = 0;
 
@@ -164,3 +166,36 @@ json_from_bn(const BIGNUM *bn, size_t len)
     return json;
 }
 
+json_t *
+json_from_buf(const uint8_t buf[], size_t len)
+{
+    json_t *json = NULL;
+    char *tmp = NULL;
+
+    tmp = malloc((len + 2) / 3 * 4 + 1);
+    if (!tmp)
+        return NULL;
+
+    b64url_enc(buf, len, tmp);
+
+    json = json_string(tmp);
+    free(tmp);
+    return json;
+}
+
+json_t *
+json_from_key(const struct jose_key *key)
+{
+    json_t *json = NULL;
+    char *buf = NULL;
+
+    buf = malloc((key->len + 2) / 3 * 4 + 1);
+    if (!buf)
+        return NULL;
+
+    b64url_enc(key->key, key->len, buf);
+
+    json = json_string(buf);
+    free(buf);
+    return json;
+}

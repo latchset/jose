@@ -24,7 +24,7 @@ int
 main(int argc, char *argv[])
 {
     for (size_t i = 0; vectors[i].dec; i++) {
-        jose_key_t *key = NULL;
+        struct jose_key *key = NULL;
         json_t *json = NULL;
 
         key = jose_key_new(strlen(vectors[i].dec));
