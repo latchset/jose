@@ -1,8 +1,65 @@
 /* vim: set tabstop=8 shiftwidth=4 softtabstop=4 expandtab smarttab colorcolumn=80: */
 
-#include "json.h"
+#include "jwk.h"
+#include "b64.h"
+
 #include <openssl/objects.h>
+
+#include <stddef.h>
+#include <stdlib.h>
 #include <string.h>
+
+static BIGNUM *
+json2bn(const json_t *json)
+{
+    uint8_t *buf = NULL;
+    BIGNUM *bn = NULL;
+    size_t len = 0;
+
+    buf = jose_b64_decode(json, &len);
+    if (!buf)
+        return NULL;
+
+    bn = BN_bin2bn(buf, len, NULL);
+    free(buf);
+    return bn;
+}
+
+static json_t *
+bn2json(const BIGNUM *bn, size_t len)
+{
+    uint8_t *buf = NULL;
+    json_t *out = NULL;
+    int bytes = 0;
+
+    if (!bn || len <= 0)
+        return NULL;
+
+    bytes = BN_num_bytes(bn);
+    if (bytes < 0 || bytes > (int) len)
+        return NULL;
+
+    buf = malloc(len);
+    if (!buf)
+        return NULL;
+
+    memset(buf, 0, len);
+
+    bytes = BN_bn2bin(bn, &buf[len - bytes]);
+    if (bytes > 0)
+        out = jose_b64_encode(buf, len);
+
+    free(buf);
+    return out;
+}
+
+json_t *
+jose_jwk_from_key(const uint8_t key[], size_t len)
+{
+    return json_pack("{s:s, s:o}",
+                     "kty", "oct",
+                     "k", jose_b64_encode(key, len));
+}
 
 json_t *
 jose_jwk_from_ec(const EC_KEY *key, BN_CTX *ctx)
@@ -62,14 +119,14 @@ jose_jwk_from_ec(const EC_KEY *key, BN_CTX *ctx)
         if (EC_POINT_get_affine_coordinates_GFp(grp, pub, x, y, ctx) < 0)
             goto error;
 
-        if (json_object_set_new(jwk, "x", json_from_bn(x, len)) == -1)
+        if (json_object_set_new(jwk, "x", bn2json(x, len)) == -1)
             goto error;
 
-        if (json_object_set_new(jwk, "y", json_from_bn(y, len)) == -1)
+        if (json_object_set_new(jwk, "y", bn2json(y, len)) == -1)
             goto error;
     }
 
-    if (prv && json_object_set_new(jwk, "d", json_from_bn(prv, len)) == -1)
+    if (prv && json_object_set_new(jwk, "d", bn2json(prv, len)) == -1)
         goto error;
 
     BN_free(x);
@@ -81,6 +138,27 @@ error:
     BN_free(y);
     json_decref(jwk);
     return NULL;
+}
+
+json_t *
+jose_jwk_from_rsa(const RSA *key, BN_CTX *ctx)
+{
+    return NULL;
+}
+
+uint8_t *
+jose_jwk_to_key(const json_t *jwk, size_t *len)
+{
+    const char *kty = NULL;
+    const json_t *k = NULL;
+
+    if (json_unpack((json_t *) jwk, "{s:s, s:o}", "kty", &kty, "k", &k) == -1)
+        return NULL;
+
+    if (strcmp(kty, "oct") != 0)
+        return NULL;
+
+    return jose_b64_decode(k, len);
 }
 
 EC_KEY *
@@ -116,7 +194,7 @@ jose_jwk_to_ec(const json_t *jwk, BN_CTX *ctx)
 
     tmp = json_object_get(jwk, "d");
     if (json_is_string(tmp)) {
-        prv = json_to_bn(tmp);
+        prv = json2bn(tmp);
         if (!prv)
             goto error;
 
@@ -128,8 +206,8 @@ jose_jwk_to_ec(const json_t *jwk, BN_CTX *ctx)
         json_is_string(json_object_get(jwk, "y"))) {
         EC_POINT *pnt = NULL;
 
-        x = json_to_bn(json_object_get(jwk, "x"));
-        y = json_to_bn(json_object_get(jwk, "y"));
+        x = json2bn(json_object_get(jwk, "x"));
+        y = json2bn(json_object_get(jwk, "y"));
         if (!x || !y)
             goto error;
 
@@ -181,3 +259,8 @@ error:
     return NULL;
 }
 
+RSA *
+jose_jwk_to_rsa(const json_t *jwk, BN_CTX *ctx)
+{
+    return NULL;
+}

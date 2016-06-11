@@ -1,6 +1,6 @@
 /* vim: set tabstop=8 shiftwidth=4 softtabstop=4 expandtab smarttab colorcolumn=80: */
 
-#include "json.h"
+#include "b64.h"
 
 #include <assert.h>
 #include <string.h>
@@ -24,29 +24,21 @@ int
 main(int argc, char *argv[])
 {
     for (size_t i = 0; vectors[i].dec; i++) {
-        struct jose_key *key = NULL;
+        uint8_t *buf = NULL;
         json_t *json = NULL;
+        size_t len = 0;
 
-        key = jose_key_new(strlen(vectors[i].dec));
-        assert(key);
-
-        memcpy(key->key, vectors[i].dec, strlen(vectors[i].dec));
-
-        json = json_from_key(key);
-        assert(json);
+        json = jose_b64_encode((uint8_t *) vectors[i].dec,
+                               strlen(vectors[i].dec));
         assert(json_is_string(json));
-        fprintf(stderr, "%s == %s\n", json_string_value(json), vectors[i].enc);
         assert(strcmp(json_string_value(json), vectors[i].enc) == 0);
 
-        jose_key_free(key);
-
-        key = json_to_key(json);
+        buf = jose_b64_decode(json, &len);
         json_decref(json);
-        assert(key);
-        assert(key->len == strlen(vectors[i].dec));
-        assert(strncmp((char *) key->key, vectors[i].dec, key->len) == 0);
-
-        jose_key_free(key);
+        assert(buf);
+        assert(len == strlen(vectors[i].dec));
+        assert(strncmp((char *) buf, vectors[i].dec, len) == 0);
+        free(buf);
     }
 
     return 0;

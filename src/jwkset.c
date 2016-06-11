@@ -1,6 +1,6 @@
 /* vim: set tabstop=8 shiftwidth=4 softtabstop=4 expandtab smarttab colorcolumn=80: */
 
-#include "jose.h"
+#include "jwkset.h"
 
 static const char *jwkprv[] = {
     "k", "d", "p", "q", "dp", "dq", "qi", "oth", NULL

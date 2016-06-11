@@ -1,7 +1,6 @@
 /* vim: set tabstop=8 shiftwidth=4 softtabstop=4 expandtab smarttab colorcolumn=80: */
 
-#include "json.h"
-
+#include "b64.h"
 #include <stdbool.h>
 #include <string.h>
 
@@ -82,26 +81,8 @@ b64url_dec(const char b64[], uint8_t buf[], size_t *len)
     return true;
 }
 
-BIGNUM *
-json_to_bn(const json_t *json)
-{
-    struct jose_key *key = NULL;
-    BIGNUM *bn = NULL;
-
-    if (!json_is_string(json))
-        return NULL;
-
-    key = json_to_key(json);
-    if (!key)
-        return NULL;
-
-    bn = BN_bin2bn(key->key, key->len, NULL);
-    jose_key_free(key);
-    return bn;
-}
-
 uint8_t *
-json_to_buf(const json_t *json, size_t *len)
+jose_b64_decode(const json_t *json, size_t *len)
 {
     uint8_t *buf = NULL;
 
@@ -119,58 +100,30 @@ json_to_buf(const json_t *json, size_t *len)
     return NULL;
 }
 
-struct jose_key *
-json_to_key(const json_t *json)
+json_t *
+jose_b64_decode_json(const json_t *json)
 {
-    struct jose_key *key = NULL;
+    uint8_t *buf = NULL;
+    json_t *out = NULL;
+    size_t len = 0;
 
-    if (!json_is_string(json))
+    buf = jose_b64_decode(json, &len);
+    if (!buf)
         return NULL;
 
-    key = jose_key_new((json_string_length(json) + 3) / 4 * 3);
-    if (!key)
-        return NULL;
-
-    if (b64url_dec(json_string_value(json), key->key, &key->len))
-        return key;
-
-    jose_key_free(key);
+    out = json_loads((char *) buf, 0, NULL);
+    free(buf);
     return NULL;
 }
 
 json_t *
-json_from_bn(const BIGNUM *bn, size_t len)
-{
-    struct jose_key *key = NULL;
-    json_t *json = NULL;
-    int bytes = 0;
-
-    if (!bn || len <= 0)
-        return NULL;
-
-    bytes = BN_num_bytes(bn);
-    if (bytes < 0 || bytes > (int) len)
-        return NULL;
-
-    key = jose_key_new(len);
-    if (!key)
-        return NULL;
-
-    memset(key->key, 0, key->len);
-
-    len = BN_bn2bin(bn, &key->key[key->len - bytes]);
-    if (len > 0)
-        json = json_from_key(key);
-
-    jose_key_free(key);
-    return json;
-}
-
-json_t *
-json_from_buf(const uint8_t buf[], size_t len)
+jose_b64_encode(const uint8_t buf[], size_t len)
 {
     json_t *json = NULL;
     char *tmp = NULL;
+
+    if (!buf)
+        return NULL;
 
     tmp = malloc((len + 2) / 3 * 4 + 1);
     if (!tmp)
@@ -184,18 +137,16 @@ json_from_buf(const uint8_t buf[], size_t len)
 }
 
 json_t *
-json_from_key(const struct jose_key *key)
+jose_b64_encode_json(const json_t *json)
 {
-    json_t *json = NULL;
-    char *buf = NULL;
+    json_t *out = NULL;
+    char *tmp = NULL;
 
-    buf = malloc((key->len + 2) / 3 * 4 + 1);
-    if (!buf)
+    tmp = json_dumps(json, JSON_SORT_KEYS | JSON_COMPACT);
+    if (!tmp)
         return NULL;
 
-    b64url_enc(key->key, key->len, buf);
-
-    json = json_string(buf);
-    free(buf);
-    return json;
+    out = jose_b64_encode((uint8_t *) tmp, strlen(tmp));
+    free(tmp);
+    return out;
 }
