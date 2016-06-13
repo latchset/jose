@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "key.h"
 #include "b64.h"
 #include "jwk.h"
 #include "jwkset.h"

@@ -1,6 +1,8 @@
 /* vim: set tabstop=8 shiftwidth=4 softtabstop=4 expandtab smarttab colorcolumn=80: */
 
 #include "b64.h"
+#include "key.h"
+
 #include <stdbool.h>
 #include <string.h>
 
@@ -9,7 +11,7 @@ static const char table[] =
     "abcdefghijklmnopqrstuvwxyz"
     "0123456789-_";
 
-static void
+static void __attribute__((nonnull(1, 3)))
 b64url_enc(const uint8_t buf[], size_t len, char b64[])
 {
     uint8_t rem = 0;
@@ -38,12 +40,11 @@ b64url_enc(const uint8_t buf[], size_t len, char b64[])
     *b64 = 0;
 }
 
-static bool
-b64url_dec(const char b64[], uint8_t buf[], size_t *len)
+static bool __attribute__((warn_unused_result, nonnull(1, 2)))
+b64url_dec(const char b64[], uint8_t buf[])
 {
     uint8_t rem = 0;
-
-    *len = 0;
+    size_t len = 0;
 
     for (size_t i = 0; b64[i]; i++) {
         uint8_t v = 0;
@@ -63,17 +64,17 @@ b64url_dec(const char b64[], uint8_t buf[], size_t *len)
             break;
 
         case 1:
-            buf[(*len)++] = rem | (v >> 4);
+            buf[len++] = rem | (v >> 4);
             rem = v << 4;
             break;
 
         case 2:
-            buf[(*len)++] = rem | (v >> 2);
+            buf[len++] = rem | (v >> 2);
             rem = v << 6;
             break;
 
         case 3:
-            buf[(*len)++] = rem | v;
+            buf[len++] = rem | v;
             break;
         }
     }
@@ -81,59 +82,88 @@ b64url_dec(const char b64[], uint8_t buf[], size_t *len)
     return true;
 }
 
-uint8_t *
-jose_b64_decode(const json_t *json, size_t *len)
+size_t
+jose_b64_dlen(size_t elen)
 {
-    uint8_t *buf = NULL;
+    switch (elen % 4) {
+    case 0: return elen / 4 * 3;
+    case 2: return elen / 4 * 3 + 1;
+    case 3: return elen / 4 * 3 + 2;
+    default: return 0;
+    }
+}
 
+size_t
+jose_b64_elen(size_t dlen)
+{
+    switch (dlen % 3) {
+    case 0: return dlen / 3 * 4;
+    case 1: return dlen / 3 * 4 + 2;
+    case 2: return dlen / 3 * 4 + 3;
+    default: return 0;
+    }
+}
+
+bool
+jose_b64_decode(const json_t *json, uint8_t buf[])
+{
     if (!json_is_string(json))
+        return false;
+
+    return b64url_dec(json_string_value(json), buf);
+}
+
+jose_key_t *
+jose_b64_decode_key(const json_t *json)
+{
+    jose_key_t *key = NULL;
+
+    key = jose_key_new(jose_b64_dlen(json_string_length(json)));
+    if (!key)
         return NULL;
 
-    buf = malloc((json_string_length(json) + 3) / 4 * 3);
-    if (!buf)
-        return NULL;
+    if (jose_b64_decode(json, key->key))
+        return key;
 
-    if (b64url_dec(json_string_value(json), buf, len))
-        return buf;
-
-    free(buf);
+    jose_key_free(key);
     return NULL;
 }
 
 json_t *
 jose_b64_decode_json(const json_t *json)
 {
-    uint8_t *buf = NULL;
+    jose_key_t *key = NULL;
     json_t *out = NULL;
-    size_t len = 0;
 
-    buf = jose_b64_decode(json, &len);
-    if (!buf)
-        return NULL;
+    key = jose_b64_decode_key(json);
+    if (key)
+        out = json_loadb((char *) key->key, key->len, 0, NULL);
 
-    out = json_loads((char *) buf, 0, NULL);
-    free(buf);
-    return NULL;
+    jose_key_free(key);
+    return out;
 }
 
 json_t *
 jose_b64_encode(const uint8_t buf[], size_t len)
 {
+    jose_key_t *tmp = NULL;
     json_t *json = NULL;
-    char *tmp = NULL;
 
-    if (!buf)
-        return NULL;
-
-    tmp = malloc((len + 2) / 3 * 4 + 1);
+    tmp = jose_key_new(jose_b64_elen(len));
     if (!tmp)
         return NULL;
 
-    b64url_enc(buf, len, tmp);
+    b64url_enc(buf, len, (char *) tmp->key);
 
-    json = json_string(tmp);
-    free(tmp);
+    json = json_stringn((char *) tmp->key, tmp->len);
+    jose_key_free(tmp);
     return json;
+}
+
+json_t *
+jose_b64_encode_key(const jose_key_t *key)
+{
+    return jose_b64_encode(key->key, key->len);
 }
 
 json_t *

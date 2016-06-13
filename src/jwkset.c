@@ -1,62 +1,32 @@
 /* vim: set tabstop=8 shiftwidth=4 softtabstop=4 expandtab smarttab colorcolumn=80: */
 
 #include "jwkset.h"
-
-static const char *jwkprv[] = {
-    "k", "d", "p", "q", "dp", "dq", "qi", "oth", NULL
-};
+#include "jwk.h"
 
 json_t *
-jose_jwkset_private(const json_t *jwkset)
+jose_jwkset_copy(const json_t *jwkset, bool prv)
 {
+    const json_t *keys = NULL;
     json_t *copy = NULL;
 
-    copy = json_deep_copy(jwkset);
-
-    if (json_is_array(copy))
-        copy = json_pack("{s:o}", "keys", copy);
-
-    if (!json_is_object(copy))
-        goto error;
-
-    return copy;
-
-error:
-    json_decref(copy);
-    return NULL;
-}
-
-json_t *
-jose_jwkset_public(const json_t *jwkset)
-{
-    const json_t *array = NULL;
-    json_t *copy = NULL;
-
-    copy = jose_jwkset_private(jwkset);
-    if (!copy)
+    keys = json_is_array(jwkset) ? jwkset : json_object_get(jwkset, "keys");
+    if (!json_is_array(keys))
         return NULL;
 
-    array = json_object_get(copy, "keys");
-    if (!json_is_array(array))
-        goto error;
+    copy = json_array();
+    if (!json_is_array(copy))
+        return NULL;
 
-    for (size_t i = 0; i < json_array_size(array); i++) {
-        json_t *jwk = json_array_get(array, i);
+    for (size_t i = 0; i < json_array_size(keys); i++) {
+        const json_t *k = json_array_get(keys, i);
 
-        if (!json_is_object(jwk))
-            continue;
-
-        for (size_t j = 0; jwkprv[j]; j++) {
-            if (json_object_get(jwk, jwkprv[j]) &&
-                json_object_del(jwk, jwkprv[j]) == -1)
-                goto error;
-        }
+        if (json_array_append_new(copy, jose_jwk_copy(k, prv)) == -1)
+            goto error;
     }
 
-    return copy;
+    return json_pack("{s: o}", "keys", copy);
 
 error:
     json_decref(copy);
     return NULL;
 }
-

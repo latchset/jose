@@ -16,11 +16,11 @@ main(int argc, char *argv[])
                   "dq", "", "qi", "", "oth", "");
     assert(json_is_object(a));
 
-    b = jose_jwkset_private(a);
+    b = jose_jwkset_copy(a, true);
     assert(json_equal(a, b));
     json_decref(a);
 
-    a = jose_jwkset_public(b);
+    a = jose_jwkset_copy(b, false);
     assert(!json_equal(a, b));
     json_decref(b);
     b = json_pack("{s:[{}, {}, {}]}", "keys");
@@ -30,11 +30,11 @@ main(int argc, char *argv[])
 
     b = json_pack("[{}, {}, {}]");
     assert(json_is_array(b));
-    c = jose_jwkset_private(b);
+    c = jose_jwkset_copy(b, true);
     assert(json_is_object(c));
     assert(json_equal(a, c));
     json_decref(c);
-    c = jose_jwkset_public(b);
+    c = jose_jwkset_copy(b, false);
     assert(json_is_object(c));
     assert(json_equal(a, c));
     json_decref(c);
