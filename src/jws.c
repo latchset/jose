@@ -18,6 +18,9 @@ jose_jws_from_compact(const char *jws)
     json_t *out = NULL;
     size_t c = 0;
 
+    if (!jws)
+        return NULL;
+
     for (size_t i = 0; jws[i]; i++) {
         if (jws[i] != '.')
             len[c]++;
@@ -250,12 +253,13 @@ sign_RSA(json_t *jws, json_t *head, const char *data,
         return false;
 
     uint8_t sig[RSA_size(key)];
+    unsigned int len = 0;
 
     /* Don't use small keys. RFC 7518 3.3 */
     if (sizeof(sig) < 2048 / 8)
         goto egress;
 
-    if (!RSA_sign(EVP_MD_type(md), dgst, sizeof(dgst), sig, NULL, key))
+    if (!RSA_sign(EVP_MD_type(md), dgst, sizeof(dgst), sig, &len, key))
         goto egress;
 
     ret = add_sig(jws, head, data, sig, sizeof(sig));
@@ -281,7 +285,10 @@ sign_ECDSA(json_t *jws, json_t *head, const char *data,
     default: return false;
     }
 
-    uint8_t dgst[EVP_MD_size(md)];
+    uint8_t hsh[EVP_MD_size(md)];
+
+    if (EVP_Digest(data, strlen(data), hsh, NULL, md, NULL) < 0)
+        return false;
 
     key = jose_jwk_to_ec(jwk);
     if (!key)
@@ -304,12 +311,12 @@ sign_ECDSA(json_t *jws, json_t *head, const char *data,
         if (EVP_MD_type(md) != NID_sha512)
             goto egress;
         break;
+
+    default:
+        goto egress;
     }
 
-    if (EVP_Digest(data, strlen(data), dgst, NULL, md, NULL) < 0)
-        goto egress;
-
-    ecdsa = ECDSA_do_sign(dgst, sizeof(dgst), key);
+    ecdsa = ECDSA_do_sign(hsh, sizeof(hsh), key);
     if (!ecdsa)
         goto egress;
 
@@ -421,6 +428,9 @@ jose_jws_sign(json_t *jws, const json_t *head, const json_t *prot,
     json_t *h = NULL;
     json_t *p = NULL;
     bool ret = false;
+
+    if (!jws || !jwks)
+        return false;
 
     if (json_is_array(jwks))
         array = jwks;
@@ -689,6 +699,9 @@ bool
 jose_jws_verify(const json_t *jws, const json_t *jwks, bool all)
 {
     const json_t *array = NULL;
+
+    if (!jws || !jwks)
+        return false;
 
     if (json_is_array(jwks))
         array = jwks;

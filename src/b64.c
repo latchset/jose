@@ -107,7 +107,7 @@ jose_b64_elen(size_t dlen)
 bool
 jose_b64_decode(const json_t *json, uint8_t buf[])
 {
-    if (!json_is_string(json))
+    if (!json_is_string(json) || !buf)
         return false;
 
     return b64url_dec(json_string_value(json), buf);
@@ -117,6 +117,9 @@ jose_key_t *
 jose_b64_decode_key(const json_t *json)
 {
     jose_key_t *key = NULL;
+
+    if (!json_is_string(json))
+        return NULL;
 
     key = jose_key_new(jose_b64_dlen(json_string_length(json)));
     if (!key)
@@ -135,6 +138,9 @@ jose_b64_decode_json(const json_t *json)
     jose_key_t *key = NULL;
     json_t *out = NULL;
 
+    if (!json_is_string(json))
+        return NULL;
+
     key = jose_b64_decode_key(json);
     if (key)
         out = json_loadb((char *) key->key, key->len, 0, NULL);
@@ -149,13 +155,16 @@ jose_b64_encode(const uint8_t buf[], size_t len)
     jose_key_t *tmp = NULL;
     json_t *json = NULL;
 
-    tmp = jose_key_new(jose_b64_elen(len));
+    if (!buf)
+        return NULL;
+
+    tmp = jose_key_new(jose_b64_elen(len) + 1);
     if (!tmp)
         return NULL;
 
     b64url_enc(buf, len, (char *) tmp->key);
 
-    json = json_stringn((char *) tmp->key, tmp->len);
+    json = json_string((char *) tmp->key);
     jose_key_free(tmp);
     return json;
 }
@@ -163,6 +172,9 @@ jose_b64_encode(const uint8_t buf[], size_t len)
 json_t *
 jose_b64_encode_key(const jose_key_t *key)
 {
+    if (!key)
+        return NULL;
+
     return jose_b64_encode(key->key, key->len);
 }
 
@@ -171,6 +183,9 @@ jose_b64_encode_json(const json_t *json)
 {
     json_t *out = NULL;
     char *tmp = NULL;
+
+    if (!json)
+        return NULL;
 
     tmp = json_dumps(json, JSON_SORT_KEYS | JSON_COMPACT);
     if (!tmp)

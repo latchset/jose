@@ -33,6 +33,9 @@ jose_jwk_from_ec(const EC_KEY *key)
     BIGNUM *y = NULL;
     int len = 0;
 
+    if (!key)
+        return NULL;
+
     jwk = json_object();
     if (!jwk)
         return NULL;
@@ -113,7 +116,7 @@ error:
 json_t *
 jose_jwk_from_rsa(const RSA *key)
 {
-    if (!key->n || !key->e)
+    if (!key || !key->n || !key->e)
         return NULL;
 
     if (key->d && key->p && key->q && key->dmp1 && key->dmq1 && key->iqmp) {
@@ -154,7 +157,7 @@ jose_jwk_copy(const json_t *jwk, bool prv)
     for (size_t i = 0; !prv && jwkprv[i]; i++) {
         if (!json_object_get(out, jwkprv[i]))
             continue;
-        
+
         if (json_object_del(out, jwkprv[i]) != -1)
             continue;
 
@@ -304,7 +307,7 @@ jose_jwk_to_rsa(const json_t *jwk)
             "kty", &kty, "n", &n, "e", &e, "d", &d, "p", &p,
             "q", &q, "dp", &dp, "dq", &dq, "qi", &qi
         ) != 0)
-        return NULL;    
+        return NULL;
 
     rsa = RSA_new();
     if (!rsa)

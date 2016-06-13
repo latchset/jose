@@ -12,5 +12,5 @@
  *
  * If the input is an array of JWKs, it is converted to a JWKSet.
  */
-json_t * __attribute__((warn_unused_result, nonnull(1)))
+json_t * __attribute__((warn_unused_result))
 jose_jwkset_copy(const json_t *jwkset, bool prv);

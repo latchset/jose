@@ -5,6 +5,7 @@
 #include <openssl/bn.h>
 #include <jansson.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 BIGNUM *
 bn_from_buf(const uint8_t buf[], size_t len);

@@ -37,7 +37,7 @@ enum jose_jws_flags {
 /**
  * Converts a JWS from compact format into JSON format.
  */
-json_t * __attribute__((warn_unused_result, nonnull(1)))
+json_t * __attribute__((warn_unused_result))
 jose_jws_from_compact(const char *jws);
 
 /**
@@ -48,7 +48,7 @@ jose_jws_from_compact(const char *jws);
  *
  * Free with free().
  */
-char * __attribute__((warn_unused_result, nonnull(1)))
+char * __attribute__((warn_unused_result))
 jose_jws_to_compact(const json_t *jws);
 
 /**
@@ -82,7 +82,7 @@ jose_jws_to_compact(const json_t *jws);
  * specified, the header will be created in order to hold the attribute being
  * automatically created.
  */
-bool __attribute__((warn_unused_result, nonnull(1, 4)))
+bool __attribute__((warn_unused_result))
 jose_jws_sign(json_t *jws, const json_t *head, const json_t *prot,
               const json_t *jwks, enum jose_jws_flags flags);
 
@@ -94,5 +94,5 @@ jose_jws_sign(json_t *jws, const json_t *head, const json_t *prot,
  * If all is true, the JWS must contain a signature for every input key.
  * Otherwise, if the JWS is signed by any key the operation succeeds.
  */
-bool __attribute__((warn_unused_result, nonnull(1, 2)))
+bool __attribute__((warn_unused_result))
 jose_jws_verify(const json_t *jws, const json_t *jwks, bool all);
