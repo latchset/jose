@@ -18,3 +18,6 @@ bn_to_buf(const BIGNUM *bn, uint8_t buf[], size_t len);
 
 json_t *
 bn_to_json(const BIGNUM *bn, size_t len);
+
+json_t *
+compact_to_obj(const char *compact, ...);

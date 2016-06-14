@@ -12,43 +12,7 @@
 json_t *
 jose_jws_from_compact(const char *jws)
 {
-    size_t len[3] = { 0, 0, 0 };
-    json_t *out = NULL;
-    size_t c = 0;
-
-    if (!jws)
-        return NULL;
-
-    for (size_t i = 0; jws[i]; i++) {
-        if (jws[i] != '.')
-            len[c]++;
-        else if (++c > 2)
-            return NULL;
-    }
-
-    if (c != 2 || len[0] == 0 || len[1] == 0)
-        return NULL;
-
-    out = json_pack("{s: s%}", "payload", &jws[len[0] + 1], len[1]);
-    if (!out)
-        return NULL;
-
-    if (json_object_set_new(out, "protected", json_stringn(jws, len[0])) < 0)
-        goto error;
-
-    if (len[2] > 0) {
-        json_t *tmp = NULL;
-
-        tmp = json_stringn(&jws[len[0] + len[1] + 2], len[2]);
-        if (json_object_set_new(out, "signature", tmp) == -1)
-            goto error;
-    }
-
-    return out;
-
-error:
-    json_decref(out);
-    return NULL;
+    return compact_to_obj(jws, "protected", "payload", "signature", NULL);
 }
 
 char *

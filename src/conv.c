@@ -66,3 +66,59 @@ bn_to_json(const BIGNUM *bn, size_t len)
     jose_key_free(key);
     return out;
 }
+
+json_t *
+compact_to_obj(const char *compact, ...)
+{
+    json_t *out = NULL;
+    size_t count = 0;
+    size_t c = 0;
+    va_list ap;
+
+    if (!compact)
+        return NULL;
+
+    va_start(ap, compact);
+    while (va_arg(ap, const char *))
+        count++;
+    va_end(ap);
+
+    size_t len[count];
+
+    memset(len, 0, sizeof(len));
+
+    for (size_t i = 0; compact[i]; i++) {
+        if (compact[i] != '.')
+            len[c]++;
+        else if (++c > count - 1)
+            return NULL;
+    }
+
+    if (c != count - 1)
+        return NULL;
+
+    out = json_object();
+    if (!out)
+        return NULL;
+
+    c = 0;
+    va_start(ap, compact);
+    for (size_t i = 0; i < count; i++) {
+        json_t *val = json_stringn(&compact[c], len[i]);
+        if (json_object_set_new(out, va_arg(ap, const char *), val) < 0) {
+            json_decref(out);
+            va_end(ap);
+            return NULL;
+        }
+
+        c += len[i] + 1;
+    }
+    va_end(ap);
+
+    if (json_object_size(out) == 0) {
+        json_decref(out);
+        return NULL;
+    }
+
+    return out;
+}
