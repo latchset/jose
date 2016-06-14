@@ -2,7 +2,7 @@
 
 #define _GNU_SOURCE
 #include "jose.h"
-#include "bn.h"
+#include "conv.h"
 
 #include <openssl/ecdsa.h>
 #include <openssl/hmac.h>
