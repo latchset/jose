@@ -1,12 +1,15 @@
 /* vim: set tabstop=8 shiftwidth=4 softtabstop=4 expandtab smarttab colorcolumn=80: */
 
+#define _GNU_SOURCE
 #include "jws.h"
 #include "b64.h"
+#include "jwkset.h"
+
+#include <openssl/objects.h>
 
 #include <assert.h>
 #include <stdbool.h>
 #include <string.h>
-#include <openssl/objects.h>
 
 struct kv {
     const char *key;
@@ -17,6 +20,7 @@ struct sig {
     const char *prot; /* Base64 URL Encoded */
     const char *sign; /* Base64 URL Encoded */
     struct kv *key;
+    bool fixed;       /* Can jose_jws_sign() produce the same signature? */
 };
 
 struct example {
@@ -35,7 +39,7 @@ static const struct example RFC7515_A_1 = {
         { "k",   "AyM1SysPpbyDfgZld3umj1qzKObwVMkoqQ-EstJQLr_T-1qS0gZH75aKt"
                  "MN3Yj0iPS4hcgUuTwjAzZr1Z9CAow" },
         {},
-      } },
+      }, false },
     {}
   }
 };
@@ -81,7 +85,7 @@ static const struct example RFC7515_A_2 = {
                  "y26F0EmpScGLq2MowX7fhd_QJQ3ydy5cY7YIBi87w93IKLEdfnbJtoOPL"
                  "UW0ITrJReOgo1cq9SbsxYawBgfp_gh6A5603k2-ZQwVK0JKSHuLFkuQ3U" },
         {}
-      } },
+      }, true },
     {},
   }
 };
@@ -100,7 +104,7 @@ static const struct example RFC7515_A_3 = {
         { "y",   "x_FEzRu9m36HLN_tue659LNpXW6pCyStikYjKIWI5a0" },
         { "d",   "jpsQnnGQmL-YBIffH1136cspYG6-0iY7X1fCE9-E9LI" },
         {}
-      } },
+      }, false },
     {}
   }
 };
@@ -122,7 +126,7 @@ static const struct example RFC7515_A_4 = {
         { "d",   "AY5pb7A0UFiB3RELSD64fTLOSV_jazdF7fLYyuTw8lOfRhWg6Y6rUrPAx"
                  "erEzgdRhajnu0ferB0d53vM9mE15j2C" },
         {}
-      } },
+      }, false },
     {}
   }
 };
@@ -131,7 +135,7 @@ static const struct example RFC7515_A_5 = {
   "eyJpc3MiOiJqb2UiLA0KICJleHAiOjEzMDA4MTkzODAsDQo"
   "gImh0dHA6Ly9leGFtcGxlLmNvbS9pc19yb290Ijp0cnVlfQ",
   (struct sig[]) {
-    { "eyJhbGciOiJub25lIn0", NULL, (struct kv[]) {{}} },
+    { "eyJhbGciOiJub25lIn0", },
     {}
   }
 };
@@ -178,7 +182,7 @@ static const struct example RFC7515_A_6 = {
                  "y26F0EmpScGLq2MowX7fhd_QJQ3ydy5cY7YIBi87w93IKLEdfnbJtoOPL"
                  "UW0ITrJReOgo1cq9SbsxYawBgfp_gh6A5603k2-ZQwVK0JKSHuLFkuQ3U" },
         {}
-      } },
+      }, true },
     { "eyJhbGciOiJFUzI1NiJ9",
       "DtEhU3ljbEg8L38VWAfUAqOyKAM6-Xx-F4GawxaepmXFCgfTjDxw5djxLa8ISlSApmWQ"
       "xfKTUJqPP3-Kg6NU1Q",
@@ -190,7 +194,7 @@ static const struct example RFC7515_A_6 = {
         { "y",   "x_FEzRu9m36HLN_tue659LNpXW6pCyStikYjKIWI5a0" },
         { "d",   "jpsQnnGQmL-YBIffH1136cspYG6-0iY7X1fCE9-E9LI" },
         {}
-      } },
+      }, false },
     {},
   }
 };
@@ -214,7 +218,7 @@ make_key(struct kv *attrs)
     if (!key)
         return NULL;
 
-    for (size_t i = 0; attrs[i].key; i++) {
+    for (size_t i = 0; attrs && attrs[i].key; i++) {
         int r = 0;
 
         r = json_object_set_new(key, attrs[i].key, json_string(attrs[i].val));
@@ -227,93 +231,174 @@ make_key(struct kv *attrs)
     return key;
 }
 
+static json_t *
+make_prot(const char *prot)
+{
+    json_t *enc = NULL;
+    json_t *dec = NULL;
+
+    enc = json_string(prot);
+    dec = jose_b64_decode_json(enc);
+    json_decref(enc);
+
+    if (json_is_object(dec))
+        return dec;
+
+    json_decref(dec);
+    return NULL;
+}
+
+static void
+test_compact_verify(const struct example *e)
+{
+    json_t *jwk = NULL;
+    json_t *jws = NULL;
+    char *c = NULL;
+
+    fprintf(stderr, "============= %s\n", __FUNCTION__);
+
+    /* Skip examples without a signature. */
+    if (!e->sigs[0].prot)
+        return;
+
+    asprintf(&c, "%s.%s.%s", e->sigs[0].prot, e->payl,
+             e->sigs[0].sign ? e->sigs[0].sign : "");
+    assert(c);
+
+    fprintf(stderr, "%s\n\n", c);
+
+    jws = jose_jws_from_compact(c);
+    assert(json_is_object(jws));
+    free(c);
+
+    json_dumpf(jws, stderr, JSON_SORT_KEYS);
+    fprintf(stderr, "\n\n");
+
+    jwk = make_key(e->sigs[0].key);
+    assert(json_is_object(jwk));
+
+    json_dumpf(jwk, stderr, JSON_SORT_KEYS);
+    fprintf(stderr, "\n\n");
+
+    assert(jose_jws_verify(jws, jwk, true) == !!e->sigs[0].sign);
+    json_decref(jwk);
+    json_decref(jws);
+}
+
+static void
+test_flattened_verify(const struct example *e)
+{
+    json_t *jwk = NULL;
+    json_t *jws = NULL;
+
+    fprintf(stderr, "============= %s\n", __FUNCTION__);
+
+    /* Skip examples without a signature. */
+    if (!e->sigs[0].prot)
+        return;
+
+    jws = json_pack("{s:s, s:s}",
+                    "payload", e->payl,
+                    "protected", e->sigs[0].prot);
+    assert(json_is_object(jws));
+
+    if (e->sigs[0].sign) {
+        assert(json_object_set_new(
+            jws, "signature", json_string(e->sigs[0].sign)
+        ) == 0);
+    }
+
+    json_dumpf(jws, stderr, JSON_SORT_KEYS);
+    fprintf(stderr, "\n\n");
+
+    jwk = make_key(e->sigs[0].key);
+    assert(json_is_object(jwk));
+
+    json_dumpf(jwk, stderr, JSON_SORT_KEYS);
+    fprintf(stderr, "\n\n");
+
+    assert(jose_jws_verify(jws, jwk, true) == !!e->sigs[0].sign);
+    json_decref(jwk);
+    json_decref(jws);
+}
+
+static void
+test_general_sign_and_verify(const struct example *e)
+{
+    json_t *jwkset = NULL;
+    json_t *jwks = NULL;
+    json_t *jws = NULL;
+
+    fprintf(stderr, "============= %s\n", __FUNCTION__);
+
+    jwks = json_array();
+    assert(jwks);
+
+    jws = json_pack("{s: s}", "payload", e->payl);
+    assert(jws);
+
+    for (size_t i = 0; e->sigs[i].prot; i++) {
+        const json_t *sig = NULL;
+        json_t *prot = NULL;
+        json_t *jwk = NULL;
+
+        /* Skip examples without a key */
+        if (!e->sigs[i].key)
+            return;
+
+        jwk = make_key(e->sigs[i].key);
+        assert(json_is_object(jwk));
+
+        assert(json_array_append_new(jwks, jwk) == 0);
+        assert(prot = make_prot(e->sigs[i].prot));
+
+        /* Sign the JWS. */
+        assert(jose_jws_sign(jws, NULL, prot, jwk,
+                             JOSE_JWS_FLAGS_KID_HEAD));
+        json_decref(prot);
+
+        json_dumpf(jws, stderr, JSON_SORT_KEYS);
+        fprintf(stderr, "\n\n");
+
+        json_dumpf(jwk, stderr, JSON_SORT_KEYS);
+        fprintf(stderr, "\n\n");
+
+        if (e->sigs[i].fixed) {
+            /* Check the signature against our expected result. */
+            sig = json_object_get(
+                i == 0 ? jws : json_array_get(
+                    json_object_get(jws, "signatures"), i),
+                "signature"
+            );
+            assert(json_is_string(sig));
+            assert(strcmp(
+                json_string_value(sig),
+                e->sigs[i].sign
+            ) == 0);
+        }
+
+        /* Check that the signature verifies. */
+        assert(jose_jws_verify(jws, jwk, true));
+        assert(jose_jws_verify(jws, jwks, true));
+    }
+
+    jwkset = jose_jwkset_copy(jwks, true);
+    assert(jwkset);
+    assert(jose_jws_verify(jws, jwkset, true));
+
+    json_decref(jwkset);
+    json_decref(jwks);
+    json_decref(jws);
+}
+
 int
 main(int argc, char *argv[])
 {
     for (size_t i = 0; examples[i]; i++) {
-        json_t *jws = NULL;
-
-        fprintf(stderr, "=================================================\n");
-
-        /* Only test compact mode if we have zero or one signatures. */
-        if (!examples[i]->sigs[0].prot || !examples[i]->sigs[1].prot) {
-            const char *prot = examples[i]->sigs[0].prot;
-            const char *sign = examples[i]->sigs[0].sign;
-            const char *payl = examples[i]->payl;
-            json_t *jwk = NULL;
-            char *c = NULL;
-
-            asprintf(&c, "%s.%s.%s", prot ? prot : "", payl, sign ? sign : "");
-            assert(c);
-
-            jws = jose_jws_from_compact(c);
-            assert(json_is_object(jws));
-            free(c);
-
-            json_dumpf(jws, stderr, JSON_SORT_KEYS);
-            fprintf(stderr, "\n");
-
-            jwk = make_key(examples[i]->sigs[0].key);
-            assert(json_is_object(jwk));
-
-            assert(jose_jws_verify(jws, jwk, true) == !!sign);
-            json_decref(jwk);
-            json_decref(jws);
-        }
-
-        jws = json_pack("{s: s}", "payload", examples[i]->payl);
-        assert(jws);
-
-        for (size_t j = 0; examples[i]->sigs[j].prot; j++) {
-            const json_t *sig = NULL;
-            json_t *enc = NULL;
-            json_t *dec = NULL;
-            json_t *key = NULL;
-            
-            /* Turn the Protected Header into a JSON string. */
-            enc = json_string(examples[i]->sigs[j].prot);
-            assert(json_is_string(enc));
-
-            /* Decode the Protected Header into a JSON object. */
-            dec = jose_b64_decode_json(enc);
-            assert(json_is_object(dec));
-            json_decref(enc);
-
-            /* Sign the JWS. */
-            key = make_key(examples[i]->sigs[j].key);
-            assert(key);
-            assert(jose_jws_sign(
-                jws, NULL, dec, key,
-                JOSE_JWS_FLAGS_KID_HEAD
-            ));
-
-            json_dumpf(jws, stderr, JSON_SORT_KEYS);
-            fprintf(stderr, "\n");
-
-            /* If the Protected Header has more than one attribute,
-             * we need to skip static validation. This is because we
-             * cannot guarantee ordering of the attributes. */
-            if (json_object_size(dec) <= 1) {
-                /* Check the signature against our expected result. */
-                sig = json_object_get(
-                    j == 0 ? jws : json_array_get(
-                        json_object_get(jws, "signatures"), j),
-                    "signature"
-                );
-                assert(json_is_string(sig));
-                assert(strcmp(
-                    json_string_value(sig),
-                    examples[i]->sigs[j].sign
-                ) == 0);
-            }
-
-            /* Check that the signature verifies. */
-            assert(jose_jws_verify(jws, key, true));
-            json_decref(key);
-            json_decref(dec);
-        }
-
-        json_decref(jws);
+        fprintf(stderr, "===============================================\n\n");
+        test_compact_verify(examples[i]);
+        test_flattened_verify(examples[i]);
+        test_general_sign_and_verify(examples[i]);
     }
 
     return 0;

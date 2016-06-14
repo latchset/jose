@@ -144,7 +144,7 @@ add_sig(json_t *jws, json_t *head, const char *data,
             return false;
 
         if (protected) {
-            if (json_object_set(jws, "protected", protected) == -1)
+            if (json_object_set(obj, "protected", protected) == -1)
                 return false;
 
             if (json_object_del(jws, "protected") == -1)
@@ -152,7 +152,7 @@ add_sig(json_t *jws, json_t *head, const char *data,
         }
 
         if (header) {
-            if (json_object_set(jws, "header", header) == -1)
+            if (json_object_set(obj, "header", header) == -1)
                 return false;
 
             if (json_object_del(jws, "header") == -1)
@@ -215,7 +215,7 @@ sign_HMAC(json_t *jws, json_t *head, const char *data,
         return false;
 
     if (sizeof(sig) > key->len)
-        goto egress; 
+        goto egress;
 
     if (!HMAC(md, key->key, key->len, (uint8_t *) data,
               strlen(data), sig, NULL))
