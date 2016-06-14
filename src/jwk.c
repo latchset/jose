@@ -333,7 +333,8 @@ jose_jwk_to_rsa(const json_t *jwk)
             !rsa->q    ||
             !rsa->dmp1 ||
             !rsa->dmq1 ||
-            !rsa->iqmp) {
+            !rsa->iqmp ||
+            RSA_blinding_on(rsa, NULL) <= 0) {
             RSA_free(rsa);
             return NULL;
         }
