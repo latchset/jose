@@ -344,7 +344,7 @@ test_general_sign_and_verify(const struct example *e)
 
         /* Skip examples without a key */
         if (!e->sigs[i].key)
-            return;
+            goto egress;
 
         jwk = make_key(e->sigs[i].key);
         assert(json_is_object(jwk));
@@ -386,6 +386,7 @@ test_general_sign_and_verify(const struct example *e)
     assert(jwkset);
     assert(jose_jws_verify(jws, jwkset, true));
 
+egress:
     json_decref(jwkset);
     json_decref(jwks);
     json_decref(jws);

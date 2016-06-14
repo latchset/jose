@@ -526,6 +526,8 @@ jose_jws_sign(json_t *jws, const json_t *head, const json_t *prot,
     default: break;
     }
 
+    free(data);
+
 egress:
     json_decref(h);
     json_decref(p);
