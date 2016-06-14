@@ -24,6 +24,23 @@ static const struct {
     struct kv *base;
     struct kv *prvt;
     struct kv *xtra;
+    union {
+        const char *oct;
+        struct rsa {
+            const char *n;
+            const char *e;
+            const char *d;
+            const char *p;
+            const char *q;
+            const char *dp;
+            const char *dq;
+            const char *qi;
+        } rsa;
+        struct ec {
+            const char *pub;
+            const char *prv;
+        } ec;
+    } test;
 } vectors[] = {
     { TYPE_EC, /* RFC 7517 - A.1 */
       (struct kv[]) {
@@ -40,7 +57,10 @@ static const struct {
           { "use", "enc" },
           { "kid", "1" },
           {}
-      } },
+      },
+      { .ec = {
+        "0330A0424CD21C2944838A2D75C92B37E76EA20D9F00893A3B4EEE8A3C0AAFEC3E"
+      } } },
     { TYPE_RSA, /* RFC 7517 - A.1 */
       (struct kv[]) {
           { "kty", "RSA" },
@@ -60,7 +80,18 @@ static const struct {
           { "alg", "RS256" },
           { "kid", "2011-04-29" },
           {}
-      } },
+      },
+      { .rsa = {
+          "D2FC7B6A0A1E6C67104AEB8F88B257669B4DF679DDAD099B5C4A6CD9A88015B5"
+          "A133BF0B856C7871B6DF000B554FCEB3C2ED512BB68F145C6E8434752FAB52A1"
+          "CFC124408F79B58A4578C16428855789F7A249E384CB2D9FAE2D67FD96FB926C"
+          "198E077399FDC815C0AF097DDE5AADEFF44DE70E827F4878432439BFEEB96068"
+          "D0474FC50D6D90BF3A98DFAF1040C89C02D692AB3B3C2896609D86FD73B774CE"
+          "0740647CEEEAA310BD12F985A8EB9F59FDD426CEA5B2120F4F2A34BCAB764B7E"
+          "6C54D6840238BCC40587A59E66ED1F33894577635C470AF75CF92C20D1DA43E1"
+          "BFC419E222A6F0D0BB358C5E38F9CB050AEAFE904814F1AC1AA49CCA9EA0CA83",
+          "010001"
+      } } },
     { TYPE_EC, /* RFC 7517 - A.2 */
       (struct kv[]) {
           { "kty", "EC" },
@@ -77,7 +108,11 @@ static const struct {
           { "use", "enc" },
           { "kid", "1" },
           {}
-      } },
+      },
+      { .ec = {
+        "0330A0424CD21C2944838A2D75C92B37E76EA20D9F00893A3B4EEE8A3C0AAFEC3E",
+        "F3BD0C07A81FB932781ED52752F60CC89A6BE5E51934FE01938DDB55D8F77801"
+      } } },
     { TYPE_RSA, /* RFC 7517 - A.2 */
       (struct kv[]) {
           { "kty", "RSA" },
@@ -118,7 +153,46 @@ static const struct {
           { "alg", "RS256" },
           { "kid", "2011-04-29" },
           {}
-      } },
+      },
+      { .rsa = {
+          "D2FC7B6A0A1E6C67104AEB8F88B257669B4DF679DDAD099B5C4A6CD9A88015B5"
+          "A133BF0B856C7871B6DF000B554FCEB3C2ED512BB68F145C6E8434752FAB52A1"
+          "CFC124408F79B58A4578C16428855789F7A249E384CB2D9FAE2D67FD96FB926C"
+          "198E077399FDC815C0AF097DDE5AADEFF44DE70E827F4878432439BFEEB96068"
+          "D0474FC50D6D90BF3A98DFAF1040C89C02D692AB3B3C2896609D86FD73B774CE"
+          "0740647CEEEAA310BD12F985A8EB9F59FDD426CEA5B2120F4F2A34BCAB764B7E"
+          "6C54D6840238BCC40587A59E66ED1F33894577635CAF0AF75CF92C20D1DA43E1"
+          "BFC419E222A6F0D0BB358C5E38F9CB050AEAFE904814F1AC1AA49CCA9EA0CA83",
+          "010001",
+          "5F8713B5E258FE09F81583EC5C1F2B7578B1E6FC2C83514B37913711A1BA449A"
+          "151FE1CB2CA0FD33B771E68A3B1944649DC867AD1C1E5240BB853E5F24B33459"
+          "B14028D2D6636BEFEC1E8DA974B352FC53D3F6127EA8A3C29DD14F3941682C56"
+          "A78768164E4DDA8F06CBF9C734AAE8003224278EA9454A21B17CB06D17807586"
+          "8CC05B3DB6FF1DFDC3D56378B4EDADEDF0C37A4CDC26D1D49AC26F6FE3B5220A"
+          "5DD29396621BBC688CF2EEE2C6E0D54DA3C782014CD0739DB252CC51CAEBA8D3"
+          "F1B824BAAB24D068EC903264D7D678AB08F06EC9E7E23D960628B744BF94B369"
+          "4656463C7E417399ED73D076C891FCF463A9AA9CE62DA9CD17E237DC2A8002F1",
+          "F378BEEC8BCC197A0C5C2B24BFBDD32ABF3ADFB1623BB676EF3BFCA23EA96D65"
+          "10C8B3D0050C6D3D59F00F6D11FBAD1E4C3983DAE8E732DE4FA2A32B9BC45F98"
+          "D855583B638CC9823233A949789C1478FB5CEB95218432A955A558487A74DDFA"
+          "19565893DDCDF0173DBD8E35C72F01F51CF3386550CD7BCD12F9FB3B49D56DFB",
+          "DDD7CE47D72E62AFB44BE9A414BCE022D80C11F173076AB78567A132E1B4A02B"
+          "AA9DBDEFA1B2F2BA6AA355940ED5D22B7708139C276963305C39F5B9AF7EF400"
+          "55E38967EDFCD1848A8BE89E2CE12A9A3D5554BBF13CC583190876B79C45ECEC"
+          "67ED6461DFECD6A0DBC6D9031207C0213006F4B527003BA7E2F21C6FAC9E9719",
+          "1B8B0F5E473A61AF72F28256F7F20B8F8C6EA69BB49738BF1FB553912F318F94"
+          "9D5F7728134A22998C31222D9E99302E7B450E6B97698051B2049E1CF2D43654"
+          "5E34D9746E80A0D33FC6A4621168E6D000EFB41EFCD9ADB9865CDC2DE6DC8DB8"
+          "1B61AF479B120F153200DDB3ABC2DF9FD1149ACEAB63739BF187A22A44E2063D",
+          "B3D9401FD7E0801B28151F0E69CD91FC4DA0C36F36AD3DA418E021BC89651131"
+          "3579FAC0EA1B9452F31F05C3299FC96A796EAFCF39D8639492405EE931D0BF6A"
+          "02379C6F086E9D4151BD09522ADA44DA947CB85C41BFDDF461780E1EDEEF859B"
+          "46CA1B4689EE8D360DD7109A3FA4CEEB58EF5AB5FE2F5F2DC57C38F7843F7209",
+          "1B233FA7A26B5F24A2CF5B6816029B595F89748DE3438CA9BBDADB316C77AD02"
+          "417E6B7416863381421911514470EAB07A644DF35CE80C069AF819342963460E"
+          "3247643743985856DC037B948FA9BB193F987646275D6BC7247C3B9E572D27B7"
+          "48F9917CAC1923AC94DB8671BD0285608B5D95D50A1B33BA21AEB34CA8405515",
+      } } },
     { TYPE_OCT, /* RFC 7517 - A.3 */
       (struct kv[]) {
           { "kty", "oct" },
@@ -131,7 +205,8 @@ static const struct {
       (struct kv[]) {
           { "alg", "A128KW" },
           {}
-      } },
+      },
+      { .oct = "19AC2082E1721AB58A6AFEC05F854A52" } },
     { TYPE_OCT, /* RFC 7517 - A.3 */
       (struct kv[]) {
           { "kty", "oct" },
@@ -145,7 +220,10 @@ static const struct {
       (struct kv[]) {
           { "kid", "HMAC key used in JWS spec Appendix A.1 example" },
           {}
-      } },
+      },
+      { .oct = "0323354B2B0FA5BC837E0665777BA68F5AB328E6F054C928A90F84B2D25"
+               "02EBFD3FB5A92D20647EF968AB4C377623D223D2E2172052E4F08C0CD9A"
+               "F567D080A3" } },
     { TYPE_RSA, /* RFC 7517 - B (x5c parameter omitted) */
       (struct kv[]) {
           { "kty", "RSA" },
@@ -165,7 +243,18 @@ static const struct {
           { "use", "sig" },
           { "kid", "1b94c" },
           {}
-      } },
+      },
+      { .rsa = {
+          "BEB8CE7F3F4271D831E6742E77285DA11D7B57E22E6D631E3990B05FF8E3D218"
+          "00B33D89FE9A985B4F0F2DB2BF3DD89518A3EBAB398322C2C8EEC036E551271D"
+          "4D6E08B37006E52208ED75FFEEDD61BB2BE222661B442EDA3F03B15C93D5ACE9"
+          "242FCD1BCE13CB928AB61B8268FA1DEE223BC342CAF68AD2321044C306430B14"
+          "D6AB869858072173CB7E7A677DA8EBD6B553030B605792C467821E97E5B5182F"
+          "2E80C872AF8FE9D4CB5C20CE36100F01CC4E9942A0BB54FA8FBC48D9D9D6D991"
+          "A0613DB899012DD87980510D69B5A75399B566A64F7704BEAA8FA678CBD57C96"
+          "FA8C9556469976494B429D81B60B7DAABDB59B8D9FE304F0F97AE9EAB08A35BD",
+          "010001",
+      } } },
     { TYPE_RSA, /* RFC 7517 - C.1 */
       (struct kv[]) {
           { "kty", "RSA" },
@@ -206,9 +295,134 @@ static const struct {
           { "kid", "juliet@capulet.lit" },
           { "use", "enc" },
           {}
-      } },
+      },
+      { .rsa = {
+          "B7A43C3D64A2D5D9098FD8533FC84D60596F69D33B0DF956F6659EA4E26127AE"
+          "B0EE7CA82B580F36A14C4904723B5DB91A9F93124A1D856AF48AE8E31D5C7B05"
+          "C5749654B8C390021A03EB70077A65C491D3E22AA26F9015C34FF128E0D3CE8C"
+          "C28A9053F2D8CB0940199DB5592752FCF111C861623678F741094EF189ECE630"
+          "AD2C24702C72F43DBD5F12FE3902E448B947D570FC920566270F21B1BE36060D"
+          "233E02A592F73210D998A5813F86A949A2A60D17382D02736D2B80B7B6CA62C7"
+          "8E91DC88229501B639F8BDF6FA549E64EF8EB3A535E7F697AE4F46C3C70F51A5"
+          "F5FC8F2C2C6B9289576DDC2FC59F63D9DD9F22EF8E053C5186706D6AB365B3F9",
+          "010001",
+          "191B5B2109A1399B72B337E029D838BBF37E47F999194FFD93B250FE39F50E77"
+          "D3B8C752369AD379A493C967D2364B9A0309CE11B210572D4841B595576E4D63"
+          "7C9B73F221509B5FAE2EDB01760445E59A0A5DE17653CA5F2F54BEA3D8191D24"
+          "2174D046A9ECF9D549EE36A1948ECBC9C92BA539AB33C756068E3F3CC69E9CD9"
+          "CF89080ED319EE4E8C6EB516497C9BC6E0EC7891ADC639141DF42B02676BEC50"
+          "39AC5CE7D410D3B232A0030BAA75337877DEDB2EAD8D7993DA8C4A91BD397FC8"
+          "2405E6C73021FED5A264EC24D8AE32C47F6D4B72EAD725FC0B511699E44390AD"
+          "9A85E706F39FA82CA42DE551295872A68CE8BF80949D4A0A9C37DE97E767AC01",
+          "DAB9D2395E2129237CB12E0281C40715BB34F176E8143A8ABA6DEC738877191C"
+          "6B4E641D97564AF6EC3E3C81DF40FD059315D5AF1F9613E6446EBAA2BC7FF688"
+          "22D44BBC0097A5EF011B752A421A5313CF49807DCA4DF5B3443C50AF7A137FCE"
+          "AC00C062D009B3E33727108B7CD82A879E870E71134D0847DEB093E53DF2270B",
+          "D6EFD18850CFECB0588773781972D3F4EA522983F4B9067289A67006D38204D2"
+          "604316A3D744568EC66ED1CE8879D8ACE12EC1FDCA12281D0A8FD3DA3DA07383"
+          "E232491BEF710B8F6A642EEBAAE23218D5B46E93955F022C260AAD8979DB38AA"
+          "2B413FCA6D909E4C2C517EDE61307B2DB00744AF46AA87031390747FCD3C238B",
+          "2A43135AA05479F570676FC36E3D693D0AB21D21E38FDD0BE71FCC3B3A980093"
+          "1C2CC66D6D4B702AABD50EADED6C4A3764872885B0EDB7A49B7E65B382069BA5"
+          "0C4DC6E069A0E39FFDAFC780C5CAFE586A8A0238CBF92A4B5C18E762308D49F9"
+          "AE046B27EC98A35878D4A47EBF3DA9621100798AE1B6D5ADC55A8B0915620FA7",
+          "02F7D2D3E811C6F9F46F02683129C5C5870AD569EE12340596E3067F01A2B500"
+          "56B5F67512BEEDD710E46CDF4641307DCAAA43A1868DD3A1FB085B6B93184920"
+          "141A8FA9E417928A4B74D0B50E6A0B390E926C487B72916C1CA65F191BE6AC14"
+          "A57E442C3E7115CE857A269F59863ADD39A6100BBF951142389DF10DE6BEA2DB",
+          "952422FB0F42A7251178C12B3F546C04B93BC0DB4EBECE444293EA9AE32FA96E"
+          "7B34151CCD2704A0FC2652AA9A6EEF55D3E3F2E1D439EFF6DAA68291BB547DD1"
+          "BBEE16753ADD21D6105825650BC90CC780BE68F8B26F85A74A18BBF9DEA2D810"
+          "D21CDB23982BCBB6A3758CBDFB694DC7FEFA681668394BBD1C227E52C7D2388F"
+      } } },
     {}
 };
+
+static void
+test_oct(const jose_key_t *key, const char *hex)
+{
+    char tmp[key->len * 2 + 1];
+
+    for (size_t i = 0; i < key->len; i++)
+        sprintf(&tmp[i * 2], "%02X", key->key[i]);
+
+    fprintf(stderr, "%s\n", hex);
+    fprintf(stderr, "%s\n", tmp);
+
+    assert(strlen(hex) == strlen(tmp));
+    assert(strcmp(hex, tmp) == 0);
+}
+
+static void
+test_rsa(const RSA *key, const struct rsa *rsa)
+{
+    struct {
+        BIGNUM *num;
+        const char *val;
+    } nv[] = {
+        { key->n, rsa->n },
+        { key->e, rsa->e },
+        { key->p, rsa->p },
+        { key->q, rsa->q },
+        { key->d, rsa->d },
+        { key->dmp1, rsa->dp },
+        { key->dmq1, rsa->dq },
+        { key->iqmp, rsa->qi },
+        {}
+    };
+
+    for (size_t i = 0; nv[i].num; i++) {
+        char *tmp = NULL;
+
+        assert(!!nv[i].num == !!nv[i].val);
+        if (!nv[i].num)
+            continue;
+
+        tmp = BN_bn2hex(nv[i].num);
+        assert(tmp);
+
+        fprintf(stderr, "%s\n", nv[i].val);
+        fprintf(stderr, "%s\n", tmp);
+
+        assert(strlen(tmp) == strlen(nv[i].val));
+        assert(strcmp(tmp, nv[i].val) == 0);
+        free(tmp);
+    }
+}
+
+static void
+test_ec(const EC_KEY *key, const struct ec *ec)
+{
+    char *tmp = NULL;
+
+    tmp = EC_POINT_point2hex(
+        EC_KEY_get0_group(key),
+        EC_KEY_get0_public_key(key),
+        POINT_CONVERSION_COMPRESSED,
+        NULL
+    );
+    assert(tmp);
+
+    fprintf(stderr, "%s\n", ec->pub);
+    fprintf(stderr, "%s\n", tmp);
+
+    assert(strlen(tmp) == strlen(ec->pub));
+    assert(strcmp(tmp, ec->pub) == 0);
+    free(tmp);
+
+    if (!EC_KEY_get0_private_key(key))
+        return;
+
+    tmp = BN_bn2hex(EC_KEY_get0_private_key(key));
+    assert(tmp);
+
+    fprintf(stderr, "%s\n", ec->prv);
+    fprintf(stderr, "%s\n", tmp);
+
+    assert(strlen(tmp) == strlen(ec->prv));
+    assert(strcmp(tmp, ec->prv) == 0);
+    free(tmp);
+}
 
 int
 main(int argc, char *argv[])
@@ -249,12 +463,16 @@ main(int argc, char *argv[])
             assert(json_object_set_new(kxtra, k, json_string(v)) != -1);
         }
 
+        fprintf(stderr, "=================================================\n");
+
         switch (vectors[i].type) {
         case TYPE_OCT: {
             jose_key_t *key = NULL;
 
             key = jose_jwk_to_key(kxtra);
             assert(key);
+
+            test_oct(key, vectors[i].test.oct);
 
             prvt = jose_jwk_from_key(key);
             jose_key_free(key);
@@ -268,6 +486,8 @@ main(int argc, char *argv[])
             key = jose_jwk_to_rsa(kxtra);
             assert(key);
 
+            test_rsa(key, &vectors[i].test.rsa);
+
             prvt = jose_jwk_from_rsa(key);
             RSA_free(key);
             assert(prvt);
@@ -279,6 +499,8 @@ main(int argc, char *argv[])
 
             key = jose_jwk_to_ec(kxtra);
             assert(key);
+
+            test_ec(key, &vectors[i].test.ec);
 
             prvt = jose_jwk_from_ec(key);
             EC_KEY_free(key);
