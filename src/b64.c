@@ -1,7 +1,6 @@
 /* vim: set tabstop=8 shiftwidth=4 softtabstop=4 expandtab smarttab colorcolumn=80: */
 
-#include "b64.h"
-#include "key.h"
+#include "jose.h"
 
 #include <stdbool.h>
 #include <string.h>

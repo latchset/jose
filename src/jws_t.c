@@ -1,9 +1,7 @@
 /* vim: set tabstop=8 shiftwidth=4 softtabstop=4 expandtab smarttab colorcolumn=80: */
 
 #define _GNU_SOURCE
-#include "jws.h"
-#include "b64.h"
-#include "jwkset.h"
+#include "jose.h"
 
 #include <openssl/objects.h>
 

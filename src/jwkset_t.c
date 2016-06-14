@@ -1,6 +1,6 @@
 /* vim: set tabstop=8 shiftwidth=4 softtabstop=4 expandtab smarttab colorcolumn=80: */
 
-#include "jwkset.h"
+#include "jose.h"
 
 #include <assert.h>
 
