@@ -27,12 +27,12 @@ main(int argc, char *argv[])
         uint8_t buf[strlen(vectors[i].dec)];
         json_t *json = NULL;
 
-        json = jose_b64_encode((uint8_t *) vectors[i].dec, sizeof(buf));
+        json = jose_b64_encode_json((uint8_t *) vectors[i].dec, sizeof(buf));
         assert(json_is_string(json));
         assert(json_string_length(json) == strlen(vectors[i].enc));
         assert(strcmp(json_string_value(json), vectors[i].enc) == 0);
 
-        assert(jose_b64_decode(json, buf));
+        assert(jose_b64_decode_json(json, buf));
         json_decref(json);
         assert(memcmp(buf, vectors[i].dec, sizeof(buf)) == 0);
     }

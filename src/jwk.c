@@ -68,7 +68,7 @@ error:
 }
 
 static json_t *
-from_ec(const EVP_PKEY *pkey)
+from_ec(EVP_PKEY *pkey)
 {
     const BIGNUM *d = NULL;
     const char *crv = NULL;
@@ -81,7 +81,7 @@ from_ec(const EVP_PKEY *pkey)
     if (!pkey)
         return NULL;
 
-    key = EVP_PKEY_get1_EC_KEY((EVP_PKEY *) pkey);
+    key = EVP_PKEY_get1_EC_KEY(pkey);
     if (!key)
         return NULL;
 
@@ -112,7 +112,7 @@ egress:
 }
 
 static json_t *
-from_rsa(const EVP_PKEY *pkey)
+from_rsa(EVP_PKEY *pkey)
 {
     json_t *jwk = NULL;
     RSA *key = NULL;
@@ -120,7 +120,7 @@ from_rsa(const EVP_PKEY *pkey)
     if (!pkey)
         return NULL;
 
-    key = EVP_PKEY_get1_RSA((EVP_PKEY *) pkey);
+    key = EVP_PKEY_get1_RSA(pkey);
     if (!key)
         return NULL;
 
@@ -155,16 +155,16 @@ egress:
 }
 
 static json_t *
-from_hmac(const EVP_PKEY *key)
+from_hmac(EVP_PKEY *key)
 {
     /* This is really dirty. I even felt dirty writing it. However, it is
      * the only obvious way to get the buffer out of the EVP_PKEY.
      * Patches welcome. */
-    ASN1_OCTET_STRING *os = (ASN1_OCTET_STRING *) key->pkey.ptr;
+    ASN1_OCTET_STRING *os = EVP_PKEY_get0(key);
 
     return json_pack("{s:s, s:o}",
                      "kty", "oct",
-                     "k", jose_b64_encode(os->data, os->length));
+                     "k", jose_b64_encode_json(os->data, os->length));
 }
 
 static EC_POINT *
@@ -339,14 +339,14 @@ egress:
 static EVP_PKEY *
 to_hmac(const json_t *jwk)
 {
-    const json_t *k = NULL;
+    const char *k = NULL;
     EVP_PKEY *key = NULL;
     buf_t *buf = NULL;
 
-    if (json_unpack((json_t *) jwk, "{s:o}", "k", &k) == -1)
+    if (json_unpack((json_t *) jwk, "{s:s}", "k", &k) == -1)
         return NULL;
 
-    buf = buf_new(jose_b64_dlen(json_string_length(k)), true);
+    buf = buf_new(jose_b64_dlen(strlen(k)), true);
     if (!buf)
         return NULL;
 
@@ -358,7 +358,7 @@ to_hmac(const json_t *jwk)
 }
 
 json_t *
-jose_jwk_from_key(const EVP_PKEY *key)
+jose_jwk_from_key(EVP_PKEY *key)
 {
     switch (EVP_PKEY_base_id(key)) {
     case EVP_PKEY_HMAC: return from_hmac(key);

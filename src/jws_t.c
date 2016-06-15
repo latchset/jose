@@ -238,7 +238,7 @@ make_prot(const char *prot)
     json_t *dec = NULL;
 
     enc = json_string(prot);
-    dec = jose_b64_decode_json(enc);
+    dec = jose_b64_decode_json_load(enc, JSON_SORT_KEYS | JSON_COMPACT);
     json_decref(enc);
 
     if (json_is_object(dec))

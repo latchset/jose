@@ -23,7 +23,7 @@ bn_from_json(const json_t *json)
     if (!buf)
         return NULL;
 
-    if (jose_b64_decode(json, buf->buf))
+    if (jose_b64_decode_json(json, buf->buf))
         bn = bn_from_buf(buf->buf, buf->len);
 
     buf_free(buf);
@@ -66,7 +66,7 @@ bn_to_json(const BIGNUM *bn, size_t len)
         return NULL;
 
     if (bn_to_buf(bn, buf->buf, len))
-        out = jose_b64_encode(buf->buf, buf->len);
+        out = jose_b64_encode_json(buf->buf, buf->len);
 
     buf_free(buf);
     return out;
