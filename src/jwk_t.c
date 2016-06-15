@@ -189,7 +189,7 @@ static const struct {
           "3247643743985856DC037B948FA9BB193F987646275D6BC7247C3B9E572D27B7"
           "48F9917CAC1923AC94DB8671BD0285608B5D95D50A1B33BA21AEB34CA8405515",
       } } },
-    { EVP_PKEY_NONE, /* RFC 7517 - A.3 */
+    { EVP_PKEY_HMAC, /* RFC 7517 - A.3 */
       (struct kv[]) {
           { "kty", "oct" },
           {}
@@ -203,7 +203,7 @@ static const struct {
           {}
       },
       { .oct = "19AC2082E1721AB58A6AFEC05F854A52" } },
-    { EVP_PKEY_NONE, /* RFC 7517 - A.3 */
+    { EVP_PKEY_HMAC, /* RFC 7517 - A.3 */
       (struct kv[]) {
           { "kty", "oct" },
           {}
@@ -424,6 +424,7 @@ int
 main(int argc, char *argv[])
 {
     for (size_t i = 0; vectors[i].base; i++) {
+        EVP_PKEY *pkey = NULL;
         json_t *kbase = NULL;
         json_t *kprvt = NULL;
         json_t *kxtra = NULL;
@@ -461,13 +462,11 @@ main(int argc, char *argv[])
 
         fprintf(stderr, "=================================================\n");
 
-        EVP_PKEY *pkey = NULL;
-
         pkey = jose_jwk_to_key(kxtra);
         assert(pkey);
 
         switch (vectors[i].type) {
-        case EVP_PKEY_NONE:
+        case EVP_PKEY_HMAC:
             test_oct((void *) pkey->pkey.ptr, vectors[i].test.oct);
             break;
 
@@ -484,7 +483,6 @@ main(int argc, char *argv[])
         }
 
         prvt = jose_jwk_from_key(pkey);
-        EVP_PKEY_free(pkey);
         assert(prvt);
 
         cprvt = jose_jwk_copy(prvt, true);
@@ -509,6 +507,7 @@ main(int argc, char *argv[])
         json_decref(cbase);
 
 next:
+        EVP_PKEY_free(pkey);
         json_decref(kbase);
         json_decref(kprvt);
         json_decref(kxtra);

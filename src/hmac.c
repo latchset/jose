@@ -33,12 +33,12 @@ hmac_suggest(const EVP_PKEY *key)
     return NULL;
 }
 
-static jose_buf_t *
+static buf_t *
 hmac_sign(const EVP_PKEY *key, const char *alg, const char *data)
 {
     const uint8_t *buf = NULL;
     const EVP_MD *md = NULL;
-    jose_buf_t *sig = NULL;
+    buf_t *sig = NULL;
     size_t len = 0;
 
     if (!key)
@@ -55,12 +55,12 @@ hmac_sign(const EVP_PKEY *key, const char *alg, const char *data)
     default: return NULL;
     }
 
-    sig = jose_buf_new(EVP_MD_size(md), false, NULL);
+    sig = buf_new(EVP_MD_size(md), false);
     if (!sig)
         return NULL;
 
     if (!HMAC(md, buf, len, (uint8_t *) data, strlen(data), sig->buf, NULL)) {
-        jose_buf_free(sig);
+        buf_free(sig);
         return NULL;
     }
 

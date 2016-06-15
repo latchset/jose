@@ -8,11 +8,11 @@
 
 struct buf {
     size_t locked;
-    jose_buf_t buf;
+    buf_t buf;
 };
 
-jose_buf_t *
-jose_buf_new(size_t len, bool lock, uint8_t buf[])
+buf_t *
+buf_new(size_t len, bool lock)
 {
     struct buf *out = NULL;
 
@@ -22,9 +22,6 @@ jose_buf_new(size_t len, bool lock, uint8_t buf[])
 
     if (lock && mlock(out->buf.buf, len) != 0)
         goto error;
-
-    if (buf)
-        memcpy(out->buf.buf, buf, len);
 
     out->locked = lock ? len : 0;
     out->buf.len = len;
@@ -36,7 +33,7 @@ error:
 }
 
 void
-jose_buf_free(jose_buf_t *key)
+buf_free(buf_t *key)
 {
     struct buf *tmp = NULL;
 

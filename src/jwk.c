@@ -2,6 +2,7 @@
 
 #include "jwk.h"
 #include "b64.h"
+#include "buf.h"
 #include "conv.h"
 
 #include <openssl/ec.h>
@@ -339,18 +340,20 @@ static EVP_PKEY *
 to_hmac(const json_t *jwk)
 {
     const json_t *k = NULL;
-    jose_buf_t *buf = NULL;
     EVP_PKEY *key = NULL;
+    buf_t *buf = NULL;
 
     if (json_unpack((json_t *) jwk, "{s:o}", "k", &k) == -1)
         return NULL;
 
-    buf = jose_b64_decode_buf(k, true);
+    buf = buf_new(jose_b64_dlen(json_string_length(k)), true);
     if (!buf)
         return NULL;
 
-    key = EVP_PKEY_new_mac_key(EVP_PKEY_HMAC, NULL, buf->buf, buf->len);
-    jose_buf_free(buf);
+    if (jose_b64_decode(k, buf->buf))
+        key = EVP_PKEY_new_mac_key(EVP_PKEY_HMAC, NULL, buf->buf, buf->len);
+
+    buf_free(buf);
     return key;
 }
 

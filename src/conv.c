@@ -1,6 +1,7 @@
 /* vim: set tabstop=8 shiftwidth=4 softtabstop=4 expandtab smarttab colorcolumn=80: */
 
 #include "conv.h"
+#include "buf.h"
 #include "b64.h"
 
 #include <openssl/evp.h>
@@ -15,14 +16,17 @@ bn_from_buf(const uint8_t buf[], size_t len)
 BIGNUM *
 bn_from_json(const json_t *json)
 {
-    jose_buf_t *buf = NULL;
+    buf_t *buf = NULL;
     BIGNUM *bn = NULL;
 
-    buf = jose_b64_decode_buf(json, true);
-    if (buf)
+    buf = buf_new(jose_b64_dlen(json_string_length(json)), true);
+    if (!buf)
+        return NULL;
+
+    if (jose_b64_decode(json, buf->buf))
         bn = bn_from_buf(buf->buf, buf->len);
 
-    jose_buf_free(buf);
+    buf_free(buf);
     return bn;
 }
 
@@ -48,8 +52,8 @@ bn_to_buf(const BIGNUM *bn, uint8_t buf[], size_t len)
 json_t *
 bn_to_json(const BIGNUM *bn, size_t len)
 {
-    jose_buf_t *buf = NULL;
     json_t *out = NULL;
+    buf_t *buf = NULL;
 
     if (!bn)
         return false;
@@ -57,14 +61,14 @@ bn_to_json(const BIGNUM *bn, size_t len)
     if (len == 0)
         len = BN_num_bytes(bn);
 
-    buf = jose_buf_new(len, true, NULL);
+    buf = buf_new(len, true);
     if (!buf)
         return NULL;
 
     if (bn_to_buf(bn, buf->buf, len))
-        out = jose_b64_encode_buf(buf);
+        out = jose_b64_encode(buf->buf, buf->len);
 
-    jose_buf_free(buf);
+    buf_free(buf);
     return out;
 }
 

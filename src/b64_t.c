@@ -24,21 +24,17 @@ int
 main(int argc, char *argv[])
 {
     for (size_t i = 0; vectors[i].dec; i++) {
-        jose_buf_t *buf = NULL;
+        uint8_t buf[strlen(vectors[i].dec)];
         json_t *json = NULL;
 
-        json = jose_b64_encode((uint8_t *) vectors[i].dec,
-                               strlen(vectors[i].dec));
+        json = jose_b64_encode((uint8_t *) vectors[i].dec, sizeof(buf));
         assert(json_is_string(json));
         assert(json_string_length(json) == strlen(vectors[i].enc));
         assert(strcmp(json_string_value(json), vectors[i].enc) == 0);
 
-        buf = jose_b64_decode_buf(json, false);
+        assert(jose_b64_decode(json, buf));
         json_decref(json);
-        assert(buf);
-        assert(buf->len == strlen(vectors[i].dec));
-        assert(strncmp((char *) buf->buf, vectors[i].dec, buf->len) == 0);
-        jose_buf_free(buf);
+        assert(memcmp(buf, vectors[i].dec, sizeof(buf)) == 0);
     }
 
     return 0;

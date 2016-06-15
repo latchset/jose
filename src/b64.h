@@ -2,9 +2,9 @@
 
 #pragma once
 
-#include "buf.h"
 #include <jansson.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 /**
  * Returns the length of data after decoding.
@@ -28,12 +28,6 @@ bool __attribute__((warn_unused_result))
 jose_b64_decode(const json_t *json, uint8_t buf[]);
 
 /**
- * Decodes data in the JSON string to a new buffer.
- */
-jose_buf_t * __attribute__((warn_unused_result))
-jose_b64_decode_buf(const json_t *json, bool lock);
-
-/**
  * Decodes data in the JSON string to JSON.
  */
 json_t * __attribute__((warn_unused_result))
@@ -44,12 +38,6 @@ jose_b64_decode_json(const json_t *json);
  */
 json_t * __attribute__((warn_unused_result))
 jose_b64_encode(const uint8_t buf[], size_t len);
-
-/**
- * Encodes the buffer to a JSON string.
- */
-json_t * __attribute__((warn_unused_result))
-jose_b64_encode_buf(const jose_buf_t *buf);
 
 /**
  * Encodes JSON to a JSON string.

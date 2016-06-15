@@ -66,7 +66,7 @@ jose_jws_to_compact(const json_t *jws)
 }
 
 static bool
-add_sig(json_t *jws, json_t *head, const char *data, const jose_buf_t *sig)
+add_sig(json_t *jws, json_t *head, const char *data, const buf_t *sig)
 {
     json_t *signatures = NULL;
     json_t *signature = NULL;
@@ -140,7 +140,8 @@ add_sig(json_t *jws, json_t *head, const char *data, const jose_buf_t *sig)
     if (!d)
         return false;
 
-    if (json_object_set_new(jws, "signature", jose_b64_encode_buf(sig)) < 0)
+    if (json_object_set_new(jws, "signature",
+                            jose_b64_encode(sig->buf, sig->len)) < 0)
         return false;
 
     if (d > data) {
@@ -185,7 +186,7 @@ jose_jws_sign(json_t *jws, const json_t *head, const json_t *prot,
               const EVP_PKEY *key, jose_jws_flags_t flags)
 {
     const char *alg = NULL;
-    jose_buf_t *sig = NULL;
+    buf_t *sig = NULL;
     json_t *h = NULL;
     json_t *p = NULL;
     bool ret = false;
@@ -247,7 +248,7 @@ jose_jws_sign(json_t *jws, const json_t *head, const json_t *prot,
         ret = add_sig(jws, h, d, sig);
 
 egress:
-    jose_buf_free(sig);
+    buf_free(sig);
     json_decref(h);
     json_decref(p);
     free(d);
@@ -344,8 +345,8 @@ verify(const json_t *pay, const json_t *sig, const EVP_PKEY *key)
     const json_t *protected = NULL;
     const json_t *header = NULL;
     const json_t *alg = NULL;
-    jose_buf_t *buf = NULL;
     json_t *prot = NULL;
+    buf_t *buf = NULL;
     char *data = NULL;
     bool ret = false;
 
@@ -361,9 +362,15 @@ verify(const json_t *pay, const json_t *sig, const EVP_PKEY *key)
     if (!protected && !header)
         return false;
 
-    buf = jose_b64_decode_buf(signature, false);
+    if (!json_is_string(signature))
+        return false;
+
+    buf = buf_new(jose_b64_dlen(json_string_length(signature)), false);
     if (!buf)
         return false;
+
+    if (!jose_b64_decode(signature, buf->buf))
+        goto egress;
 
     prot = jose_b64_decode_json(protected);
     if (protected && !prot)
@@ -388,7 +395,7 @@ verify(const json_t *pay, const json_t *sig, const EVP_PKEY *key)
     }
 
 egress:
-    jose_buf_free(buf);
+    buf_free(buf);
     json_decref(prot);
     free(data);
     return ret;

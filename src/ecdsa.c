@@ -23,14 +23,14 @@ ecdsa_suggest(const EVP_PKEY *key)
     }
 }
 
-static jose_buf_t *
+static buf_t *
 ecdsa_sign(const EVP_PKEY *key, const char *alg, const char *data)
 {
     const EC_GROUP *grp = NULL;
     ECDSA_SIG *ecdsa = NULL;
     const EVP_MD *md = NULL;
     const char *req = NULL;
-    jose_buf_t *sig = NULL;
+    buf_t *sig = NULL;
 
     if (!key)
         return NULL;
@@ -61,7 +61,7 @@ ecdsa_sign(const EVP_PKEY *key, const char *alg, const char *data)
     if (!ecdsa)
         return NULL;
 
-    sig = jose_buf_new((EC_GROUP_get_degree(grp) + 7) / 8 * 2, false, NULL);
+    sig = buf_new((EC_GROUP_get_degree(grp) + 7) / 8 * 2, false);
     if (!sig)
         goto error;
 
@@ -76,7 +76,7 @@ ecdsa_sign(const EVP_PKEY *key, const char *alg, const char *data)
 
 error:
     ECDSA_SIG_free(ecdsa);
-    jose_buf_free(sig);
+    buf_free(sig);
     return NULL;
 }
 

@@ -31,12 +31,12 @@ rsassa_suggest(const EVP_PKEY *key)
    return NULL;
 }
 
-static jose_buf_t *
+static buf_t *
 rsassa_sign(const EVP_PKEY *key, const char *alg, const char *data)
 {
     const EVP_MD *md = NULL;
     unsigned int siglen = 0;
-    jose_buf_t *sig = NULL;
+    buf_t *sig = NULL;
 
     if (!key)
         return NULL;
@@ -60,7 +60,7 @@ rsassa_sign(const EVP_PKEY *key, const char *alg, const char *data)
     if (EVP_Digest(data, strlen(data), hsh, NULL, md, NULL) < 0)
         return NULL;
 
-    sig = jose_buf_new(RSA_size(key->pkey.rsa), false, NULL);
+    sig = buf_new(RSA_size(key->pkey.rsa), false);
     if (!sig)
         return NULL;
 
@@ -68,7 +68,7 @@ rsassa_sign(const EVP_PKEY *key, const char *alg, const char *data)
 
     if (!RSA_sign(EVP_MD_type(md), hsh, EVP_MD_size(md),
                   sig->buf, &siglen, key->pkey.rsa)) {
-        jose_buf_free(sig);
+        buf_free(sig);
         return NULL;
     }
 

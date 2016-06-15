@@ -1,6 +1,7 @@
 /* vim: set tabstop=8 shiftwidth=4 softtabstop=4 expandtab smarttab colorcolumn=80: */
 
 #include "b64.h"
+#include "buf.h"
 
 #include <stdbool.h>
 #include <string.h>
@@ -112,69 +113,44 @@ jose_b64_decode(const json_t *json, uint8_t buf[])
     return b64url_dec(json_string_value(json), buf);
 }
 
-jose_buf_t *
-jose_b64_decode_buf(const json_t *json, bool lock)
+json_t *
+jose_b64_decode_json(const json_t *json)
 {
-    jose_buf_t *buf = NULL;
+    json_t *out = NULL;
+    buf_t *buf = NULL;
 
     if (!json_is_string(json))
         return NULL;
 
-    buf = jose_buf_new(jose_b64_dlen(json_string_length(json)), lock, NULL);
+    buf = buf_new(jose_b64_dlen(json_string_length(json)), true);
     if (!buf)
         return NULL;
 
     if (jose_b64_decode(json, buf->buf))
-        return buf;
-
-    jose_buf_free(buf);
-    return NULL;
-}
-
-json_t *
-jose_b64_decode_json(const json_t *json)
-{
-    jose_buf_t *buf = NULL;
-    json_t *out = NULL;
-
-    if (!json_is_string(json))
-        return NULL;
-
-    buf = jose_b64_decode_buf(json, true);
-    if (buf)
         out = json_loadb((char *) buf->buf, buf->len, 0, NULL);
 
-    jose_buf_free(buf);
+    buf_free(buf);
     return out;
 }
 
 json_t *
 jose_b64_encode(const uint8_t buf[], size_t len)
 {
-    jose_buf_t *tmp = NULL;
+    buf_t *tmp = NULL;
     json_t *json = NULL;
 
     if (!buf)
         return NULL;
 
-    tmp = jose_buf_new(jose_b64_elen(len) + 1, true, NULL);
+    tmp = buf_new(jose_b64_elen(len) + 1, true);
     if (!tmp)
         return NULL;
 
     b64url_enc(buf, len, (char *) tmp->buf);
 
     json = json_string((char *) tmp->buf);
-    jose_buf_free(tmp);
+    buf_free(tmp);
     return json;
-}
-
-json_t *
-jose_b64_encode_buf(const jose_buf_t *buf)
-{
-    if (!buf)
-        return NULL;
-
-    return jose_b64_encode(buf->buf, buf->len);
 }
 
 json_t *

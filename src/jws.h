@@ -51,7 +51,7 @@ typedef struct jose_jws_alg {
     const char *
     (*suggest)(const EVP_PKEY *key);
 
-    jose_buf_t *
+    buf_t *
     (*sign)(const EVP_PKEY *key, const char *alg, const char *data);
 
     bool
