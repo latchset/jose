@@ -1,6 +1,6 @@
 /* vim: set tabstop=8 shiftwidth=4 softtabstop=4 expandtab smarttab colorcolumn=80: */
 
-#include "jose.h"
+#include "b64.h"
 
 #include <stdbool.h>
 #include <string.h>
@@ -112,69 +112,69 @@ jose_b64_decode(const json_t *json, uint8_t buf[])
     return b64url_dec(json_string_value(json), buf);
 }
 
-jose_key_t *
-jose_b64_decode_key(const json_t *json)
+jose_buf_t *
+jose_b64_decode_buf(const json_t *json, bool lock)
 {
-    jose_key_t *key = NULL;
+    jose_buf_t *buf = NULL;
 
     if (!json_is_string(json))
         return NULL;
 
-    key = jose_key_new(jose_b64_dlen(json_string_length(json)));
-    if (!key)
+    buf = jose_buf_new(jose_b64_dlen(json_string_length(json)), lock, NULL);
+    if (!buf)
         return NULL;
 
-    if (jose_b64_decode(json, key->key))
-        return key;
+    if (jose_b64_decode(json, buf->buf))
+        return buf;
 
-    jose_key_free(key);
+    jose_buf_free(buf);
     return NULL;
 }
 
 json_t *
 jose_b64_decode_json(const json_t *json)
 {
-    jose_key_t *key = NULL;
+    jose_buf_t *buf = NULL;
     json_t *out = NULL;
 
     if (!json_is_string(json))
         return NULL;
 
-    key = jose_b64_decode_key(json);
-    if (key)
-        out = json_loadb((char *) key->key, key->len, 0, NULL);
+    buf = jose_b64_decode_buf(json, true);
+    if (buf)
+        out = json_loadb((char *) buf->buf, buf->len, 0, NULL);
 
-    jose_key_free(key);
+    jose_buf_free(buf);
     return out;
 }
 
 json_t *
 jose_b64_encode(const uint8_t buf[], size_t len)
 {
-    jose_key_t *tmp = NULL;
+    jose_buf_t *tmp = NULL;
     json_t *json = NULL;
 
     if (!buf)
         return NULL;
 
-    tmp = jose_key_new(jose_b64_elen(len) + 1);
+    tmp = jose_buf_new(jose_b64_elen(len) + 1, true, NULL);
     if (!tmp)
         return NULL;
 
-    b64url_enc(buf, len, (char *) tmp->key);
+    b64url_enc(buf, len, (char *) tmp->buf);
 
-    json = json_string((char *) tmp->key);
-    jose_key_free(tmp);
+    json = json_string((char *) tmp->buf);
+    jose_buf_free(tmp);
     return json;
 }
 
 json_t *
-jose_b64_encode_key(const jose_key_t *key)
+jose_b64_encode_buf(const jose_buf_t *buf)
 {
-    if (!key)
+    if (!buf)
         return NULL;
 
-    return jose_b64_encode(key->key, key->len);
+    return jose_b64_encode(buf->buf, buf->len);
 }
 
 json_t *

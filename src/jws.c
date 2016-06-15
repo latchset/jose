@@ -1,13 +1,34 @@
 /* vim: set tabstop=8 shiftwidth=4 softtabstop=4 expandtab smarttab colorcolumn=80: */
 
 #define _GNU_SOURCE
-#include "jose.h"
+#include "jws.h"
+#include "jwk.h"
+#include "b64.h"
 #include "conv.h"
 
 #include <openssl/ecdsa.h>
 #include <openssl/hmac.h>
 
 #include <string.h>
+
+static jose_jws_alg_t *algs;
+
+void
+jose_jws_alg_register(jose_jws_alg_t *alg)
+{
+    jose_jws_alg_t **a = &algs;
+
+    while (*a && (*a)->priority < alg->priority)
+        a = &(*a)->next;
+
+    alg->next = *a;
+    *a = alg;
+
+    for (jose_jws_alg_t *b = algs; b; b = b->next) {
+        for (size_t i = 0; b->algorithms[i]; i++)
+            fprintf(stderr, "%u %s\n", b->priority, b->algorithms[i]);
+    }
+}
 
 json_t *
 jose_jws_from_compact(const char *jws)
@@ -44,26 +65,8 @@ jose_jws_to_compact(const json_t *jws)
     return out;
 }
 
-static size_t
-str_match(const char *str, ...)
-{
-    size_t i = 0;
-    va_list ap;
-
-    va_start(ap, str);
-
-    for (const char *v = NULL; (v = va_arg(ap, const char *)); i++) {
-        if (str && strcmp(str, v) == 0)
-            break;
-    }
-
-    va_end(ap);
-    return i;
-}
-
 static bool
-add_sig(json_t *jws, json_t *head, const char *data,
-        const uint8_t sig[], size_t len)
+add_sig(json_t *jws, json_t *head, const char *data, const jose_buf_t *sig)
 {
     json_t *signatures = NULL;
     json_t *signature = NULL;
@@ -137,7 +140,7 @@ add_sig(json_t *jws, json_t *head, const char *data,
     if (!d)
         return false;
 
-    if (json_object_set_new(jws, "signature", jose_b64_encode(sig, len)) < 0)
+    if (json_object_set_new(jws, "signature", jose_b64_encode_buf(sig)) < 0)
         return false;
 
     if (d > data) {
@@ -153,209 +156,6 @@ add_sig(json_t *jws, json_t *head, const char *data,
         return false;
 
     return true;
-}
-
-static bool
-sign_HMAC(json_t *jws, json_t *head, const char *data,
-          const json_t *jwk, const char *alg)
-{
-    const EVP_MD *md = NULL;
-    jose_key_t *key = NULL;
-    bool ret = false;
-
-    switch (str_match(alg, "HS256", "HS384", "HS512", NULL)) {
-    case 0: md = EVP_sha256(); break;
-    case 1: md = EVP_sha384(); break;
-    case 2: md = EVP_sha512(); break;
-    default: return false;
-    }
-
-    uint8_t sig[EVP_MD_size(md)];
-
-    key = jose_jwk_to_key(jwk);
-    if (!key)
-        return false;
-
-    if (sizeof(sig) > key->len)
-        goto egress;
-
-    if (!HMAC(md, key->key, key->len, (uint8_t *) data,
-              strlen(data), sig, NULL))
-        goto egress;
-
-    ret = add_sig(jws, head, data, sig, sizeof(sig));
-
-egress:
-    jose_key_free(key);
-    return ret;
-}
-
-static bool
-sign_RSA(json_t *jws, json_t *head, const char *data,
-         const json_t *jwk, const char *alg)
-{
-    const EVP_MD *md = NULL;
-    bool ret = false;
-    RSA *key = NULL;
-
-    switch (str_match(alg, "RS256", "RS384", "RS512", NULL)) {
-    case 0: md = EVP_sha256(); break;
-    case 1: md = EVP_sha384(); break;
-    case 2: md = EVP_sha512(); break;
-    default: return false;
-    }
-
-    uint8_t dgst[EVP_MD_size(md)];
-
-    if (EVP_Digest(data, strlen(data), dgst, NULL, md, NULL) < 0)
-        return false;
-
-    key = jose_jwk_to_rsa(jwk);
-    if (!key)
-        return false;
-
-    uint8_t sig[RSA_size(key)];
-    unsigned int len = 0;
-
-    /* Don't use small keys. RFC 7518 3.3 */
-    if (sizeof(sig) < 2048 / 8)
-        goto egress;
-
-    if (!RSA_sign(EVP_MD_type(md), dgst, sizeof(dgst), sig, &len, key))
-        goto egress;
-
-    ret = add_sig(jws, head, data, sig, sizeof(sig));
-
-egress:
-    RSA_free(key);
-    return ret;
-}
-
-static bool
-sign_ECDSA(json_t *jws, json_t *head, const char *data,
-           const json_t *jwk, const char *alg)
-{
-    const EVP_MD *md = NULL;
-    ECDSA_SIG *ecdsa = NULL;
-    EC_KEY *key = NULL;
-    bool ret = false;
-
-    switch (str_match(alg, "ES256", "ES384", "ES512", NULL)) {
-    case 0: md = EVP_sha256(); break;
-    case 1: md = EVP_sha384(); break;
-    case 2: md = EVP_sha512(); break;
-    default: return false;
-    }
-
-    uint8_t hsh[EVP_MD_size(md)];
-
-    if (EVP_Digest(data, strlen(data), hsh, NULL, md, NULL) < 0)
-        return false;
-
-    key = jose_jwk_to_ec(jwk);
-    if (!key)
-        return false;
-
-    uint8_t sig[(EC_GROUP_get_degree(EC_KEY_get0_group(key)) + 7) / 8 * 2];
-
-    switch (EC_GROUP_get_curve_name(EC_KEY_get0_group(key))) {
-    case NID_X9_62_prime256v1:
-        if (EVP_MD_type(md) != NID_sha256)
-            goto egress;
-        break;
-
-    case NID_secp384r1:
-        if (EVP_MD_type(md) != NID_sha384)
-            goto egress;
-        break;
-
-    case NID_secp521r1:
-        if (EVP_MD_type(md) != NID_sha512)
-            goto egress;
-        break;
-
-    default:
-        goto egress;
-    }
-
-    ecdsa = ECDSA_do_sign(hsh, sizeof(hsh), key);
-    if (!ecdsa)
-        goto egress;
-
-    if (!bn_to_buf(ecdsa->r, sig, sizeof(sig) / 2))
-        goto egress;
-
-    if (!bn_to_buf(ecdsa->s, &sig[sizeof(sig) / 2], sizeof(sig) / 2))
-        goto egress;
-
-    ret = add_sig(jws, head, data, sig, sizeof(sig));
-
-egress:
-    ECDSA_SIG_free(ecdsa);
-    EC_KEY_free(key);
-    return ret;
-}
-
-static const char *
-pick_size(size_t size, ...)
-{
-    va_list ap;
-
-    va_start(ap, size);
-    for (size_t min = va_arg(ap, size_t); min > 0; min = va_arg(ap, size_t)) {
-        if (size >= min)
-            return va_arg(ap, const char *);
-    }
-
-    return NULL;
-}
-
-static const char *
-pick_alg(const json_t *jwk)
-{
-    const char *kty = NULL;
-    const char *crv = NULL;
-    const char *k = NULL;
-    RSA *rsa = NULL;
-    int bits = 0;
-
-    if (json_unpack((json_t *) jwk, "{s:s,s?s,s?s}",
-                    "kty", &kty, "crv", &crv, "k", &k) == -1)
-        return NULL;
-
-    switch (str_match(kty, "oct", "RSA", "EC", NULL)) {
-    case 0:
-        if (!k)
-            return NULL;
-
-        return pick_size(jose_b64_dlen(strlen(k)),
-                         64, "HS512", 48, "HS384", 32, "HS256", 0);
-
-    case 1:
-        rsa = jose_jwk_to_rsa(jwk);
-        if (!rsa)
-            return NULL;
-
-        bits = RSA_size(rsa) * 8;
-        RSA_free(rsa);
-
-        return pick_size(bits, 4096, "RS512", 3072, "RS384", 2048, "RS256", 0);
-
-    case 2:
-        if (!crv)
-            return NULL;
-
-        switch (str_match(crv, "P-256", "P-384", "P-521", NULL)) {
-        case 0: return "ES256";
-        case 1: return "ES384";
-        case 2: return "ES512";
-        }
-
-        return NULL;
-
-    default:
-        return NULL;
-    }
 }
 
 static char *
@@ -382,11 +182,84 @@ make_data(json_t *jws, const json_t *prot)
 
 bool
 jose_jws_sign(json_t *jws, const json_t *head, const json_t *prot,
-              const json_t *jwks, enum jose_jws_flags flags)
+              const EVP_PKEY *key, jose_jws_flags_t flags)
+{
+    const char *alg = NULL;
+    jose_buf_t *sig = NULL;
+    json_t *h = NULL;
+    json_t *p = NULL;
+    bool ret = false;
+    char *d = NULL;
+
+    if (!key)
+        return false;
+
+    h = json_deep_copy(head);
+    if (head && !h)
+        goto egress;
+
+    p = json_deep_copy(prot);
+    if (prot && !p)
+        goto egress;
+
+    /* Look up the algorithm, or try to detect it. */
+    if (json_unpack((json_t *) prot, "{s:s}", "alg", &alg) == -1 &&
+        json_unpack((json_t *) head, "{s:s}", "alg", &alg) == -1) {
+        for (jose_jws_alg_t *a = algs; a && !alg; a = a->next) {
+            if (!a->suggest)
+                continue;
+
+            alg = a->suggest(key);
+        }
+
+        if (!alg)
+            goto egress;
+
+        if (flags & JOSE_JWS_FLAGS_ALG_HEAD) {
+            if (!h)
+                h = json_object();
+
+            if (json_object_set_new(h, "alg", json_string(alg)) == -1)
+                goto egress;
+        }
+
+        if (flags & JOSE_JWS_FLAGS_ALG_PROT) {
+            if (!p)
+                p = json_object();
+
+            if (json_object_set_new(p, "alg", json_string(alg)) == -1)
+                goto egress;
+        }
+    }
+
+    d = make_data(jws, p);
+    if (!d)
+        goto egress;
+
+    for (jose_jws_alg_t *a = algs; a && !sig; a = a->next) {
+        if (!a->sign)
+            continue;
+
+        sig = a->sign(key, alg, d);
+    }
+
+    if (sig)
+        ret = add_sig(jws, h, d, sig);
+
+egress:
+    jose_buf_free(sig);
+    json_decref(h);
+    json_decref(p);
+    free(d);
+    return ret;
+}
+
+bool
+jose_jws_sign_jwk(json_t *jws, const json_t *head, const json_t *prot,
+                  const json_t *jwks, jose_jws_flags_t flags)
 {
     const json_t *array = NULL;
-    const char *alg = NULL;
-    char *data = NULL;
+    EVP_PKEY *key = NULL;
     json_t *h = NULL;
     json_t *p = NULL;
     bool ret = false;
@@ -403,7 +276,7 @@ jose_jws_sign(json_t *jws, const json_t *head, const json_t *prot,
         for (size_t i = 0; i < json_array_size(array); i++) {
             const json_t *jwk = json_array_get(array, i);
 
-            if (!jose_jws_sign(jws, head, prot, jwk, flags))
+            if (!jose_jws_sign_jwk(jws, head, prot, jwk, flags))
                 return false;
         }
 
@@ -427,22 +300,6 @@ jose_jws_sign(json_t *jws, const json_t *head, const json_t *prot,
     if (!p && (flags & JOSE_JWS_FLAGS_PROT)) {
         p = json_object();
         if (!json_is_object(p))
-            goto egress;
-    }
-
-    if (json_unpack(p, "{s: s}", "alg", &alg) == -1 &&
-        json_unpack(h, "{s: s}", "alg", &alg) == -1 &&
-        json_unpack((json_t *) jwks, "{s: s}", "alg", &alg) == -1 &&
-        !(alg = pick_alg(jwks)))
-        goto egress;
-
-    if (flags & JOSE_JWS_FLAGS_ALG_HEAD && !json_object_get(h, "alg")) {
-        if (json_object_set_new(h, "alg", json_string(alg)) == -1)
-            goto egress;
-    }
-
-    if (flags & JOSE_JWS_FLAGS_ALG_PROT && !json_object_get(p, "alg")) {
-        if (json_object_set_new(p, "alg", json_string(alg)) == -1)
             goto egress;
     }
 
@@ -470,137 +327,25 @@ jose_jws_sign(json_t *jws, const json_t *head, const json_t *prot,
             goto egress;
     }
 
-    data = make_data(jws, p);
-    if (!data)
-        goto egress;
-
-    switch (str_match(alg, "HS256", "HS384", "HS512", "RS256", "RS384",
-                      "RS512", "ES256", "ES384", "ES512", NULL)) {
-    case 0: ret = sign_HMAC(jws, h, data, jwks, alg); break;
-    case 1: ret = sign_HMAC(jws, h, data, jwks, alg); break;
-    case 2: ret = sign_HMAC(jws, h, data, jwks, alg); break;
-    case 3: ret = sign_RSA(jws, h, data, jwks, alg); break;
-    case 4: ret = sign_RSA(jws, h, data, jwks, alg); break;
-    case 5: ret = sign_RSA(jws, h, data, jwks, alg); break;
-    case 6: ret = sign_ECDSA(jws, h, data, jwks, alg); break;
-    case 7: ret = sign_ECDSA(jws, h, data, jwks, alg); break;
-    case 8: ret = sign_ECDSA(jws, h, data, jwks, alg); break;
-    default: break;
-    }
-
-    free(data);
+    key = jose_jwk_to_key(jwks);
+    ret = jose_jws_sign(jws, h, p, key, flags);
 
 egress:
+    EVP_PKEY_free(key);
     json_decref(h);
     json_decref(p);
     return ret;
 }
 
 static bool
-verify_HMAC(const json_t *jwk, const char *data, const jose_key_t *sig,
-            const char *alg)
-{
-    const EVP_MD *md = NULL;
-    jose_key_t *key = NULL;
-
-    switch (str_match(alg, "HS256", "HS384", "HS512", NULL)) {
-    case 0: md = EVP_sha256(); break;
-    case 1: md = EVP_sha384(); break;
-    case 2: md = EVP_sha512(); break;
-    default: return false;
-    }
-
-    uint8_t hmac[EVP_MD_size(md)];
-
-    key = jose_jwk_to_key(jwk);
-    if (!key)
-        return false;
-
-    if (!HMAC(md, key->key, key->len, (uint8_t *) data,
-              strlen(data), hmac, NULL)) {
-        jose_key_free(key);
-        return false;
-    }
-    jose_key_free(key);
-
-    return sizeof(hmac) == sig->len && memcmp(hmac, sig->key, sig->len) == 0;
-}
-
-static bool
-verify_RSA(const json_t *jwk, const char *data, const jose_key_t *sig,
-             const char *alg)
-{
-    const EVP_MD *md = NULL;
-    bool ret = false;
-    RSA *key = NULL;
-
-    switch (str_match(alg, "RS256", "RS384", "RS512", NULL)) {
-    case 0: md = EVP_sha256(); break;
-    case 1: md = EVP_sha384(); break;
-    case 2: md = EVP_sha512(); break;
-    default: return false;
-    }
-
-    uint8_t hsh[EVP_MD_size(md)];
-
-    if (EVP_Digest(data, strlen(data), hsh, NULL, md, NULL) < 0)
-        return false;
-
-    key = jose_jwk_to_rsa(jwk);
-    if (!key)
-        return false;
-
-    ret = RSA_verify(EVP_MD_type(md), hsh, sizeof(hsh),
-                     sig->key, sig->len, key) == 1;
-    RSA_free(key);
-    return ret;
-}
-
-static bool
-verify_ECDSA(const json_t *jwk, const char *data, const jose_key_t *sig,
-             const char *alg)
-{
-    const EVP_MD *md = NULL;
-    ECDSA_SIG ecdsa = {};
-    EC_KEY *key = NULL;
-    bool ret = false;
-
-    switch (str_match(alg, "ES256", "ES384", "ES512", NULL)) {
-    case 0: md = EVP_sha256(); break;
-    case 1: md = EVP_sha384(); break;
-    case 2: md = EVP_sha512(); break;
-    default: return false;
-    }
-
-    uint8_t hsh[EVP_MD_size(md)];
-
-    if (EVP_Digest(data, strlen(data), hsh, NULL, md, NULL) < 0)
-        return false;
-
-    ecdsa.r = bn_from_buf(sig->key, sig->len / 2);
-    ecdsa.s = bn_from_buf(&sig->key[sig->len / 2], sig->len / 2);
-    if (ecdsa.r && ecdsa.s) {
-        key = jose_jwk_to_ec(jwk);
-        if (key)
-            ret = ECDSA_do_verify(hsh, sizeof(hsh), &ecdsa, key) == 1;
-    }
-
-    EC_KEY_free(key);
-    BN_free(ecdsa.r);
-    BN_free(ecdsa.s);
-    return ret;
-}
-
-static bool
-verify(const json_t *sig, const json_t *pay, const json_t *jwk)
+verify(const json_t *pay, const json_t *sig, const EVP_PKEY *key)
 {
     const json_t *signature = NULL;
     const json_t *protected = NULL;
     const json_t *header = NULL;
     const json_t *alg = NULL;
-    jose_key_t *buf = NULL;
+    jose_buf_t *buf = NULL;
     json_t *prot = NULL;
-    json_t *head = NULL;
     char *data = NULL;
     bool ret = false;
 
@@ -616,19 +361,18 @@ verify(const json_t *sig, const json_t *pay, const json_t *jwk)
     if (!protected && !header)
         return false;
 
-    buf = jose_b64_decode_key(signature);
+    buf = jose_b64_decode_buf(signature, false);
     if (!buf)
         return false;
 
     prot = jose_b64_decode_json(protected);
-    head = jose_b64_decode_json(header);
-    if (!prot && !head)
+    if (protected && !prot)
         goto egress;
 
     alg = json_object_get(prot, "alg");
     if (!json_is_string(alg))
-        alg = json_object_get(head, "alg");
-    if (!json_is_string(alg))
+        alg = json_object_get(header, "alg");
+    if (alg && !json_is_string(alg))
         goto egress;
 
     asprintf(&data, "%s.%s", protected ? json_string_value(protected) : "",
@@ -636,33 +380,52 @@ verify(const json_t *sig, const json_t *pay, const json_t *jwk)
     if (!data)
         goto egress;
 
-    switch (str_match(json_string_value(alg),
-                      "HS256", "HS384", "HS512",
-                      "RS256", "RS384", "RS512",
-                      "ES256", "ES384", "ES512", NULL)) {
-    case 0: ret = verify_HMAC(jwk, data, buf, json_string_value(alg)); break;
-    case 1: ret = verify_HMAC(jwk, data, buf, json_string_value(alg)); break;
-    case 2: ret = verify_HMAC(jwk, data, buf, json_string_value(alg)); break;
-    case 3: ret = verify_RSA(jwk, data, buf, json_string_value(alg)); break;
-    case 4: ret = verify_RSA(jwk, data, buf, json_string_value(alg)); break;
-    case 5: ret = verify_RSA(jwk, data, buf, json_string_value(alg)); break;
-    case 6: ret = verify_ECDSA(jwk, data, buf, json_string_value(alg)); break;
-    case 7: ret = verify_ECDSA(jwk, data, buf, json_string_value(alg)); break;
-    case 8: ret = verify_ECDSA(jwk, data, buf, json_string_value(alg)); break;
+    for (jose_jws_alg_t *a = algs; a && !ret; a = a->next) {
+        if (!a->verify)
+            continue;
+
+        ret = a->verify(key, json_string_value(alg), data, buf->buf, buf->len);
     }
 
 egress:
-    jose_key_free(buf);
+    jose_buf_free(buf);
     json_decref(prot);
-    json_decref(head);
     free(data);
     return ret;
 }
 
-bool
-jose_jws_verify(const json_t *jws, const json_t *jwks, bool all)
+bool __attribute__((warn_unused_result))
+jose_jws_verify(const json_t *jws, const EVP_PKEY *key)
 {
     const json_t *array = NULL;
+
+    if (!jws)
+        return false;
+
+    if (!key)
+        return false;
+
+    array = json_object_get(jws, "signatures");
+    if (json_is_array(array) && json_array_size(array) > 0) {
+        for (size_t i = 0; i < json_array_size(array); i++) {
+            const json_t *sig = json_array_get(array, i);
+
+            if (verify(json_object_get(jws, "payload"), sig, key))
+                return true;
+        }
+
+        return false;
+    }
+
+    return verify(json_object_get(jws, "payload"), jws, key);
+}
+
+bool __attribute__((warn_unused_result))
+jose_jws_verify_jwk(const json_t *jws, const json_t *jwks, bool all)
+{
+    const json_t *array = NULL;
+    EVP_PKEY *key = NULL;
+    bool valid = false;
 
     if (!jws || !jwks)
         return false;
@@ -675,9 +438,11 @@ jose_jws_verify(const json_t *jws, const json_t *jwks, bool all)
     if (json_is_array(array)) {
         for (size_t i = 0; i < json_array_size(array); i++) {
             const json_t *jwk = json_array_get(array, i);
-            bool valid = false;
 
-            valid = jose_jws_verify(jws, jwk, all);
+            key = jose_jwk_to_key(jwk);
+            valid = jose_jws_verify(jws, key);
+            EVP_PKEY_free(key);
+
             if (valid && !all)
                 return true;
             if (!valid && all)
@@ -687,52 +452,8 @@ jose_jws_verify(const json_t *jws, const json_t *jwks, bool all)
         return all && json_array_size(array) > 0;
     }
 
-    array = json_object_get(jws, "signatures");
-    if (json_is_array(array) && json_array_size(array) > 0) {
-        for (size_t i = 0; i < json_array_size(array); i++) {
-            const json_t *sig = json_array_get(array, i);
-
-            if (verify(sig, json_object_get(jws, "payload"), jwks))
-                return true;
-        }
-
-        return false;
-    }
-
-    return verify(jws, json_object_get(jws, "payload"), jwks);
+    key = jose_jwk_to_key(jwks);
+    valid = jose_jws_verify(jws, key);
+    EVP_PKEY_free(key);
+    return valid;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

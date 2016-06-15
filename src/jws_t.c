@@ -1,7 +1,9 @@
 /* vim: set tabstop=8 shiftwidth=4 softtabstop=4 expandtab smarttab colorcolumn=80: */
 
 #define _GNU_SOURCE
-#include "jose.h"
+#include "jws.h"
+#include "b64.h"
+#include "jwkset.h"
 
 #include <openssl/objects.h>
 
@@ -278,7 +280,7 @@ test_compact_verify(const struct example *e)
     json_dumpf(jwk, stderr, JSON_SORT_KEYS);
     fprintf(stderr, "\n\n");
 
-    assert(jose_jws_verify(jws, jwk, true) == !!e->sigs[0].sign);
+    assert(jose_jws_verify_jwk(jws, jwk, true) == !!e->sigs[0].sign);
     json_decref(jwk);
     json_decref(jws);
 }
@@ -315,7 +317,7 @@ test_flattened_verify(const struct example *e)
     json_dumpf(jwk, stderr, JSON_SORT_KEYS);
     fprintf(stderr, "\n\n");
 
-    assert(jose_jws_verify(jws, jwk, true) == !!e->sigs[0].sign);
+    assert(jose_jws_verify_jwk(jws, jwk, true) == !!e->sigs[0].sign);
     json_decref(jwk);
     json_decref(jws);
 }
@@ -351,8 +353,8 @@ test_general_sign_and_verify(const struct example *e)
         assert(prot = make_prot(e->sigs[i].prot));
 
         /* Sign the JWS. */
-        assert(jose_jws_sign(jws, NULL, prot, jwk,
-                             JOSE_JWS_FLAGS_KID_HEAD));
+        assert(jose_jws_sign_jwk(jws, NULL, prot, jwk,
+                                 JOSE_JWS_FLAGS_KID_HEAD));
         json_decref(prot);
 
         json_dumpf(jws, stderr, JSON_SORT_KEYS);
@@ -376,13 +378,13 @@ test_general_sign_and_verify(const struct example *e)
         }
 
         /* Check that the signature verifies. */
-        assert(jose_jws_verify(jws, jwk, true));
-        assert(jose_jws_verify(jws, jwks, true));
+        assert(jose_jws_verify_jwk(jws, jwk, true));
+        assert(jose_jws_verify_jwk(jws, jwks, true));
     }
 
     jwkset = jose_jwkset_copy(jwks, true);
     assert(jwkset);
-    assert(jose_jws_verify(jws, jwkset, true));
+    assert(jose_jws_verify_jwk(jws, jwkset, true));
 
 egress:
     json_decref(jwkset);

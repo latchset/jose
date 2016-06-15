@@ -21,3 +21,9 @@ bn_to_json(const BIGNUM *bn, size_t len);
 
 json_t *
 compact_to_obj(const char *compact, ...);
+
+size_t
+string_to_enum(const char *str, bool icase, ...);
+
+const uint8_t *
+EVP_PKEY_get_hmac(const EVP_PKEY *pkey, size_t *len);

@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "key.h"
+#include "buf.h"
 #include <jansson.h>
 #include <stdbool.h>
 
@@ -28,10 +28,10 @@ bool __attribute__((warn_unused_result))
 jose_b64_decode(const json_t *json, uint8_t buf[]);
 
 /**
- * Decodes data in the JSON string to a key.
+ * Decodes data in the JSON string to a new buffer.
  */
-jose_key_t * __attribute__((warn_unused_result))
-jose_b64_decode_key(const json_t *json);
+jose_buf_t * __attribute__((warn_unused_result))
+jose_b64_decode_buf(const json_t *json, bool lock);
 
 /**
  * Decodes data in the JSON string to JSON.
@@ -46,10 +46,10 @@ json_t * __attribute__((warn_unused_result))
 jose_b64_encode(const uint8_t buf[], size_t len);
 
 /**
- * Encodes the key to a JSON string.
+ * Encodes the buffer to a JSON string.
  */
 json_t * __attribute__((warn_unused_result))
-jose_b64_encode_key(const jose_key_t *key);
+jose_b64_encode_buf(const jose_buf_t *buf);
 
 /**
  * Encodes JSON to a JSON string.

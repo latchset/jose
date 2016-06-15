@@ -2,10 +2,16 @@
 
 #pragma once
 
+#include "buf.h"
+
 #include <jansson.h>
+#include <openssl/evp.h>
+
 #include <stdbool.h>
 
-enum jose_jws_flags {
+#define JOSE_JWS_ALG_VERSION 0
+
+typedef enum {
     JOSE_JWS_FLAGS_NONE = 0,
 
     /** Set the algorithm used in the JWS Unprotected Header. */
@@ -32,7 +38,29 @@ enum jose_jws_flags {
     JOSE_JWS_FLAGS_PROT = JOSE_JWS_FLAGS_ALG_PROT |
                           JOSE_JWS_FLAGS_JWK_PROT |
                           JOSE_JWS_FLAGS_KID_PROT,
-};
+} jose_jws_flags_t;
+
+typedef struct jose_jws_alg {
+    struct jose_jws_alg *next;
+
+    uint64_t version : 8;
+    uint64_t priority : 8;
+
+    const char * const *algorithms;
+
+    const char *
+    (*suggest)(const EVP_PKEY *key);
+
+    jose_buf_t *
+    (*sign)(const EVP_PKEY *key, const char *alg, const char *data);
+
+    bool
+    (*verify)(const EVP_PKEY *key, const char *alg, const char *data,
+              const uint8_t sig[], size_t slen);
+} jose_jws_alg_t;
+
+void
+jose_jws_alg_register(jose_jws_alg_t *alg);
 
 /**
  * Converts a JWS from compact format into JSON format.
@@ -51,48 +79,16 @@ jose_jws_from_compact(const char *jws);
 char * __attribute__((warn_unused_result))
 jose_jws_to_compact(const json_t *jws);
 
-/**
- * Signs the payload and (optionally) the protected header.
- *
- * The jws parameter should be a JWS object, with or without existing
- * signatures.
- *
- * Both the prot and head parameters are optional. These correspond to the
- * desired protected and unprotected headers, respectively.
- *
- * The jwks parameter can be either a JWK, an array of JWKs or a JWKSet. If
- * multiple keys are specified, a separate signature will be created for each
- * key. If any individual signature operation fails, the entire operation will
- * fail and the JWS object will be in an undefined state.
- *
- * The signature algorithm will be chosen according to this precedence:
- *   1. The "alg" parameter in the protected header.
- *   2. The "alg" parameter in the unprotected header.
- *   3. The "alg" parameter in the JWK.
- *   4. Automatically selected based on the type of the JWK.
- *
- * If an algorithm is specified in either header and the algorithm specified
- * is not applicable for the JWK, the operation will fail. Thus, care should
- * be taken when setting an algorithm in the header and attempting to sign
- * with multiple keys in a single function call.
- *
- * By using the flags parameter, some header attributes can be created
- * automatically. These flags will never cause an existing attribute to be
- * overridden. If a flag is specified and its corresponding header was not
- * specified, the header will be created in order to hold the attribute being
- * automatically created.
- */
 bool __attribute__((warn_unused_result))
 jose_jws_sign(json_t *jws, const json_t *head, const json_t *prot,
-              const json_t *jwks, enum jose_jws_flags flags);
+              const EVP_PKEY *key, jose_jws_flags_t flags);
 
-/**
- * Verifies a JWS using the specified keys.
- *
- * The jwks parameter can be either a JWK, an array of JWKs or a JWKSet.
- *
- * If all is true, the JWS must contain a signature for every input key.
- * Otherwise, if the JWS is signed by any key the operation succeeds.
- */
 bool __attribute__((warn_unused_result))
-jose_jws_verify(const json_t *jws, const json_t *jwks, bool all);
+jose_jws_sign_jwk(json_t *jws, const json_t *head, const json_t *prot,
+                  const json_t *jwks, jose_jws_flags_t flags);
+
+bool __attribute__((warn_unused_result))
+jose_jws_verify(const json_t *jws, const EVP_PKEY *key);
+
+bool __attribute__((warn_unused_result))
+jose_jws_verify_jwk(const json_t *jws, const json_t *jwks, bool all);

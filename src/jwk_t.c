@@ -1,18 +1,14 @@
 /* vim: set tabstop=8 shiftwidth=4 softtabstop=4 expandtab smarttab colorcolumn=80: */
 
-#include "jose.h"
+#include "jwk.h"
 
 #include <assert.h>
 #include <stdbool.h>
 #include <string.h>
-#include <openssl/objects.h>
 
-enum type {
-    TYPE_NONE = 0,
-    TYPE_OCT,
-    TYPE_RSA,
-    TYPE_EC,
-};
+#include <openssl/ec.h>
+#include <openssl/rsa.h>
+#include <openssl/objects.h>
 
 struct kv {
     const char *key;
@@ -20,7 +16,7 @@ struct kv {
 };
 
 static const struct {
-    enum type type;
+    int type;
     struct kv *base;
     struct kv *prvt;
     struct kv *xtra;
@@ -42,7 +38,7 @@ static const struct {
         } ec;
     } test;
 } vectors[] = {
-    { TYPE_EC, /* RFC 7517 - A.1 */
+    { EVP_PKEY_EC, /* RFC 7517 - A.1 */
       (struct kv[]) {
           { "kty", "EC" },
           { "crv", "P-256" },
@@ -61,7 +57,7 @@ static const struct {
       { .ec = {
         "0330A0424CD21C2944838A2D75C92B37E76EA20D9F00893A3B4EEE8A3C0AAFEC3E"
       } } },
-    { TYPE_RSA, /* RFC 7517 - A.1 */
+    { EVP_PKEY_RSA, /* RFC 7517 - A.1 */
       (struct kv[]) {
           { "kty", "RSA" },
           { "n", "0vx7agoebGcQSuuPiLJXZptN9nndrQmbXEps2aiAFbWhM78LhWx4cbbfA"
@@ -92,7 +88,7 @@ static const struct {
           "BFC419E222A6F0D0BB358C5E38F9CB050AEAFE904814F1AC1AA49CCA9EA0CA83",
           "010001"
       } } },
-    { TYPE_EC, /* RFC 7517 - A.2 */
+    { EVP_PKEY_EC, /* RFC 7517 - A.2 */
       (struct kv[]) {
           { "kty", "EC" },
           { "crv", "P-256" },
@@ -113,7 +109,7 @@ static const struct {
         "0330A0424CD21C2944838A2D75C92B37E76EA20D9F00893A3B4EEE8A3C0AAFEC3E",
         "F3BD0C07A81FB932781ED52752F60CC89A6BE5E51934FE01938DDB55D8F77801"
       } } },
-    { TYPE_RSA, /* RFC 7517 - A.2 */
+    { EVP_PKEY_RSA, /* RFC 7517 - A.2 */
       (struct kv[]) {
           { "kty", "RSA" },
           { "n", "0vx7agoebGcQSuuPiLJXZptN9nndrQmbXEps2aiAFbWhM78LhWx4cbbfA"
@@ -193,7 +189,7 @@ static const struct {
           "3247643743985856DC037B948FA9BB193F987646275D6BC7247C3B9E572D27B7"
           "48F9917CAC1923AC94DB8671BD0285608B5D95D50A1B33BA21AEB34CA8405515",
       } } },
-    { TYPE_OCT, /* RFC 7517 - A.3 */
+    { EVP_PKEY_NONE, /* RFC 7517 - A.3 */
       (struct kv[]) {
           { "kty", "oct" },
           {}
@@ -207,7 +203,7 @@ static const struct {
           {}
       },
       { .oct = "19AC2082E1721AB58A6AFEC05F854A52" } },
-    { TYPE_OCT, /* RFC 7517 - A.3 */
+    { EVP_PKEY_NONE, /* RFC 7517 - A.3 */
       (struct kv[]) {
           { "kty", "oct" },
           {}
@@ -224,7 +220,7 @@ static const struct {
       { .oct = "0323354B2B0FA5BC837E0665777BA68F5AB328E6F054C928A90F84B2D25"
                "02EBFD3FB5A92D20647EF968AB4C377623D223D2E2172052E4F08C0CD9A"
                "F567D080A3" } },
-    { TYPE_RSA, /* RFC 7517 - B (x5c parameter omitted) */
+    { EVP_PKEY_RSA, /* RFC 7517 - B (x5c parameter omitted) */
       (struct kv[]) {
           { "kty", "RSA" },
           { "n", "vrjOfz9Ccdgx5nQudyhdoR17V-IubWMeOZCwX_jj0hgAsz2J_pqYW08PL"
@@ -255,7 +251,7 @@ static const struct {
           "FA8C9556469976494B429D81B60B7DAABDB59B8D9FE304F0F97AE9EAB08A35BD",
           "010001",
       } } },
-    { TYPE_RSA, /* RFC 7517 - C.1 */
+    { EVP_PKEY_RSA, /* RFC 7517 - C.1 */
       (struct kv[]) {
           { "kty", "RSA" },
           { "n", "t6Q8PWSi1dkJj9hTP8hNYFlvadM7DflW9mWepOJhJ66w7nyoK1gPNqFMS"
@@ -339,12 +335,12 @@ static const struct {
 };
 
 static void
-test_oct(const jose_key_t *key, const char *hex)
+test_oct(const ASN1_OCTET_STRING *os, const char *hex)
 {
-    char tmp[key->len * 2 + 1];
+    char tmp[os->length * 2 + 1];
 
-    for (size_t i = 0; i < key->len; i++)
-        sprintf(&tmp[i * 2], "%02X", key->key[i]);
+    for (int i = 0; i < os->length; i++)
+        sprintf(&tmp[i * 2], "%02X", os->data[i]);
 
     fprintf(stderr, "%s\n", hex);
     fprintf(stderr, "%s\n", tmp);
@@ -427,7 +423,7 @@ test_ec(const EC_KEY *key, const struct ec *ec)
 int
 main(int argc, char *argv[])
 {
-    for (size_t i = 0; vectors[i].type != TYPE_NONE; i++) {
+    for (size_t i = 0; vectors[i].base; i++) {
         json_t *kbase = NULL;
         json_t *kprvt = NULL;
         json_t *kxtra = NULL;
@@ -465,52 +461,31 @@ main(int argc, char *argv[])
 
         fprintf(stderr, "=================================================\n");
 
+        EVP_PKEY *pkey = NULL;
+
+        pkey = jose_jwk_to_key(kxtra);
+        assert(pkey);
+
         switch (vectors[i].type) {
-        case TYPE_OCT: {
-            jose_key_t *key = NULL;
-
-            key = jose_jwk_to_key(kxtra);
-            assert(key);
-
-            test_oct(key, vectors[i].test.oct);
-
-            prvt = jose_jwk_from_key(key);
-            jose_key_free(key);
-            assert(prvt);
+        case EVP_PKEY_NONE:
+            test_oct((void *) pkey->pkey.ptr, vectors[i].test.oct);
             break;
-        }
 
-        case TYPE_RSA: {
-            RSA *key = NULL;
-
-            key = jose_jwk_to_rsa(kxtra);
-            assert(key);
-
-            test_rsa(key, &vectors[i].test.rsa);
-
-            prvt = jose_jwk_from_rsa(key);
-            RSA_free(key);
-            assert(prvt);
+        case EVP_PKEY_RSA:
+            test_rsa(pkey->pkey.rsa, &vectors[i].test.rsa);
             break;
-        }
 
-        case TYPE_EC: {
-            EC_KEY *key = NULL;
-
-            key = jose_jwk_to_ec(kxtra);
-            assert(key);
-
-            test_ec(key, &vectors[i].test.ec);
-
-            prvt = jose_jwk_from_ec(key);
-            EC_KEY_free(key);
-            assert(prvt);
+        case EVP_PKEY_EC:
+            test_ec(pkey->pkey.ec, &vectors[i].test.ec);
             break;
-        }
 
         default:
             goto next;
         }
+
+        prvt = jose_jwk_from_key(pkey);
+        EVP_PKEY_free(pkey);
+        assert(prvt);
 
         cprvt = jose_jwk_copy(prvt, true);
         cbase = jose_jwk_copy(prvt, false);

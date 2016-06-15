@@ -1,8 +1,9 @@
 /* vim: set tabstop=8 shiftwidth=4 softtabstop=4 expandtab smarttab colorcolumn=80: */
 
-#include "jose.h"
 #include "conv.h"
+#include "b64.h"
 
+#include <openssl/evp.h>
 #include <string.h>
 
 BIGNUM *
@@ -14,14 +15,14 @@ bn_from_buf(const uint8_t buf[], size_t len)
 BIGNUM *
 bn_from_json(const json_t *json)
 {
-    jose_key_t *key = NULL;
+    jose_buf_t *buf = NULL;
     BIGNUM *bn = NULL;
 
-    key = jose_b64_decode_key(json);
-    if (key)
-        bn = bn_from_buf(key->key, key->len);
+    buf = jose_b64_decode_buf(json, true);
+    if (buf)
+        bn = bn_from_buf(buf->buf, buf->len);
 
-    jose_key_free(key);
+    jose_buf_free(buf);
     return bn;
 }
 
@@ -47,7 +48,7 @@ bn_to_buf(const BIGNUM *bn, uint8_t buf[], size_t len)
 json_t *
 bn_to_json(const BIGNUM *bn, size_t len)
 {
-    jose_key_t *key = NULL;
+    jose_buf_t *buf = NULL;
     json_t *out = NULL;
 
     if (!bn)
@@ -56,14 +57,14 @@ bn_to_json(const BIGNUM *bn, size_t len)
     if (len == 0)
         len = BN_num_bytes(bn);
 
-    key = jose_key_new(len);
-    if (!key)
+    buf = jose_buf_new(len, true, NULL);
+    if (!buf)
         return NULL;
 
-    if (bn_to_buf(bn, key->key, len))
-        out = jose_b64_encode_key(key);
+    if (bn_to_buf(bn, buf->buf, len))
+        out = jose_b64_encode_buf(buf);
 
-    jose_key_free(key);
+    jose_buf_free(buf);
     return out;
 }
 
@@ -122,3 +123,42 @@ compact_to_obj(const char *compact, ...)
 
     return out;
 }
+
+size_t
+string_to_enum(const char *str, bool icase, ...)
+{
+    size_t i = 0;
+    va_list ap;
+
+    va_start(ap, icase);
+
+    for (const char *v = NULL; (v = va_arg(ap, const char *)); i++) {
+        if (str && !icase && strcmp(str, v) == 0)
+            break;
+        if (str && icase && strcasecmp(str, v) == 0)
+            break;
+    }
+
+    va_end(ap);
+    return i;
+}
+
+const uint8_t *
+EVP_PKEY_get_hmac(const EVP_PKEY *key, size_t *len)
+{
+    /* This is really dirty. I even felt dirty writing it. However, it is
+     * the only obvious way to get the buffer out of the EVP_PKEY.
+     * Patches welcome. */
+    ASN1_OCTET_STRING *os = NULL;
+
+    if (!key)
+        return NULL;
+
+    if (EVP_PKEY_base_id(key) != EVP_PKEY_HMAC)
+        return NULL;
+
+    os = (ASN1_OCTET_STRING *) key->pkey.ptr;
+    *len = os->length;
+    return os->data;
+}
+
