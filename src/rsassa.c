@@ -7,7 +7,7 @@
 #include <string.h>
 
 static const char *
-rsassa_suggest(const EVP_PKEY *key)
+rsassa_suggest(EVP_PKEY *key)
 {
     int size = 0;
 
@@ -32,7 +32,7 @@ rsassa_suggest(const EVP_PKEY *key)
 }
 
 static buf_t *
-rsassa_sign(const EVP_PKEY *key, const char *alg, const char *data)
+rsassa_sign(EVP_PKEY *key, const char *alg, const char *data)
 {
     const EVP_MD *md = NULL;
     unsigned int siglen = 0;
@@ -77,7 +77,7 @@ rsassa_sign(const EVP_PKEY *key, const char *alg, const char *data)
 }
 
 static bool
-rsassa_verify(const EVP_PKEY *key, const char *alg, const char *data,
+rsassa_verify(EVP_PKEY *key, const char *alg, const char *data,
               const uint8_t sig[], size_t slen)
 {
     const EVP_MD *md = NULL;

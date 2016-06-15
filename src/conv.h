@@ -25,5 +25,5 @@ compact_to_obj(const char *compact, ...);
 size_t
 string_to_enum(const char *str, bool icase, ...);
 
-const uint8_t *
-EVP_PKEY_get_hmac(const EVP_PKEY *pkey, size_t *len);
+const unsigned char *
+EVP_PKEY_get_hmac(EVP_PKEY *pkey, int *len);

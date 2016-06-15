@@ -8,9 +8,9 @@
 #include <string.h>
 
 static const char *
-hmac_suggest(const EVP_PKEY *key)
+hmac_suggest(EVP_PKEY *key)
 {
-    size_t len = 0;
+    int len = 0;
 
     if (!key)
         return NULL;
@@ -34,12 +34,12 @@ hmac_suggest(const EVP_PKEY *key)
 }
 
 static buf_t *
-hmac_sign(const EVP_PKEY *key, const char *alg, const char *data)
+hmac_sign(EVP_PKEY *key, const char *alg, const char *data)
 {
     const uint8_t *buf = NULL;
     const EVP_MD *md = NULL;
     buf_t *sig = NULL;
-    size_t len = 0;
+    int len = 0;
 
     if (!key)
         return NULL;
@@ -68,12 +68,12 @@ hmac_sign(const EVP_PKEY *key, const char *alg, const char *data)
 }
 
 static bool
-hmac_verify(const EVP_PKEY *key, const char *alg, const char *data,
+hmac_verify(EVP_PKEY *key, const char *alg, const char *data,
             const uint8_t sig[], size_t slen)
 {
     const uint8_t *buf = NULL;
     const EVP_MD *md = NULL;
-    size_t len = 0;
+    int len = 0;
 
     if (!key)
         return false;

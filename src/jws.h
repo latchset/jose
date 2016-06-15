@@ -49,13 +49,13 @@ typedef struct jose_jws_alg {
     const char * const *algorithms;
 
     const char *
-    (*suggest)(const EVP_PKEY *key);
+    (*suggest)(EVP_PKEY *key);
 
     buf_t *
-    (*sign)(const EVP_PKEY *key, const char *alg, const char *data);
+    (*sign)(EVP_PKEY *key, const char *alg, const char *data);
 
     bool
-    (*verify)(const EVP_PKEY *key, const char *alg, const char *data,
+    (*verify)(EVP_PKEY *key, const char *alg, const char *data,
               const uint8_t sig[], size_t slen);
 } jose_jws_alg_t;
 
@@ -81,14 +81,14 @@ jose_jws_to_compact(const json_t *jws);
 
 bool __attribute__((warn_unused_result))
 jose_jws_sign(json_t *jws, const json_t *head, const json_t *prot,
-              const EVP_PKEY *key, jose_jws_flags_t flags);
+              EVP_PKEY *key, jose_jws_flags_t flags);
 
 bool __attribute__((warn_unused_result))
 jose_jws_sign_jwk(json_t *jws, const json_t *head, const json_t *prot,
                   const json_t *jwks, jose_jws_flags_t flags);
 
 bool __attribute__((warn_unused_result))
-jose_jws_verify(const json_t *jws, const EVP_PKEY *key);
+jose_jws_verify(const json_t *jws, EVP_PKEY *key);
 
 bool __attribute__((warn_unused_result))
 jose_jws_verify_jwk(const json_t *jws, const json_t *jwks, bool all);

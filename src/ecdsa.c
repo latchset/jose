@@ -7,7 +7,7 @@
 #include <string.h>
 
 static const char *
-ecdsa_suggest(const EVP_PKEY *key)
+ecdsa_suggest(EVP_PKEY *key)
 {
     if (!key)
         return NULL;
@@ -24,7 +24,7 @@ ecdsa_suggest(const EVP_PKEY *key)
 }
 
 static buf_t *
-ecdsa_sign(const EVP_PKEY *key, const char *alg, const char *data)
+ecdsa_sign(EVP_PKEY *key, const char *alg, const char *data)
 {
     const EC_GROUP *grp = NULL;
     ECDSA_SIG *ecdsa = NULL;
@@ -81,7 +81,7 @@ error:
 }
 
 static bool
-ecdsa_verify(const EVP_PKEY *key, const char *alg, const char *data,
+ecdsa_verify(EVP_PKEY *key, const char *alg, const char *data,
              const uint8_t sig[], size_t slen)
 {
     const EC_GROUP *grp = NULL;

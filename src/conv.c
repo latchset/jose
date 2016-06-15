@@ -147,21 +147,20 @@ string_to_enum(const char *str, bool icase, ...)
     return i;
 }
 
-const uint8_t *
-EVP_PKEY_get_hmac(const EVP_PKEY *key, size_t *len)
+/*
+ * This really doesn't belong here, but OpenSSL doesn't (yet) help us.
+ *
+ * I have submitted a version of this function upstream:
+ *   https://github.com/openssl/openssl/pull/1217
+ */
+const unsigned char *
+EVP_PKEY_get_hmac(EVP_PKEY *pkey, int *len)
 {
-    /* This is really dirty. I even felt dirty writing it. However, it is
-     * the only obvious way to get the buffer out of the EVP_PKEY.
-     * Patches welcome. */
-    ASN1_OCTET_STRING *os = NULL;
+    ASN1_OCTET_STRING *os = EVP_PKEY_get0(pkey);
 
-    if (!key)
+    if (EVP_PKEY_base_id(pkey) != EVP_PKEY_HMAC)
         return NULL;
 
-    if (EVP_PKEY_base_id(key) != EVP_PKEY_HMAC)
-        return NULL;
-
-    os = (ASN1_OCTET_STRING *) key->pkey.ptr;
     *len = os->length;
     return os->data;
 }

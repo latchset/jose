@@ -183,7 +183,7 @@ make_data(json_t *jws, const json_t *prot)
 
 bool
 jose_jws_sign(json_t *jws, const json_t *head, const json_t *prot,
-              const EVP_PKEY *key, jose_jws_flags_t flags)
+              EVP_PKEY *key, jose_jws_flags_t flags)
 {
     const char *alg = NULL;
     buf_t *sig = NULL;
@@ -339,7 +339,7 @@ egress:
 }
 
 static bool
-verify(const json_t *pay, const json_t *sig, const EVP_PKEY *key)
+verify(const json_t *pay, const json_t *sig, EVP_PKEY *key)
 {
     const json_t *signature = NULL;
     const json_t *protected = NULL;
@@ -402,7 +402,7 @@ egress:
 }
 
 bool __attribute__((warn_unused_result))
-jose_jws_verify(const json_t *jws, const EVP_PKEY *key)
+jose_jws_verify(const json_t *jws, EVP_PKEY *key)
 {
     const json_t *array = NULL;
 
