@@ -2,8 +2,6 @@
 
 #pragma once
 
-#include "buf.h"
-
 #include <jansson.h>
 #include <openssl/evp.h>
 

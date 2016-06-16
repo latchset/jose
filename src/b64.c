@@ -1,7 +1,7 @@
 /* vim: set tabstop=8 shiftwidth=4 softtabstop=4 expandtab smarttab colorcolumn=80: */
 
 #include "b64.h"
-#include "buf.h"
+#include "lbuf.h"
 
 #include <stdbool.h>
 #include <string.h>
@@ -89,19 +89,19 @@ jose_b64_decode_json_load(const json_t *enc, int flags)
 {
     const char *e = NULL;
     json_t *out = NULL;
-    buf_t *buf = NULL;
+    lbuf_t *lbuf = NULL;
 
     if (json_unpack((json_t *) enc, "s", &e) == -1)
         return NULL;
 
-    buf = buf_new(jose_b64_dlen(strlen(e)), true);
-    if (!buf)
+    lbuf = lbuf_new(jose_b64_dlen(strlen(e)));
+    if (!lbuf)
         return NULL;
 
-    if (jose_b64_decode(e, buf->buf))
-        out = json_loadb((char *) buf->buf, buf->len, flags, NULL);
+    if (jose_b64_decode(e, lbuf->buf))
+        out = json_loadb((char *) lbuf->buf, lbuf->len, flags, NULL);
 
-    buf_free(buf);
+    lbuf_free(lbuf);
     return out;
 }
 
@@ -138,39 +138,39 @@ json_t *
 jose_b64_encode_json(const uint8_t dec[], size_t len)
 {
     json_t *json = NULL;
-    buf_t *buf = NULL;
+    lbuf_t *lbuf = NULL;
 
-    buf = buf_new(jose_b64_elen(len) + 1, true);
-    if (!buf)
+    lbuf = lbuf_new(jose_b64_elen(len) + 1);
+    if (!lbuf)
         return NULL;
 
-    jose_b64_encode(dec, len, (char *) buf->buf);
+    jose_b64_encode(dec, len, (char *) lbuf->buf);
 
-    json = json_string((char *) buf->buf);
-    buf_free(buf);
+    json = json_string((char *) lbuf->buf);
+    lbuf_free(lbuf);
     return json;
 }
 
 static int
 callback(const char *buffer, size_t size, void *data)
 {
-    buf_t **buf = data;
-    buf_t *tmp = NULL;
+    lbuf_t **lbuf = data;
+    lbuf_t *tmp = NULL;
     size_t off = 0;
 
-    if (*buf)
-        off = (*buf)->len;
+    if (*lbuf)
+        off = (*lbuf)->len;
 
-    tmp = buf_new(size + off, true);
+    tmp = lbuf_new(size + off);
     if (!tmp)
         return -1;
 
-    if (*buf)
-        memcpy(tmp->buf, (*buf)->buf, off);
+    if (*lbuf)
+        memcpy(tmp->buf, (*lbuf)->buf, off);
 
     memcpy(tmp->buf + off, buffer, size);
-    buf_free(*buf);
-    *buf = tmp;
+    lbuf_free(*lbuf);
+    *lbuf = tmp;
     return 0;
 }
 
@@ -179,12 +179,12 @@ json_t *
 jose_b64_encode_json_dump(const json_t *dec, int flags)
 {
     json_t *out = NULL;
-    buf_t *buf = NULL;
+    lbuf_t *lbuf = NULL;
 
-    if (json_dump_callback(dec, callback, &buf, flags) == -1)
+    if (json_dump_callback(dec, callback, &lbuf, flags) == -1)
         return NULL;
 
-    out = jose_b64_encode_json(buf->buf, buf->len);
-    buf_free(buf);
+    out = jose_b64_encode_json(lbuf->buf, lbuf->len);
+    lbuf_free(lbuf);
     return out;
 }
