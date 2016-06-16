@@ -22,6 +22,7 @@ verify(const char *prot, const char *payl,
        EVP_PKEY *key, const char *alg,
        const uint8_t sig[], size_t len)
 {
+    EVP_PKEY_CTX *pctx = NULL;
     const EVP_MD *md = NULL;
     EVP_MD_CTX *ctx = NULL;
     const char *req = NULL;
@@ -30,6 +31,7 @@ verify(const char *prot, const char *payl,
     bool ret = false;
     size_t slen = 0;
     int bytes = 0;
+    int pad = 0;
 
     switch (EVP_PKEY_base_id(key)) {
     case EVP_PKEY_HMAC:
@@ -45,10 +47,14 @@ verify(const char *prot, const char *payl,
          * in the interest of being liberal in the data that we receive, we
          * allow small keys only for verification. */
 
-        switch (str_to_enum(alg, "RS256", "RS384", "RS512", NULL)) {
-        case 0: md = EVP_sha256(); break;
-        case 1: md = EVP_sha384(); break;
-        case 2: md = EVP_sha512(); break;
+        switch (str_to_enum(alg, "RS256", "RS384", "RS512",
+                            "PS256", "PS384", "PS512", NULL)) {
+        case 0: md = EVP_sha256(); pad = RSA_PKCS1_PADDING; break;
+        case 1: md = EVP_sha384(); pad = RSA_PKCS1_PADDING; break;
+        case 2: md = EVP_sha512(); pad = RSA_PKCS1_PADDING; break;
+        case 3: md = EVP_sha256(); pad = RSA_PKCS1_PSS_PADDING; break;
+        case 4: md = EVP_sha384(); pad = RSA_PKCS1_PSS_PADDING; break;
+        case 5: md = EVP_sha512(); pad = RSA_PKCS1_PSS_PADDING; break;
         default: return false;
         }
         break;
@@ -87,7 +93,10 @@ verify(const char *prot, const char *payl,
     if (!ctx)
         goto egress;
 
-    if (EVP_DigestVerifyInit(ctx, NULL, md, NULL, key) < 0)
+    if (EVP_DigestVerifyInit(ctx, &pctx, md, NULL, key) < 0)
+        goto egress;
+
+    if (pad != 0 && EVP_PKEY_CTX_set_rsa_padding(pctx, pad) < 0)
         goto egress;
 
     if (EVP_DigestVerifyUpdate(ctx, prot, strlen(prot)) < 0)

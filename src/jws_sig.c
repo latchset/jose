@@ -153,11 +153,13 @@ uint8_t *
 sign(const char *prot, const char *payl, EVP_PKEY *key,
      const char *alg, size_t *len)
 {
+    EVP_PKEY_CTX *pctx = NULL;
     ECDSA_SIG *ecdsa = NULL;
     const EVP_MD *md = NULL;
     const char *req = NULL;
     EVP_MD_CTX *ctx = NULL;
     uint8_t *sig = NULL;
+    int pad = 0;
 
     switch (EVP_PKEY_base_id(key)) {
     case EVP_PKEY_HMAC:
@@ -174,10 +176,14 @@ sign(const char *prot, const char *payl, EVP_PKEY *key,
         if (RSA_size(key->pkey.rsa) < 2048 / 8)
             return NULL;
 
-        switch (str_to_enum(alg, "RS256", "RS384", "RS512", NULL)) {
-        case 0: md = EVP_sha256(); break;
-        case 1: md = EVP_sha384(); break;
-        case 2: md = EVP_sha512(); break;
+        switch (str_to_enum(alg, "RS256", "RS384", "RS512",
+                            "PS256", "PS384", "PS512", NULL)) {
+        case 0: md = EVP_sha256(); pad = RSA_PKCS1_PADDING; break;
+        case 1: md = EVP_sha384(); pad = RSA_PKCS1_PADDING; break;
+        case 2: md = EVP_sha512(); pad = RSA_PKCS1_PADDING; break;
+        case 3: md = EVP_sha256(); pad = RSA_PKCS1_PSS_PADDING; break;
+        case 4: md = EVP_sha384(); pad = RSA_PKCS1_PSS_PADDING; break;
+        case 5: md = EVP_sha512(); pad = RSA_PKCS1_PSS_PADDING; break;
         default: return NULL;
         }
         break;
@@ -202,7 +208,10 @@ sign(const char *prot, const char *payl, EVP_PKEY *key,
     if (!ctx)
         return NULL;
 
-    if (EVP_DigestSignInit(ctx, NULL, md, NULL, key) < 0)
+    if (EVP_DigestSignInit(ctx, &pctx, md, NULL, key) < 0)
+        goto error;
+
+    if (pad != 0 && EVP_PKEY_CTX_set_rsa_padding(pctx, pad) < 0)
         goto error;
 
     if (EVP_DigestSignUpdate(ctx, prot, strlen(prot)) < 0)
