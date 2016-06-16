@@ -234,7 +234,7 @@ to_ec(const json_t *jwk)
     if (strcmp(kty, "EC") != 0)
         return NULL;
 
-    switch (string_to_enum(crv, false, "P-256", "P-384", "P-521", NULL)) {
+    switch (str_to_enum(crv, "P-256", "P-384", "P-521", NULL)) {
     case 0: nid = NID_X9_62_prime256v1; break;
     case 1: nid = NID_secp384r1; break;
     case 2: nid = NID_secp521r1; break;
@@ -404,7 +404,7 @@ jose_jwk_to_key(const json_t *jwk)
     if (json_unpack((json_t *) jwk, "{s:s}", "kty", &kty) == -1)
         return NULL;
 
-    switch (string_to_enum(kty, false, "oct", "RSA", "EC", NULL)) {
+    switch (str_to_enum(kty, "oct", "RSA", "EC", NULL)) {
     case 0: return to_hmac(jwk);
     case 1: return to_rsa(jwk);
     case 2: return to_ec(jwk);

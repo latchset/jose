@@ -129,17 +129,15 @@ compact_to_obj(const char *compact, ...)
 }
 
 size_t
-string_to_enum(const char *str, bool icase, ...)
+str_to_enum(const char *str, ...)
 {
     size_t i = 0;
     va_list ap;
 
-    va_start(ap, icase);
+    va_start(ap, str);
 
     for (const char *v = NULL; (v = va_arg(ap, const char *)); i++) {
-        if (str && !icase && strcmp(str, v) == 0)
-            break;
-        if (str && icase && strcasecmp(str, v) == 0)
+        if (str && strcmp(str, v) == 0)
             break;
     }
 

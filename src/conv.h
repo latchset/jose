@@ -23,7 +23,7 @@ json_t *
 compact_to_obj(const char *compact, ...);
 
 size_t
-string_to_enum(const char *str, bool icase, ...);
+str_to_enum(const char *str, ...);
 
 const unsigned char *
 EVP_PKEY_get0_hmac(EVP_PKEY *pkey, size_t *len);

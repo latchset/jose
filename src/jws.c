@@ -157,7 +157,7 @@ sign(const char *prot, const char *payl, EVP_PKEY *key,
 
     switch (EVP_PKEY_base_id(key)) {
     case EVP_PKEY_HMAC:
-        switch (string_to_enum(alg, false, "HS256", "HS384", "HS512", NULL)) {
+        switch (str_to_enum(alg, "HS256", "HS384", "HS512", NULL)) {
         case 0: md = EVP_sha256(); break;
         case 1: md = EVP_sha384(); break;
         case 2: md = EVP_sha512(); break;
@@ -170,7 +170,7 @@ sign(const char *prot, const char *payl, EVP_PKEY *key,
         if (RSA_size(key->pkey.rsa) < 2048 / 8)
             return NULL;
 
-        switch (string_to_enum(alg, false, "RS256", "RS384", "RS512", NULL)) {
+        switch (str_to_enum(alg, "RS256", "RS384", "RS512", NULL)) {
         case 0: md = EVP_sha256(); break;
         case 1: md = EVP_sha384(); break;
         case 2: md = EVP_sha512(); break;
@@ -286,7 +286,7 @@ verify(const char *prot, const char *payl,
          * in the interest of being liberal in the data that we receive, we
          * allow small keys only for verification. */
 
-        switch (string_to_enum(alg, false, "RS256", "RS384", "RS512", NULL)) {
+        switch (str_to_enum(alg, "RS256", "RS384", "RS512", NULL)) {
         case 0: md = EVP_sha256(); break;
         case 1: md = EVP_sha384(); break;
         case 2: md = EVP_sha512(); break;
