@@ -7,6 +7,7 @@ inc_HEADERS = b64.h jwk.h jwkset.h jws.h
 lib_LTLIBRARIES = libjose.la
 libjose_la_SOURCES = lbuf.c b64.c conv.c jwk.c jwkset.c jws.c jws_sig.c jws_ver.c
 libjose_la_LIBADD = @libcrypto_LIBS@ @jansson_LIBS@
+libjose_la_LDFLAGS = -export-symbols-regex '^jose_'
 
 check_PROGRAMS = b64_t jwk_t jwkset_t jws_t
 b64_t_LDADD = libjose.la
