@@ -68,7 +68,7 @@ error:
 }
 
 static json_t *
-from_ec(EVP_PKEY *pkey)
+from_ec(EVP_PKEY *pkey, bool prv)
 {
     const BIGNUM *d = NULL;
     const char *crv = NULL;
@@ -99,7 +99,7 @@ from_ec(EVP_PKEY *pkey)
 
     jwk = json_pack("{s:s,s:s,s:o,s:o}", "kty", "EC", "crv", crv,
                     "x", bn_to_json(x, len), "y", bn_to_json(y, len));
-    if (d && json_object_set_new(jwk, "d", bn_to_json(d, len)) == -1) {
+    if (d && prv && json_object_set_new(jwk, "d", bn_to_json(d, len)) == -1) {
         json_decref(jwk);
         jwk = NULL;
     }
@@ -112,7 +112,7 @@ egress:
 }
 
 static json_t *
-from_rsa(EVP_PKEY *pkey)
+from_rsa(EVP_PKEY *pkey, bool prv)
 {
     json_t *jwk = NULL;
     RSA *key = NULL;
@@ -127,7 +127,8 @@ from_rsa(EVP_PKEY *pkey)
     if (!key->n || !key->e)
         goto egress;
 
-    if (key->d && key->p && key->q && key->dmp1 && key->dmq1 && key->iqmp) {
+    if (prv && key->d && key->p && key->q &&
+        key->dmp1 && key->dmq1 && key->iqmp) {
         jwk = json_pack(
             "{s:s,s:o,s:o,s:o,s:o,s:o,s:o,s:o,s:o}",
             "kty", "RSA",
@@ -155,18 +156,26 @@ egress:
 }
 
 static json_t *
-from_hmac(EVP_PKEY *key)
+from_hmac(EVP_PKEY *key, bool prv)
 {
     const uint8_t *buf = NULL;
+    json_t *jwk = NULL;
     size_t len = 0;
 
     buf = EVP_PKEY_get0_hmac(key, &len);
     if (!buf)
         return NULL;
 
-    return json_pack("{s:s, s:o}",
-                     "kty", "oct",
-                     "k", jose_b64_encode_json(buf, len));
+    jwk = json_pack("{s:s}", "kty", "oct");
+    if (jwk && prv) {
+        json_t *k = jose_b64_encode_json(buf, len);
+        if (json_object_set_new(jwk, "k", k) == -1) {
+            json_decref(jwk);
+            return NULL;
+        }
+    }
+
+    return jwk;
 }
 
 static EC_POINT *
@@ -360,12 +369,12 @@ to_hmac(const json_t *jwk)
 }
 
 json_t *
-jose_jwk_from_key(EVP_PKEY *key)
+jose_jwk_from_key(EVP_PKEY *key, bool prv)
 {
     switch (EVP_PKEY_base_id(key)) {
-    case EVP_PKEY_HMAC: return from_hmac(key);
-    case EVP_PKEY_RSA: return from_rsa(key);
-    case EVP_PKEY_EC: return from_ec(key);
+    case EVP_PKEY_HMAC: return from_hmac(key, prv);
+    case EVP_PKEY_RSA: return from_rsa(key, prv);
+    case EVP_PKEY_EC: return from_ec(key, prv);
     default: return NULL;
     }
 }

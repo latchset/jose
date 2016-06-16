@@ -482,7 +482,7 @@ main(int argc, char *argv[])
             goto next;
         }
 
-        prvt = jose_jwk_from_key(pkey);
+        prvt = jose_jwk_from_key(pkey, true);
         assert(prvt);
 
         cprvt = jose_jwk_copy(prvt, true);

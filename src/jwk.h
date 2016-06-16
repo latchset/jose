@@ -10,7 +10,7 @@
  * Create a JWK from an EVP_PKEY.
  */
 json_t * __attribute__((warn_unused_result))
-jose_jwk_from_key(EVP_PKEY *key);
+jose_jwk_from_key(EVP_PKEY *key, bool prv);
 
 /**
  * Create a copy of the JWK.
