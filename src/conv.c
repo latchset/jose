@@ -154,13 +154,14 @@ string_to_enum(const char *str, bool icase, ...)
  *   https://github.com/openssl/openssl/pull/1217
  */
 const unsigned char *
-EVP_PKEY_get_hmac(EVP_PKEY *pkey, int *len)
+EVP_PKEY_get0_hmac(EVP_PKEY *pkey, size_t *len)
 {
-    ASN1_OCTET_STRING *os = EVP_PKEY_get0(pkey);
+    ASN1_OCTET_STRING *os = NULL;
 
     if (EVP_PKEY_base_id(pkey) != EVP_PKEY_HMAC)
         return NULL;
 
+    os = EVP_PKEY_get0(pkey);
     *len = os->length;
     return os->data;
 }

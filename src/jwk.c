@@ -157,14 +157,16 @@ egress:
 static json_t *
 from_hmac(EVP_PKEY *key)
 {
-    /* This is really dirty. I even felt dirty writing it. However, it is
-     * the only obvious way to get the buffer out of the EVP_PKEY.
-     * Patches welcome. */
-    ASN1_OCTET_STRING *os = EVP_PKEY_get0(key);
+    const uint8_t *buf = NULL;
+    size_t len = 0;
+
+    buf = EVP_PKEY_get0_hmac(key, &len);
+    if (!buf)
+        return NULL;
 
     return json_pack("{s:s, s:o}",
                      "kty", "oct",
-                     "k", jose_b64_encode_json(os->data, os->length));
+                     "k", jose_b64_encode_json(buf, len));
 }
 
 static EC_POINT *

@@ -104,11 +104,11 @@ add_sig(json_t *jws, json_t *head, const char *prot,
 static const char *
 suggest(EVP_PKEY *key)
 {
-    int len = 0;
+    size_t len = 0;
 
     switch (EVP_PKEY_base_id(key)) {
     case EVP_PKEY_HMAC:
-        if (!EVP_PKEY_get_hmac(key, &len))
+        if (!EVP_PKEY_get0_hmac(key, &len))
             return NULL;
 
         len = len < SHA512_DIGEST_LENGTH ? len : SHA512_DIGEST_LENGTH;

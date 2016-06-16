@@ -26,4 +26,4 @@ size_t
 string_to_enum(const char *str, bool icase, ...);
 
 const unsigned char *
-EVP_PKEY_get_hmac(EVP_PKEY *pkey, int *len);
+EVP_PKEY_get0_hmac(EVP_PKEY *pkey, size_t *len);
