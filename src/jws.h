@@ -7,22 +7,6 @@
 
 #include <stdbool.h>
 
-typedef enum {
-    JOSE_JWS_FLAGS_NONE = 0,
-
-    /** Set the JWK (public attributes only) in the JWS Unprotected Header. */
-    JOSE_JWS_FLAGS_JWK_HEAD = 1 << 0,
-
-    /** Set the JWK (public attributes only) in the JWS Protected Header. */
-    JOSE_JWS_FLAGS_JWK_PROT = 1 << 1,
-
-    /** Set the JWK's kid attribute in the JWS Unprotected Header. */
-    JOSE_JWS_FLAGS_KID_HEAD = 1 << 2,
-
-    /** Set the JWK's kid attribute in the JWS Protected Header. */
-    JOSE_JWS_FLAGS_KID_PROT = 1 << 3,
-} jose_jws_flags_t;
-
 /**
  * Converts a JWS from compact format into JSON format.
  */
@@ -99,7 +83,7 @@ jose_jws_sign(json_t *jws, const json_t *head, const json_t *prot,
  */
 bool __attribute__((warn_unused_result))
 jose_jws_sign_jwk(json_t *jws, const json_t *head, const json_t *prot,
-                  const json_t *jwks, jose_jws_flags_t flags);
+                  const json_t *jwks, const char *flags);
 
 /**
  * Validates a JWS using the specified EVP_PKEY.

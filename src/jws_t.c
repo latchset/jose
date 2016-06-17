@@ -353,8 +353,7 @@ test_general_sign_and_verify(const struct example *e)
         assert(prot = make_prot(e->sigs[i].prot));
 
         /* Sign the JWS. */
-        assert(jose_jws_sign_jwk(jws, NULL, prot, jwk,
-                                 JOSE_JWS_FLAGS_KID_HEAD));
+        assert(jose_jws_sign_jwk(jws, NULL, prot, jwk, "K"));
         json_decref(prot);
 
         json_dumpf(jws, stderr, JSON_SORT_KEYS);

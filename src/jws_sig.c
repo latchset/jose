@@ -251,10 +251,10 @@ sign(const char *prot, const char *payl, EVP_PKEY *key,
         if (!sig)
             goto error;
 
-        if (!bn_to_buf(ecdsa->r, sig, *len / 2))
+        if (!bn_encode(ecdsa->r, sig, *len / 2))
             goto error;
 
-        if (!bn_to_buf(ecdsa->s, &sig[*len / 2], *len / 2))
+        if (!bn_encode(ecdsa->s, &sig[*len / 2], *len / 2))
             goto error;
     }
 
@@ -329,9 +329,11 @@ egress:
     return ret;
 }
 
+#include <ctype.h>
+
 static bool
 sign_jwk(json_t *jws, const json_t *head, const json_t *prot,
-          const json_t *jwk, jose_jws_flags_t flags)
+          const json_t *jwk, const char *flags)
 {
     const char *alg = NULL;
     EVP_PKEY *key = NULL;
@@ -343,37 +345,27 @@ sign_jwk(json_t *jws, const json_t *head, const json_t *prot,
     if (head && !h)
         goto egress;
 
-    if (!h && (flags & (JOSE_JWS_FLAGS_JWK_HEAD | JOSE_JWS_FLAGS_KID_HEAD)))
+    if (!h && has_flags(flags, false, "KI"))
         h = json_object();
 
     p = json_deep_copy(prot);
     if (prot && !p)
         goto egress;
 
-    if (!p && (flags & (JOSE_JWS_FLAGS_JWK_PROT | JOSE_JWS_FLAGS_KID_PROT)))
+    if (!p && has_flags(flags, false, "ki"))
         p = json_object();
 
-    if (flags & JOSE_JWS_FLAGS_JWK_HEAD && !json_object_get(h, "jwk")) {
-        json_t *copy = jose_jwk_copy(jwk, false);
-        if (json_object_set_new(h, "jwk", copy) == -1)
-            goto egress;
-    }
+    for (size_t i = 0; flags && flags[i]; i++) {
+        const char *k = NULL;
+        json_t *v = NULL;
 
-    if (flags & JOSE_JWS_FLAGS_JWK_PROT && !json_object_get(p, "jwk")) {
-        json_t *copy = jose_jwk_copy(jwk, false);
-        if (json_object_set_new(p, "jwk", copy) == -1)
-            goto egress;
-    }
+        switch (tolower(flags[i])) {
+        case 'k': k = "jwk"; v = jose_jwk_copy(jwk, false); break;
+        case 'i': k = "kid"; v = json_incref(json_object_get(jwk, "kid")); break;
+        default: continue;
+        }
 
-    if (flags & JOSE_JWS_FLAGS_KID_HEAD && !json_object_get(h, "kid")) {
-        json_t *kid = json_object_get(jwk, "kid");
-        if (kid && json_object_set(h, "kid", kid) == -1)
-            goto egress;
-    }
-
-    if (flags & JOSE_JWS_FLAGS_KID_PROT && !json_object_get(p, "kid")) {
-        json_t *kid = json_object_get(jwk, "kid");
-        if (kid && json_object_set(p, "kid", kid) == -1)
+        if (json_object_set_new(isupper(flags[i]) ? h : p, k, v) == -1)
             goto egress;
     }
 
@@ -401,7 +393,7 @@ egress:
 
 bool
 jose_jws_sign_jwk(json_t *jws, const json_t *head, const json_t *prot,
-                  const json_t *jwks, jose_jws_flags_t flags)
+                  const json_t *jwks, const char *flags)
 {
     const json_t *array = NULL;
 

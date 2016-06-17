@@ -70,8 +70,8 @@ verify(const char *prot, const char *payl,
         if (strcmp(alg, req) != 0)
             return NULL;
 
-        ecdsa.r = bn_from_buf(sig, len / 2);
-        ecdsa.s = bn_from_buf(&sig[len / 2], len / 2);
+        ecdsa.r = bn_decode(sig, len / 2);
+        ecdsa.s = bn_decode(&sig[len / 2], len / 2);
 
         if (ecdsa.r && ecdsa.s)
             bytes = i2d_ECDSA_SIG(&ecdsa, &alt);

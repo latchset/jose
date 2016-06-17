@@ -1,7 +1,7 @@
 /* vim: set tabstop=8 shiftwidth=4 softtabstop=4 expandtab smarttab colorcolumn=80: */
 
 #include "b64.h"
-#include "cek_int.h"
+#include "buf.h"
 
 #include <stdbool.h>
 #include <string.h>
@@ -75,6 +75,23 @@ jose_b64_decode(const char *enc, uint8_t dec[])
     return true;
 }
 
+jose_buf_t *
+jose_b64_decode_buf(const char *enc, bool lock)
+{
+    jose_buf_t *buf = NULL;
+
+    buf = jose_buf_new(jose_b64_dlen(strlen(enc)), lock);
+    if (!buf)
+        return NULL;
+
+    if (!jose_b64_decode(enc, buf->data)) {
+        jose_buf_free(buf);
+        return NULL;
+    }
+
+    return buf;
+}
+
 bool
 jose_b64_decode_json(const json_t *enc, uint8_t dec[])
 {
@@ -84,24 +101,26 @@ jose_b64_decode_json(const json_t *enc, uint8_t dec[])
     return jose_b64_decode(json_string_value(enc), dec);
 }
 
+jose_buf_t *
+jose_b64_decode_json_buf(const json_t *enc, bool lock)
+{
+    if (!json_is_string(enc))
+        return NULL;
+
+    return jose_b64_decode_buf(json_string_value(enc), lock);
+}
+
 json_t *
 jose_b64_decode_json_load(const json_t *enc, int flags)
 {
-    const char *e = NULL;
     json_t *out = NULL;
-    jose_cek_t *cek = NULL;
+    jose_buf_t *buf = NULL;
 
-    if (json_unpack((json_t *) enc, "s", &e) == -1)
-        return NULL;
+    buf = jose_b64_decode_json_buf(enc, true);
+    if (buf)
+        out = json_loadb((char *) buf->data, buf->used, flags, NULL);
 
-    cek = cek_new(jose_b64_dlen(strlen(e)));
-    if (!cek)
-        return NULL;
-
-    if (jose_b64_decode(e, cek->buf))
-        out = json_loadb((char *) cek->buf, cek->len, flags, NULL);
-
-    jose_cek_free(cek);
+    jose_buf_free(buf);
     return out;
 }
 
@@ -134,43 +153,55 @@ jose_b64_encode(const uint8_t dec[], size_t len, char enc[])
     *enc = 0;
 }
 
+void
+jose_b64_encode_buf(const jose_buf_t *dec, char enc[])
+{
+    return jose_b64_encode(dec->data, dec->used, enc);
+}
+
 json_t *
 jose_b64_encode_json(const uint8_t dec[], size_t len)
 {
     json_t *json = NULL;
-    jose_cek_t *cek = NULL;
+    jose_buf_t *buf = NULL;
 
-    cek = cek_new(jose_b64_elen(len) + 1);
-    if (!cek)
+    buf = jose_buf_new(jose_b64_elen(len) + 1, true);
+    if (!buf)
         return NULL;
 
-    jose_b64_encode(dec, len, (char *) cek->buf);
+    jose_b64_encode(dec, len, (char *) buf->data);
 
-    json = json_string((char *) cek->buf);
-    jose_cek_free(cek);
+    json = json_string((char *) buf->data);
+    jose_buf_free(buf);
     return json;
+}
+
+json_t *
+jose_b64_encode_json_buf(const jose_buf_t *dec)
+{
+    return jose_b64_encode_json(dec->data, dec->used);
 }
 
 static int
 callback(const char *buffer, size_t size, void *data)
 {
-    jose_cek_t **cek = data;
-    jose_cek_t *tmp = NULL;
+    jose_buf_t **buf = data;
+    jose_buf_t *tmp = NULL;
     size_t off = 0;
 
-    if (*cek)
-        off = (*cek)->len;
+    if (*buf)
+        off = (*buf)->size;
 
-    tmp = cek_new(size + off);
+    tmp = jose_buf_new(size + off, true);
     if (!tmp)
         return -1;
 
-    if (*cek)
-        memcpy(tmp->buf, (*cek)->buf, off);
+    if (*buf)
+        memcpy(tmp->data, (*buf)->data, off);
 
-    memcpy(tmp->buf + off, buffer, size);
-    jose_cek_free(*cek);
-    *cek = tmp;
+    memcpy(&tmp->data[off], buffer, size);
+    jose_buf_free(*buf);
+    *buf = tmp;
     return 0;
 }
 
@@ -179,12 +210,12 @@ json_t *
 jose_b64_encode_json_dump(const json_t *dec, int flags)
 {
     json_t *out = NULL;
-    jose_cek_t *cek = NULL;
+    jose_buf_t *buf = NULL;
 
-    if (json_dump_callback(dec, callback, &cek, flags) == -1)
+    if (json_dump_callback(dec, callback, &buf, flags) == -1)
         return NULL;
 
-    out = jose_b64_encode_json(cek->buf, cek->len);
-    jose_cek_free(cek);
+    out = jose_b64_encode_json(buf->data, buf->used);
+    jose_buf_free(buf);
     return out;
 }

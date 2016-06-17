@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "cek.h"
+#include "buf.h"
 
 #include <jansson.h>
 #include <openssl/ossl_typ.h>
@@ -27,31 +27,34 @@ jose_jwe_from_compact(const char *jwe);
 char * __attribute__((warn_unused_result))
 jose_jwe_to_compact(const json_t *jwe);
 
-jose_cek_t * __attribute__((warn_unused_result))
+/**
+ * Encrypts the supplied plaintext (pt).
+ *
+ */
+bool __attribute__((warn_unused_result))
 jose_jwe_encrypt(json_t *jwe, const json_t *prot, const json_t *shrd,
-                 const uint8_t pt[], size_t ptlen);
+                 const uint8_t pt[], size_t ptl, jose_buf_t **cek);
 
-jose_cek_t * __attribute__((warn_unused_result))
+bool __attribute__((warn_unused_result))
 jose_jwe_encrypt_json(json_t *jwe, const json_t *prot, const json_t *shrd,
-                      const json_t *pt, int flags);
+                      const json_t *pt, int flags, jose_buf_t **cek);
 
 bool __attribute__((warn_unused_result))
-jose_jwe_seal_key(json_t *jwe, const jose_cek_t *cek, const json_t *head,
-                  EVP_PKEY *key);
+jose_jwe_seal(json_t *jwe, const jose_buf_t *cek, const json_t *head,
+              EVP_PKEY *key);
 
 bool __attribute__((warn_unused_result))
-jose_jwe_seal_jwk(json_t *jwe, const jose_cek_t *cek, const json_t *head,
-                  const json_t *jwks);
+jose_jwe_seal_jwk(json_t *jwe, const jose_buf_t *cek, const json_t *head,
+                  const json_t *jwks, const char *flags);
 
-jose_cek_t * __attribute__((warn_unused_result))
-jose_jwe_unseal_key(const json_t *jwe, EVP_PKEY *key);
+jose_buf_t * __attribute__((warn_unused_result))
+jose_jwe_unseal(const json_t *jwe, EVP_PKEY *key);
 
-jose_cek_t * __attribute__((warn_unused_result))
+jose_buf_t * __attribute__((warn_unused_result))
 jose_jwe_unseal_jwk(const json_t *jwe, const json_t *jwks);
 
-bool __attribute__((warn_unused_result))
-jose_jwe_decrypt(const json_t *jwe, const jose_cek_t *cek,
-                 uint8_t pt[], size_t *len);
+jose_buf_t * __attribute__((warn_unused_result))
+jose_jwe_decrypt(const json_t *jwe, const jose_buf_t *cek);
 
 json_t * __attribute__((warn_unused_result))
-jose_jwe_decrypt_json(const json_t *jwe, const jose_cek_t *cek, int flags);
+jose_jwe_decrypt_json(const json_t *jwe, const jose_buf_t *cek, int flags);

@@ -1,37 +1,39 @@
 /* vim: set tabstop=8 shiftwidth=4 softtabstop=4 expandtab smarttab colorcolumn=80: */
 
 #include "conv.h"
-#include "cek_int.h"
 #include "b64.h"
 
 #include <openssl/evp.h>
 #include <string.h>
 
 BIGNUM *
-bn_from_buf(const uint8_t buf[], size_t len)
+bn_decode(const uint8_t buf[], size_t len)
 {
     return BN_bin2bn(buf, len, NULL);
 }
 
 BIGNUM *
-bn_from_json(const json_t *json)
+bn_decode_buf(const jose_buf_t *buf)
 {
-    jose_cek_t *cek = NULL;
+    return BN_bin2bn(buf->data, buf->used, NULL);
+}
+
+BIGNUM *
+bn_decode_json(const json_t *json)
+{
+    jose_buf_t *buf = NULL;
     BIGNUM *bn = NULL;
 
-    cek = cek_new(jose_b64_dlen(json_string_length(json)));
-    if (!cek)
-        return NULL;
+    buf = jose_b64_decode_buf(json_string_value(json), true);
+    if (buf)
+        bn = bn_decode(buf->data, buf->used);
 
-    if (jose_b64_decode_json(json, cek->buf))
-        bn = bn_from_buf(cek->buf, cek->len);
-
-    jose_cek_free(cek);
+    jose_buf_free(buf);
     return bn;
 }
 
 bool
-bn_to_buf(const BIGNUM *bn, uint8_t buf[], size_t len)
+bn_encode(const BIGNUM *bn, uint8_t buf[], size_t len)
 {
     int bytes = 0;
 
@@ -49,11 +51,10 @@ bn_to_buf(const BIGNUM *bn, uint8_t buf[], size_t len)
     return BN_bn2bin(bn, &buf[len - bytes]) > 0;
 }
 
-json_t *
-bn_to_json(const BIGNUM *bn, size_t len)
+jose_buf_t *
+bn_encode_buf(const BIGNUM *bn, size_t len)
 {
-    json_t *out = NULL;
-    jose_cek_t *cek = NULL;
+    jose_buf_t *buf = NULL;
 
     if (!bn)
         return false;
@@ -61,14 +62,29 @@ bn_to_json(const BIGNUM *bn, size_t len)
     if (len == 0)
         len = BN_num_bytes(bn);
 
-    cek = cek_new(len);
-    if (!cek)
+    buf = jose_buf_new(len, true);
+    if (buf) {
+        if (bn_encode(bn, buf->data, buf->used))
+            return buf;
+
+        jose_buf_free(buf);
+    }
+
+    return NULL;
+}
+
+json_t *
+bn_encode_json(const BIGNUM *bn, size_t len)
+{
+    json_t *out = NULL;
+    jose_buf_t *buf = NULL;
+
+    buf = bn_encode_buf(bn, len);
+    if (!buf)
         return NULL;
 
-    if (bn_to_buf(bn, cek->buf, len))
-        out = jose_b64_encode_json(cek->buf, cek->len);
-
-    jose_cek_free(cek);
+    out = jose_b64_encode_json_buf(buf);
+    jose_buf_free(buf);
     return out;
 }
 
@@ -144,6 +160,24 @@ str_to_enum(const char *str, ...)
     va_end(ap);
     return i;
 }
+
+bool
+has_flags(const char *flags, bool all, const char *query)
+{
+    if (!flags || !query)
+        return false;
+
+    for (size_t i = 0; query[i]; i++) {
+        const char *c = strchr(flags, query[i]);
+        if (all && !c)
+            return false;
+        if (!all && c)
+            return true;
+    }
+
+    return all;
+}
+
 
 /*
  * This really doesn't belong here, but OpenSSL doesn't (yet) help us.

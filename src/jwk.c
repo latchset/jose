@@ -2,7 +2,6 @@
 
 #include "jwk.h"
 #include "b64.h"
-#include "cek_int.h"
 #include "conv.h"
 
 #include <openssl/ec.h>
@@ -98,8 +97,9 @@ from_ec(EVP_PKEY *pkey, bool prv)
         goto egress;
 
     jwk = json_pack("{s:s,s:s,s:o,s:o}", "kty", "EC", "crv", crv,
-                    "x", bn_to_json(x, len), "y", bn_to_json(y, len));
-    if (d && prv && json_object_set_new(jwk, "d", bn_to_json(d, len)) == -1) {
+                    "x", bn_encode_json(x, len), "y", bn_encode_json(y, len));
+    if (d && prv && json_object_set_new(jwk, "d",
+                                        bn_encode_json(d, len)) == -1) {
         json_decref(jwk);
         jwk = NULL;
     }
@@ -132,21 +132,21 @@ from_rsa(EVP_PKEY *pkey, bool prv)
         jwk = json_pack(
             "{s:s,s:o,s:o,s:o,s:o,s:o,s:o,s:o,s:o}",
             "kty", "RSA",
-            "n", bn_to_json(key->n, 0),
-            "e", bn_to_json(key->e, 0),
-            "d", bn_to_json(key->d, 0),
-            "p", bn_to_json(key->p, 0),
-            "q", bn_to_json(key->q, 0),
-            "dp", bn_to_json(key->dmp1, 0),
-            "dq", bn_to_json(key->dmq1, 0),
-            "qi", bn_to_json(key->iqmp, 0)
+            "n", bn_encode_json(key->n, 0),
+            "e", bn_encode_json(key->e, 0),
+            "d", bn_encode_json(key->d, 0),
+            "p", bn_encode_json(key->p, 0),
+            "q", bn_encode_json(key->q, 0),
+            "dp", bn_encode_json(key->dmp1, 0),
+            "dq", bn_encode_json(key->dmq1, 0),
+            "qi", bn_encode_json(key->iqmp, 0)
         );
     } else {
         jwk = json_pack(
             "{s:s,s:o,s:o}",
             "kty", "RSA",
-            "n", bn_to_json(key->n, 0),
-            "e", bn_to_json(key->e, 0)
+            "n", bn_encode_json(key->n, 0),
+            "e", bn_encode_json(key->e, 0)
         );
     }
 
@@ -195,8 +195,8 @@ mkpub(const EC_GROUP *grp, const json_t *x, const json_t *y, const BIGNUM *D)
         goto error;
 
     if (x && y) {
-        X = bn_from_json(x);
-        Y = bn_from_json(y);
+        X = bn_decode_json(x);
+        Y = bn_decode_json(y);
         if (!X || !Y)
             goto error;
 
@@ -255,7 +255,7 @@ to_ec(const json_t *jwk)
         return NULL;
 
     if (d) {
-        D = bn_from_json(d);
+        D = bn_decode_json(d);
         if (!D)
             goto egress;
 
@@ -315,18 +315,18 @@ to_rsa(const json_t *jwk)
     if (!rsa)
         return NULL;
 
-    rsa->n = bn_from_json(n);
-    rsa->e = bn_from_json(e);
+    rsa->n = bn_decode_json(n);
+    rsa->e = bn_decode_json(e);
     if (!rsa->n || !rsa->e)
         goto egress;
 
     if (d && p && q && dp && dq && qi) {
-        rsa->d = bn_from_json(d);
-        rsa->p = bn_from_json(p);
-        rsa->q = bn_from_json(q);
-        rsa->dmp1 = bn_from_json(dp);
-        rsa->dmq1 = bn_from_json(dq);
-        rsa->iqmp = bn_from_json(qi);
+        rsa->d = bn_decode_json(d);
+        rsa->p = bn_decode_json(p);
+        rsa->q = bn_decode_json(q);
+        rsa->dmp1 = bn_decode_json(dp);
+        rsa->dmq1 = bn_decode_json(dq);
+        rsa->iqmp = bn_decode_json(qi);
 
         if (!rsa->d || !rsa->p || !rsa->q || !rsa->dmp1 || !rsa->dmq1 ||
             !rsa->iqmp || RSA_blinding_on(rsa, NULL) <= 0)
@@ -350,21 +350,15 @@ egress:
 static EVP_PKEY *
 to_hmac(const json_t *jwk)
 {
-    const char *k = NULL;
+    jose_buf_t *buf = NULL;
     EVP_PKEY *key = NULL;
-    jose_cek_t *cek = NULL;
 
-    if (json_unpack((json_t *) jwk, "{s:s}", "k", &k) == -1)
+    buf = jose_b64_decode_json_buf(json_object_get(jwk, "k"), true);
+    if (!buf)
         return NULL;
 
-    cek = cek_new(jose_b64_dlen(strlen(k)));
-    if (!cek)
-        return NULL;
-
-    if (jose_b64_decode(k, cek->buf))
-        key = EVP_PKEY_new_mac_key(EVP_PKEY_HMAC, NULL, cek->buf, cek->len);
-
-    jose_cek_free(cek);
+    key = EVP_PKEY_new_mac_key(EVP_PKEY_HMAC, NULL, buf->data, buf->used);
+    jose_buf_free(buf);
     return key;
 }
 
