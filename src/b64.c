@@ -1,7 +1,7 @@
 /* vim: set tabstop=8 shiftwidth=4 softtabstop=4 expandtab smarttab colorcolumn=80: */
 
 #include "b64.h"
-#include "lbuf.h"
+#include "cek_int.h"
 
 #include <stdbool.h>
 #include <string.h>
@@ -89,19 +89,19 @@ jose_b64_decode_json_load(const json_t *enc, int flags)
 {
     const char *e = NULL;
     json_t *out = NULL;
-    lbuf_t *lbuf = NULL;
+    jose_cek_t *cek = NULL;
 
     if (json_unpack((json_t *) enc, "s", &e) == -1)
         return NULL;
 
-    lbuf = lbuf_new(jose_b64_dlen(strlen(e)));
-    if (!lbuf)
+    cek = cek_new(jose_b64_dlen(strlen(e)));
+    if (!cek)
         return NULL;
 
-    if (jose_b64_decode(e, lbuf->buf))
-        out = json_loadb((char *) lbuf->buf, lbuf->len, flags, NULL);
+    if (jose_b64_decode(e, cek->buf))
+        out = json_loadb((char *) cek->buf, cek->len, flags, NULL);
 
-    lbuf_free(lbuf);
+    jose_cek_free(cek);
     return out;
 }
 
@@ -138,39 +138,39 @@ json_t *
 jose_b64_encode_json(const uint8_t dec[], size_t len)
 {
     json_t *json = NULL;
-    lbuf_t *lbuf = NULL;
+    jose_cek_t *cek = NULL;
 
-    lbuf = lbuf_new(jose_b64_elen(len) + 1);
-    if (!lbuf)
+    cek = cek_new(jose_b64_elen(len) + 1);
+    if (!cek)
         return NULL;
 
-    jose_b64_encode(dec, len, (char *) lbuf->buf);
+    jose_b64_encode(dec, len, (char *) cek->buf);
 
-    json = json_string((char *) lbuf->buf);
-    lbuf_free(lbuf);
+    json = json_string((char *) cek->buf);
+    jose_cek_free(cek);
     return json;
 }
 
 static int
 callback(const char *buffer, size_t size, void *data)
 {
-    lbuf_t **lbuf = data;
-    lbuf_t *tmp = NULL;
+    jose_cek_t **cek = data;
+    jose_cek_t *tmp = NULL;
     size_t off = 0;
 
-    if (*lbuf)
-        off = (*lbuf)->len;
+    if (*cek)
+        off = (*cek)->len;
 
-    tmp = lbuf_new(size + off);
+    tmp = cek_new(size + off);
     if (!tmp)
         return -1;
 
-    if (*lbuf)
-        memcpy(tmp->buf, (*lbuf)->buf, off);
+    if (*cek)
+        memcpy(tmp->buf, (*cek)->buf, off);
 
     memcpy(tmp->buf + off, buffer, size);
-    lbuf_free(*lbuf);
-    *lbuf = tmp;
+    jose_cek_free(*cek);
+    *cek = tmp;
     return 0;
 }
 
@@ -179,12 +179,12 @@ json_t *
 jose_b64_encode_json_dump(const json_t *dec, int flags)
 {
     json_t *out = NULL;
-    lbuf_t *lbuf = NULL;
+    jose_cek_t *cek = NULL;
 
-    if (json_dump_callback(dec, callback, &lbuf, flags) == -1)
+    if (json_dump_callback(dec, callback, &cek, flags) == -1)
         return NULL;
 
-    out = jose_b64_encode_json(lbuf->buf, lbuf->len);
-    lbuf_free(lbuf);
+    out = jose_b64_encode_json(cek->buf, cek->len);
+    jose_cek_free(cek);
     return out;
 }

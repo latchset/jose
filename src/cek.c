@@ -1,18 +1,19 @@
 /* vim: set tabstop=8 shiftwidth=4 softtabstop=4 expandtab smarttab colorcolumn=80: */
 
-#include "lbuf.h"
+#include "cek.h"
+#include "cek_int.h"
 
 #include <sys/mman.h>
 #include <stdlib.h>
 #include <string.h>
 
-lbuf_t *
-lbuf_new(size_t len)
+jose_cek_t *
+cek_new(size_t len)
 {
-    lbuf_t tmp = { len };
-    lbuf_t *out = NULL;
+    jose_cek_t tmp = { len };
+    jose_cek_t *out = NULL;
 
-    out = malloc(sizeof(lbuf_t) + len);
+    out = malloc(sizeof(jose_cek_t) + len);
     if (!out)
         return NULL;
 
@@ -27,12 +28,12 @@ lbuf_new(size_t len)
 }
 
 void
-lbuf_free(lbuf_t *lbuf)
+jose_cek_free(jose_cek_t *cek)
 {
-    if (!lbuf)
+    if (!cek)
         return;
 
-    memset(lbuf->buf, 0, lbuf->len);
-    munlock(lbuf, lbuf->len);
-    free(lbuf);
+    memset(cek->buf, 0, cek->len);
+    munlock(cek, cek->len);
+    free(cek);
 }
