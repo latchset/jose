@@ -6,7 +6,9 @@
 #include "b64.h"
 #include "conv.h"
 
+#include <openssl/hmac.h>
 #include <openssl/evp.h>
+#include <openssl/rand.h>
 #include <openssl/rsa.h>
 
 #include <string.h>
@@ -77,8 +79,8 @@ unseal(EVP_PKEY *key, const char *alg, const jose_buf_t *ct)
         if (!cek)
             return NULL;
 
-        tmp = RSA_public_decrypt(ct->used, ct->data, cek->data,
-                                 key->pkey.rsa, pad);
+        tmp = RSA_private_decrypt(ct->used, ct->data, cek->data,
+                                  key->pkey.rsa, pad);
         if (tmp < 0)
             goto error;
 
@@ -95,36 +97,65 @@ error:
     return NULL;
 }
 
-static jose_buf_t *
+jose_buf_t *
+decrypt(const char *enc, const jose_buf_t *iv, const char aad[],
+        const jose_buf_t *ct, const jose_buf_t *tag, const jose_buf_t *cek);
+
+static size_t
+min(size_t a, size_t b)
+{
+    return a > b ? b : a;
+}
+
+jose_buf_t *
 decrypt(const char *enc, const jose_buf_t *iv, const char aad[],
         const jose_buf_t *ct, const jose_buf_t *tag, const jose_buf_t *cek)
 {
     const EVP_CIPHER *cph = NULL;
     EVP_CIPHER_CTX *ctx = NULL;
+    const EVP_MD *md = NULL;
     jose_buf_t *pt = NULL;
-    bool gcm = false;
+    HMAC_CTX hctx = {};
     size_t tagl = 0;
-    size_t ivl = 0;
-    int len;
+    size_t keyl = 0;
+    int len = 0;
 
-    switch (str_to_enum(enc, "A128GCM", "A192GCM", "A256GCM", NULL)) {
-    case 0: cph = EVP_aes_128_gcm(); ivl = 12; tagl = 16; gcm = true; break;
-    case 1: cph = EVP_aes_192_gcm(); ivl = 12; tagl = 16; gcm = true; break;
-    case 2: cph = EVP_aes_256_gcm(); ivl = 12; tagl = 16; gcm = true; break;
+    HMAC_CTX_init(&hctx);
+
+    if (!enc || !iv || !aad || !ct || !tag || !cek)
+        return NULL;
+
+    switch (str_to_enum(enc, "A128GCM", "A192GCM", "A256GCM",
+                        "A128CBC-HS256", "A192CBC-HS384", "A256CBC-HS512",
+                        NULL)) {
+    case 0: cph = EVP_aes_128_gcm(); tagl = 16; break;
+    case 1: cph = EVP_aes_192_gcm(); tagl = 16; break;
+    case 2: cph = EVP_aes_256_gcm(); tagl = 16; break;
+    case 3: cph = EVP_aes_128_cbc(); md = EVP_sha256(); break;
+    case 4: cph = EVP_aes_192_cbc(); md = EVP_sha384(); break;
+    case 5: cph = EVP_aes_256_cbc(); md = EVP_sha512(); break;
     default: return NULL;
     }
 
-    if (ivl > 0 && !iv)
+    keyl = EVP_CIPHER_key_length(cph) * (md ? 2 : 1);
+    tagl = md ? (size_t) EVP_MD_size(md) / 2 : tagl;
+
+    jose_buf_t *skey = jose_buf_new(keyl, true);
+    uint8_t siv[EVP_CIPHER_iv_length(cph)];
+    uint8_t stag[tagl];
+    if (!skey)
         return NULL;
 
-    if (ivl != iv->used)
-        return NULL;
+    if (RAND_bytes(skey->data, skey->used) <= 0)
+        goto error;
+    if (RAND_bytes(stag, sizeof(stag)) <= 0)
+        goto error;
+    if (RAND_bytes(siv, sizeof(siv)) <= 0)
+        goto error;
 
-    if (tagl > 0 && !tag)
-        return NULL;
-
-    if (tagl != tag->used)
-        return NULL;
+    memcpy(skey->data, cek->data, min(cek->used, skey->used));
+    memcpy(stag, tag->data, min(tag->used, sizeof(stag)));
+    memcpy(siv, iv->data, min(iv->used, sizeof(siv)));
 
     /* Try to get a locked buffer. But don't error if we can't.
      * This is because the size of the plaintext may exceed the amount
@@ -143,14 +174,12 @@ decrypt(const char *enc, const jose_buf_t *iv, const char aad[],
     if (EVP_DecryptInit(ctx, cph, NULL, NULL) <= 0)
         goto error;
 
-    if (gcm && EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN,
-                                   iv->used, NULL) <= 0)
+    if (EVP_DecryptInit(ctx, NULL,
+                        md ? &skey->data[skey->used / 2] : skey->data,
+                        siv) <= 0)
         goto error;
 
-    if (EVP_DecryptInit(ctx, NULL, cek->data, iv ? iv->data : NULL) <= 0)
-        goto error;
-
-    if (aad && EVP_DecryptUpdate(ctx, NULL, NULL,
+    if (!md && EVP_DecryptUpdate(ctx, NULL, &len,
                                  (uint8_t *) aad, strlen(aad)) <= 0)
         goto error;
 
@@ -158,19 +187,50 @@ decrypt(const char *enc, const jose_buf_t *iv, const char aad[],
         goto error;
     pt->used = len;
 
-    if (gcm && tag && EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG,
-                                          tag->used, (void *) tag->data) <= 0)
+    if (!md && EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, tagl, stag) <= 0)
         goto error;
 
-    if (EVP_DecryptFinal(ctx, &pt->data[len], &len) <= 0)
+    if (EVP_DecryptFinal(ctx, &pt->data[pt->used], &len) <= 0)
         goto error;
     pt->used += len;
 
+    if (md) {
+        uint8_t hsh[EVP_MD_size(md)];
+        uint64_t al = 0;
+
+        if (HMAC_Init(&hctx, skey->data, skey->used / 2, md) <= 0)
+            goto error;
+
+        if (HMAC_Update(&hctx, (uint8_t *) aad, strlen(aad)) <= 0)
+            goto error;
+
+        if (HMAC_Update(&hctx, siv, sizeof(siv)) <= 0)
+            goto error;
+
+        if (HMAC_Update(&hctx, ct->data, ct->used) <= 0)
+            goto error;
+
+        al = htobe64(strlen(aad) * 8);
+        if (HMAC_Update(&hctx, (uint8_t *) &al, sizeof(al)) <= 0)
+            goto error;
+
+        if (HMAC_Final(&hctx, hsh, NULL) <= 0)
+            goto error;
+
+        if (CRYPTO_memcmp(hsh, stag, tagl) != 0)
+            goto error;
+    }
+
     EVP_CIPHER_CTX_free(ctx);
+    HMAC_CTX_cleanup(&hctx);
+    jose_buf_free(skey);
     return pt;
 
 error:
     EVP_CIPHER_CTX_free(ctx);
+    HMAC_CTX_cleanup(&hctx);
+    jose_buf_free(skey);
+    jose_buf_free(pt);
     return NULL;
 }
 
@@ -325,7 +385,7 @@ jose_jwe_decrypt(const json_t *jwe, const jose_buf_t *cek)
     if (jtag && !tag)
         goto egress;
 
-    pt = decrypt(enc, iv, aad, ct, tag, cek);
+    pt = decrypt(enc, iv, json_string_value(a), ct, tag, cek);
 
 egress:
     jose_buf_free(tag);

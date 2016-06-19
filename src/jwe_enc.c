@@ -40,11 +40,11 @@ encrypt(const char *enc, const char aad[], const uint8_t pt[], size_t ptl,
             goto error;
     }
 
-    if (RAND_bytes(ivcttag, *ivl) <= 0)
-        goto error;
-
     ivcttag = malloc(*ivl + *tagl + ptl + EVP_CIPHER_block_size(cph) -1);
     if (!ivcttag)
+        goto error;
+
+    if (RAND_bytes(ivcttag, *ivl) <= 0)
         goto error;
 
     ctx = EVP_CIPHER_CTX_new();
@@ -86,6 +86,17 @@ error:
     return NULL;
 }
 
+static const char *
+suggest_encrypt(const jose_buf_t *cek)
+{
+    switch (cek ? cek->used * 8 : 128) {
+    case 128: return "A128GCM";
+    case 192: return "A192GCM";
+    case 256: return "A256GCM";
+    default: return NULL;
+    }
+}
+
 bool
 jose_jwe_encrypt(json_t *jwe, const json_t *prot, const json_t *shrd,
                  const uint8_t pt[], size_t ptl, jose_buf_t **cek)
@@ -115,7 +126,7 @@ jose_jwe_encrypt(json_t *jwe, const json_t *prot, const json_t *shrd,
 
     if (json_unpack(p, "{s: s}", "enc", &enc) == -1 &&
         json_unpack(s, "{s: s}", "enc", &enc) == -1) {
-        enc = "A128GCM";
+        enc = suggest_encrypt(*cek);
 
         if (!p && !s)
             p = json_object();
@@ -366,7 +377,7 @@ add_seal(json_t *jwe, json_t *head, const uint8_t *seal, size_t len)
 }
 
 static const char *
-suggest(EVP_PKEY *key)
+suggest_seal(EVP_PKEY *key)
 {
     size_t len = 0;
 
@@ -419,7 +430,7 @@ jose_jwe_seal(json_t *jwe, const jose_buf_t *cek, const json_t *head,
     if (!alg) {
         if (json_unpack(jwe, "{s:{s:s}}", "unprotected", "alg", &alg) == -1 &&
             json_unpack((json_t *) head, "{s:s}", "alg", &alg) == -1) {
-            alg = suggest(key);
+            alg = suggest_seal(key);
             if (!alg)
                 goto error;
 
