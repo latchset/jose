@@ -2,6 +2,7 @@
 
 #include "jwk.h"
 #include "vect.h"
+#include "jtbl.h"
 
 #include <assert.h>
 #include <stdbool.h>
@@ -50,6 +51,89 @@ static const struct {
             { NULL, NULL, EVP_PKEY_HMAC, true },
             {}
         } },
+    {}
+};
+
+static const struct {
+    jtbl_value_t val;
+    const char **del;
+    const char **cpy;
+} new_keys[] = {
+    { .val = { JSON_OBJECT, .o = (jtbl_named_t[]) {
+            { "kty",   { JSON_STRING,  .s = "oct" } },
+            { "use",   { JSON_STRING,  .s = "sig" } },
+            {}
+        } },
+      .del = (const char *[]) { NULL },
+      .cpy = (const char *[]) { "k", NULL } },
+    { .val = { JSON_OBJECT, .o = (jtbl_named_t[]) {
+            { "kty",   { JSON_STRING,  .s = "oct" } },
+            { "use",   { JSON_STRING,  .s = "enc" } },
+            { "bytes", { JSON_INTEGER, .i = 32    } },
+            {}
+        } },
+      .del = (const char *[]) { "bytes", NULL },
+      .cpy = (const char *[]) { "k", NULL } },
+
+    { .val = { JSON_OBJECT, .o = (jtbl_named_t[]) {
+            { "kty",   { JSON_STRING,  .s = "RSA" } },
+            { "use",   { JSON_STRING,  .s = "sig" } },
+            {}
+        } },
+      .del = (const char *[]) { NULL },
+      .cpy = (const char *[]) { "n", "e", "d", "p", "q", "dp", "dq", "qi", NULL } },
+    { .val = { JSON_OBJECT, .o = (jtbl_named_t[]) {
+            { "kty",   { JSON_STRING,  .s = "RSA" } },
+            { "use",   { JSON_STRING,  .s = "enc" } },
+            { "e",     { JSON_INTEGER, .i = 257   } },
+            {}
+        } },
+      .del = (const char *[]) { NULL },
+      .cpy = (const char *[]) { "n", "e", "d", "p", "q", "dp", "dq", "qi", NULL } },
+    { .val = { JSON_OBJECT, .o = (jtbl_named_t[]) {
+            { "kty",   { JSON_STRING,  .s = "RSA" } },
+            { "use",   { JSON_STRING,  .s = "enc" } },
+            { "e",     { JSON_STRING,  .s = "AQE" } },
+            {}
+        } },
+      .del = (const char *[]) { NULL },
+      .cpy = (const char *[]) { "n", "d", "p", "q", "dp", "dq", "qi", NULL } },
+    { .val = { JSON_OBJECT, .o = (jtbl_named_t[]) {
+            { "kty",   { JSON_STRING,  .s = "RSA" } },
+            { "use",   { JSON_STRING,  .s = "sig" } },
+            { "bits",  { JSON_INTEGER, .i = 3072  } },
+            {}
+        } },
+      .del = (const char *[]) { "bits", NULL },
+      .cpy = (const char *[]) { "n", "e", "d", "p", "q", "dp", "dq", "qi", NULL } },
+    { .val = { JSON_OBJECT, .o = (jtbl_named_t[]) {
+            { "kty",   { JSON_STRING,  .s = "RSA" } },
+            { "use",   { JSON_STRING,  .s = "sig" } },
+            { "bits",  { JSON_INTEGER, .i = 3072  } },
+            { "e",     { JSON_INTEGER, .i = 257   } },
+            {}
+        } },
+      .del = (const char *[]) { "bits", NULL },
+      .cpy = (const char *[]) { "n", "e", "d", "p", "q", "dp", "dq", "qi", NULL } },
+    { .val = { JSON_OBJECT, .o = (jtbl_named_t[]) {
+            { "kty",   { JSON_STRING,  .s = "RSA" } },
+            { "use",   { JSON_STRING,  .s = "sig" } },
+            { "bits",  { JSON_INTEGER, .i = 3072  } },
+            { "e",     { JSON_STRING,  .s = "AQE" } },
+            {}
+        } },
+      .del = (const char *[]) { "bits", NULL },
+      .cpy = (const char *[]) { "n", "d", "p", "q", "dp", "dq", "qi", NULL } },
+
+    { .val = { JSON_OBJECT, .o = (jtbl_named_t[]) {
+            { "kty",   { JSON_STRING,  .s = "EC"    } },
+            { "crv",   { JSON_STRING,  .s = "P-384" } },
+            { "use",   { JSON_STRING,  .s = "sig"   } },
+            {}
+        } },
+      .del = (const char *[]) { NULL },
+      .cpy = (const char *[]) { "x", "y", "d", NULL } },
+
     {}
 };
 
@@ -128,16 +212,13 @@ test_key(const json_t *jwk, const struct vector *v)
     } else {
         assert(!key);
     }
-
 }
 
 int
 main(int argc, char *argv[])
 {
     for (size_t i = 0; rfc7520[i].name; i++) {
-        json_t *jwk = NULL;
-
-        jwk = vect_json(rfc7520[i].name, "jwk");
+        json_t *jwk = vect_json(rfc7520[i].name, "jwk");
         assert(jwk);
         test_key(jwk, &rfc7520[i].vect);
         json_decref(jwk);
@@ -159,6 +240,41 @@ main(int argc, char *argv[])
         }
 
         json_decref(jwkset);
+    }
+
+    for (size_t i = 0; new_keys[i].cpy; i++) {
+        json_t *jwk = NULL;
+        json_t *key = NULL;
+
+        jwk = jtbl_make(&new_keys[i].val);
+        assert(jwk);
+        assert(jose_jwk_generate(jwk));
+
+        json_dumpf(jwk, stderr, JSON_SORT_KEYS);
+        fprintf(stderr, "\n");
+
+        key = jtbl_make(&new_keys[i].val);
+        assert(key);
+
+        json_dumpf(key, stderr, JSON_SORT_KEYS);
+        fprintf(stderr, "\n");
+
+        for (size_t j = 0; new_keys[i].del[j]; j++)
+            assert(json_object_del(key, new_keys[i].del[j]) == 0);
+
+        for (size_t j = 0; new_keys[i].cpy[j]; j++) {
+            json_t *tmp = json_object_get(jwk, new_keys[i].cpy[j]);
+            assert(tmp);
+            assert(json_object_set(key, new_keys[i].cpy[j], tmp) == 0);
+        }
+
+        json_dumpf(key, stderr, JSON_SORT_KEYS);
+        fprintf(stderr, "\n");
+
+        assert(json_equal(jwk, key));
+
+        json_decref(jwk);
+        json_decref(key);
     }
 
     return 0;

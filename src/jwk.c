@@ -5,6 +5,7 @@
 #include "conv.h"
 
 #include <openssl/ec.h>
+#include <openssl/rand.h>
 #include <openssl/rsa.h>
 #include <openssl/objects.h>
 
@@ -67,20 +68,15 @@ error:
 }
 
 static json_t *
-from_ec(EVP_PKEY *pkey, bool prv)
+from_ec(EC_KEY *key, bool prv)
 {
     const BIGNUM *d = NULL;
     const char *crv = NULL;
-    EC_KEY *key = NULL;
     json_t *jwk = NULL;
     BIGNUM *x = NULL;
     BIGNUM *y = NULL;
     int len = 0;
 
-    if (!pkey)
-        return NULL;
-
-    key = EVP_PKEY_get1_EC_KEY(pkey);
     if (!key)
         return NULL;
 
@@ -105,27 +101,21 @@ from_ec(EVP_PKEY *pkey, bool prv)
     }
 
 egress:
-    EC_KEY_free(key);
     BN_free(x);
     BN_free(y);
     return jwk;
 }
 
 static json_t *
-from_rsa(EVP_PKEY *pkey, bool prv)
+from_rsa(RSA *key, bool prv)
 {
     json_t *jwk = NULL;
-    RSA *key = NULL;
 
-    if (!pkey)
-        return NULL;
-
-    key = EVP_PKEY_get1_RSA(pkey);
     if (!key)
         return NULL;
 
     if (!key->n || !key->e)
-        goto egress;
+        return NULL;
 
     if (prv && key->d && key->p && key->q &&
         key->dmp1 && key->dmq1 && key->iqmp) {
@@ -150,8 +140,6 @@ from_rsa(EVP_PKEY *pkey, bool prv)
         );
     }
 
-egress:
-    RSA_free(key);
     return jwk;
 }
 
@@ -362,13 +350,193 @@ to_hmac(const json_t *jwk)
     return key;
 }
 
+static bool
+gen_hmac(json_t *jwk)
+{
+    jose_buf_t *buf = NULL;
+    EVP_PKEY *key = NULL;
+    json_t *bytes = NULL;
+    json_t *tmp = NULL;
+
+    if (json_unpack(jwk, "{s?O}", "bytes", &bytes) == -1)
+        return false;
+
+    if (!bytes)
+        bytes = json_integer(128 / 8);
+
+    if (!json_is_integer(bytes)) {
+        json_decref(bytes);
+        return false;
+    }
+
+    buf = jose_buf_new(json_integer_value(bytes), true);
+    json_decref(bytes);
+    if (!buf)
+        return false;
+
+    if (RAND_bytes(buf->data, buf->used) <= 0) {
+        jose_buf_free(buf);
+        return false;
+    }
+
+    key = EVP_PKEY_new_mac_key(EVP_PKEY_HMAC, NULL, buf->data, buf->used);
+    jose_buf_free(buf);
+    if (!key)
+        return false;
+
+    tmp = jose_jwk_from_key(key, true);
+    EVP_PKEY_free(key);
+
+    if (json_object_update(jwk, tmp) == -1) {
+        json_decref(tmp);
+        return false;
+    }
+
+    if (json_object_get(jwk, "bytes") && json_object_del(jwk, "bytes") == -1) {
+        json_decref(tmp);
+        return false;
+    }
+
+    json_decref(tmp);
+    return true;
+}
+
+static bool
+gen_rsa(json_t *jwk)
+{
+    json_t *tmp = NULL;
+    json_t *exp = NULL;
+    BIGNUM *bn = NULL;
+    RSA *key = NULL;
+    int bits = 2048;
+
+    if (json_unpack(jwk, "{s?i,s?O}", "bits", &bits, "e", &exp) == -1)
+        return false;
+
+    if (bits < 2048) {
+        json_decref(exp);
+        return false;
+    }
+
+    if (!exp)
+        exp = json_integer(65537);
+
+    switch (exp ? exp->type : JSON_NULL) {
+    case JSON_STRING:
+        bn = bn_decode_json(exp);
+        json_decref(exp);
+        if (!bn)
+            return false;
+
+        key = RSA_new();
+        if (!key) {
+            BN_free(bn);
+            return false;
+        }
+
+        bits = RSA_generate_key_ex(key, bits, bn, NULL);
+        BN_free(bn);
+        if (bits <= 0) {
+            RSA_free(key);
+            return false;
+        }
+        break;
+
+    case JSON_INTEGER:
+        key = RSA_generate_key(bits, json_integer_value(exp), NULL, NULL);
+        json_decref(exp);
+        break;
+
+    default:
+        json_decref(exp);
+        return false;
+    }
+
+    tmp = from_rsa(key, true);
+    RSA_free(key);
+
+    if (json_object_update(jwk, tmp) == -1) {
+        json_decref(tmp);
+        return false;
+    }
+
+    if (json_object_get(jwk, "bits") && json_object_del(jwk, "bits") == -1) {
+        json_decref(tmp);
+        return false;
+    }
+
+    json_decref(tmp);
+    return true;
+}
+
+static bool
+gen_ec(json_t *jwk)
+{
+    const char *crv = NULL;
+    int nid = NID_undef;
+    json_t *tmp = NULL;
+    EC_KEY *key = NULL;
+
+    if (json_unpack(jwk, "{s:s}", "crv", &crv) == -1)
+        return false;
+
+    switch (str_to_enum(crv, "P-256", "P-384", "P-521", NULL)) {
+    case 0: nid = NID_X9_62_prime256v1; break;
+    case 1: nid = NID_secp384r1; break;
+    case 2: nid = NID_secp521r1; break;
+    default: return false;
+    }
+
+    key = EC_KEY_new_by_curve_name(nid);
+    if (!key)
+        return false;
+
+    if (EC_KEY_generate_key(key) <= 0) {
+        EC_KEY_free(key);
+        return false;
+    }
+
+    tmp = from_ec(key, true);
+    EC_KEY_free(key);
+
+    if (json_object_update(jwk, tmp) == -1) {
+        json_decref(tmp);
+        return false;
+    }
+
+    json_decref(tmp);
+    return true;
+}
+
+bool
+jose_jwk_generate(json_t *jwk)
+{
+    const char *kty = NULL;
+    bool ret = false;
+
+    if (json_unpack(jwk, "{s:s}", "kty", &kty) == -1)
+        return NULL;
+
+    switch (str_to_enum(kty, "oct", "RSA", "EC", NULL)) {
+    case 0: ret = gen_hmac(jwk); break;
+    case 1: ret = gen_rsa(jwk); break;
+    case 2: ret = gen_ec(jwk); break;
+    default: break;
+    }
+
+    return ret;
+}
+
 json_t *
 jose_jwk_from_key(EVP_PKEY *key, bool prv)
 {
+    if (!key)
+        return NULL;
+
     switch (EVP_PKEY_base_id(key)) {
     case EVP_PKEY_HMAC: return from_hmac(key, prv);
-    case EVP_PKEY_RSA: return from_rsa(key, prv);
-    case EVP_PKEY_EC: return from_ec(key, prv);
+    case EVP_PKEY_RSA: return from_rsa(key->pkey.rsa, prv);
+    case EVP_PKEY_EC: return from_ec(key->pkey.ec, prv);
     default: return NULL;
     }
 }

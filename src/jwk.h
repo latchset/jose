@@ -7,6 +7,12 @@
 #include <stdbool.h>
 
 /**
+ * Generate a new (random) JWK.
+ */
+bool __attribute__((warn_unused_result))
+jose_jwk_generate(json_t *jwk);
+
+/**
  * Create a JWK from an EVP_PKEY.
  */
 json_t * __attribute__((warn_unused_result))
