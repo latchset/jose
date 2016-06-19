@@ -231,23 +231,6 @@ make_key(struct kv *attrs)
     return key;
 }
 
-static json_t *
-make_prot(const char *prot)
-{
-    json_t *enc = NULL;
-    json_t *dec = NULL;
-
-    enc = json_string(prot);
-    dec = jose_b64_decode_json_load(enc, JSON_SORT_KEYS | JSON_COMPACT);
-    json_decref(enc);
-
-    if (json_is_object(dec))
-        return dec;
-
-    json_decref(dec);
-    return NULL;
-}
-
 static void
 test_compact_verify(const struct example *e)
 {
@@ -339,7 +322,6 @@ test_general_sign_and_verify(const struct example *e)
 
     for (size_t i = 0; e->sigs[i].prot; i++) {
         const json_t *sig = NULL;
-        json_t *prot = NULL;
         json_t *jwk = NULL;
 
         /* Skip examples without a key */
@@ -350,11 +332,10 @@ test_general_sign_and_verify(const struct example *e)
         assert(json_is_object(jwk));
 
         assert(json_array_append_new(jwks, jwk) == 0);
-        assert(prot = make_prot(e->sigs[i].prot));
 
         /* Sign the JWS. */
-        assert(jose_jws_sign_jwk(jws, NULL, prot, jwk, "K"));
-        json_decref(prot);
+        assert(jose_jws_sign_jwk_pack(jws, jwk, "K", "{s:s}",
+                                      "protected", e->sigs[i].prot));
 
         json_dumpf(jws, stderr, JSON_SORT_KEYS);
         fprintf(stderr, "\n\n");

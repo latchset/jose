@@ -2,6 +2,8 @@
 
 #include "jwe.h"
 #include "b64.h"
+#include "vect.h"
+
 #include <assert.h>
 #include <limits.h>
 #include <string.h>
@@ -61,10 +63,10 @@ main(int argc, char *argv[])
             fprintf(stderr, "%s %s\n", vectors[i], types[j]);
 
             if (strcmp(types[j], "jwec") == 0) {
-                const char *a = NULL;
+                char *a = NULL;
                 char *b = NULL;
 
-                a = load_compact(vectors[i], types[j]);
+                a = vect_str(vectors[i], types[j]);
                 assert(a);
 
                 jwe = jose_jwe_from_compact(a);
@@ -74,19 +76,20 @@ main(int argc, char *argv[])
                 assert(b);
 
                 assert(strcmp(a, b) == 0);
+                free(a);
                 free(b);
             } else {
-                jwe = load_json(vectors[i], "jweg");
+                jwe = vect_json(vectors[i], "jweg");
                 assert(jwe);
             }
 
             /* First, ensure that decrypt works with the hard-coded CEK. */
-            cek = load_cek(vectors[i]);
+            cek = vect_b64(vectors[i], "cek");
             assert(cek);
             test_decrypt(jwe, cek);
 
             /* Next, ensure that unseal produces the hard-coded CEK. */
-            jwk = load_json(vectors[i], "jwk");
+            jwk = vect_json(vectors[i], "jwk");
             assert(jwk);
             test_unseal(jwe, cek, jwk);
 

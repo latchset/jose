@@ -10,19 +10,27 @@
 #include <openssl/sha.h>
 #include <openssl/evp.h>
 
+#include <ctype.h>
 #include <string.h>
 
 static bool
-add_sig(json_t *jws, json_t *head, const char *prot,
-        const uint8_t *sig, size_t len)
+add_sig(json_t *jws, json_t *sig)
 {
     json_t *signatures = NULL;
     json_t *signature = NULL;
     json_t *protected = NULL;
     json_t *header = NULL;
 
-    if (json_object_size(head) == 0 && (!prot || strlen(prot) == 0))
+    if (json_unpack(sig, "{s: o, s? o, s? o}", "signature", &signature,
+                    "protected", &protected, "header", &header) == -1)
         return false;
+
+    if (json_object_size(header) == 0 && json_string_length(protected) == 0)
+        return false;
+
+    signature = NULL;
+    protected = NULL;
+    header = NULL;
 
     if (json_unpack(jws, "{s? o, s? o, s? o, s? o}",
                     "signatures", &signatures, "signature", &signature,
@@ -76,28 +84,10 @@ add_sig(json_t *jws, json_t *head, const char *prot,
     }
 
     /* If we have some signatures already, append to the array. */
-    if (signatures) {
-        json_t *obj = NULL;
-
-        obj = json_object();
-        if (json_array_append_new(signatures, obj) == -1)
-            return false;
-
-        jws = obj;
-    }
-
-    signature = jose_b64_encode_json(sig, len);
-    if (json_object_set_new(jws, "signature", signature) < 0)
+    if (signatures && json_array_append(signatures, sig) == -1)
         return false;
 
-    if (prot && json_object_set_new(jws, "protected", json_string(prot)) < 0)
-        return false;
-
-    if (json_object_size(head) > 0 &&
-        json_object_set(jws, "header", head) < 0)
-        return false;
-
-    return true;
+    return json_object_update(jws, sig) == 0;
 }
 
 static const char *
@@ -145,20 +135,19 @@ suggest(EVP_PKEY *key)
 }
 
 /* NOTE: This is not static because it is used by verify() for HMAC. */
-uint8_t *
-sign(const char *prot, const char *payl, EVP_PKEY *key,
-     const char *alg, size_t *len);
+jose_buf_t *
+sign(const char *prot, const char *payl, EVP_PKEY *key, const char *alg);
 
-uint8_t *
-sign(const char *prot, const char *payl, EVP_PKEY *key,
-     const char *alg, size_t *len)
+jose_buf_t *
+sign(const char *prot, const char *payl, EVP_PKEY *key, const char *alg)
 {
     EVP_PKEY_CTX *pctx = NULL;
     ECDSA_SIG *ecdsa = NULL;
     const EVP_MD *md = NULL;
     const char *req = NULL;
     EVP_MD_CTX *ctx = NULL;
-    uint8_t *sig = NULL;
+    jose_buf_t *sig = NULL;
+    size_t len = 0;
     int pad = 0;
 
     switch (EVP_PKEY_base_id(key)) {
@@ -223,39 +212,38 @@ sign(const char *prot, const char *payl, EVP_PKEY *key,
     if (EVP_DigestSignUpdate(ctx, payl, strlen(payl)) < 0)
         goto error;
 
-    if (EVP_DigestSignFinal(ctx, NULL, len) < 0)
+    if (EVP_DigestSignFinal(ctx, NULL, &len) < 0)
         goto error;
 
-    sig = malloc(*len);
+    sig = jose_buf_new(len, false);
     if (!sig)
         goto error;
 
-    if (EVP_DigestSignFinal(ctx, sig, len) < 0)
+    if (EVP_DigestSignFinal(ctx, sig->data, &sig->used) < 0)
         goto error;
 
     /* We have to special-case ECDSA signatures: the format is different. */
     if (EVP_PKEY_base_id(key) == EVP_PKEY_EC) {
         const EC_GROUP *grp = NULL;
 
-        ecdsa = d2i_ECDSA_SIG(NULL, &(const uint8_t *) { sig }, *len);
+        ecdsa = d2i_ECDSA_SIG(NULL, &(const uint8_t *) { sig->data },
+                              sig->used);
         if (!ecdsa)
             goto error;
 
         grp = EC_KEY_get0_group(key->pkey.ec);
         if (!grp)
             goto error;
-        *len = (EC_GROUP_get_degree(grp) + 7) / 8 * 2;
 
-        free(sig);
-        sig = malloc(*len);
-        if (!sig)
+        len = (EC_GROUP_get_degree(grp) + 7) / 8;
+
+        if (!bn_encode(ecdsa->r, sig->data, len))
             goto error;
 
-        if (!bn_encode(ecdsa->r, sig, *len / 2))
+        if (!bn_encode(ecdsa->s, &sig->data[len], len))
             goto error;
 
-        if (!bn_encode(ecdsa->s, &sig[*len / 2], *len / 2))
-            goto error;
+        sig->used = len * 2;
     }
 
     EVP_MD_CTX_destroy(ctx);
@@ -269,136 +257,209 @@ error:
     return NULL;
 }
 
-bool
-jose_jws_sign(json_t *jws, const json_t *head, const json_t *prot,
-              EVP_PKEY *key)
+static char *
+choose_algorithm(json_t *sig, EVP_PKEY *key, const json_t *jwk)
 {
-    const char *payload = NULL;
+    const int flags = JSON_SORT_KEYS | JSON_COMPACT;
     const char *alg = NULL;
-    uint8_t *sig = NULL;
+    json_t *enc = NULL;
+    json_t *dec = NULL;
     json_t *h = NULL;
-    json_t *p = NULL;
-    json_t *e = NULL;
-    bool ret = false;
-    size_t len = 0;
 
-    if (!key)
-        return false;
-
-    if (json_unpack(jws, "{s:s}", "payload", &payload) == -1)
-        return false;
-
-    h = json_deep_copy(head);
-    if (head && !h)
+    if (json_unpack(sig, "{s:{s:s}}", "protected", "alg", &alg) == 0)
         goto egress;
 
-    p = json_deep_copy(prot);
-    if (prot && !p)
+    enc = json_object_get(sig, "protected");
+    dec = jose_b64_decode_json_load(enc, 0);
+    if (json_is_string(enc) && !json_is_object(dec))
         goto egress;
 
-    /* Look up the algorithm, or try to detect it. */
-    if (json_unpack(p, "{s:s}", "alg", &alg) == -1 &&
-        json_unpack(h, "{s:s}", "alg", &alg) == -1) {
+    if (json_unpack(dec, "{s:s}", "alg", &alg) == 0)
+        goto egress;
+
+    if (json_unpack(sig, "{s:{s:s}}", "header", "alg", &alg) == 0)
+        goto egress;
+
+    if (json_unpack((json_t *) jwk, "{s:o}", "alg", &alg) == 0)
+        goto egress;
+
+    if (!alg)
         alg = suggest(key);
-        if (!alg)
-            goto egress;
 
-        if (!h && !p)
-            p = json_object();
+    if (!alg)
+        goto egress;
 
-        if (json_object_set_new(p ? p : h, "alg", json_string(alg)) == -1)
-            goto egress;
+    json_unpack(sig, "{s?o}", "header", &h);
+
+    if (json_object_size(h) > 0 && json_object_size(dec) == 0) {
+        if (json_object_set_new(h, "alg", json_string(alg)) == -1)
+            alg = NULL;
+
+        goto egress;
     }
 
-    if (json_object_size(p) > 0) {
-        e = jose_b64_encode_json_dump(p, JSON_SORT_KEYS | JSON_COMPACT);
-        if (!json_is_string(e))
-            goto egress;
-    }
-
-    sig = sign(json_string_value(e), payload, key, alg, &len);
-    if (sig)
-        ret = add_sig(jws, h, json_string_value(e), sig, len);
-
-    free(sig);
+    if (json_object_set_new(dec, "alg", json_string(alg)) == -1 ||
+        json_object_set_new(sig, "protected",
+                            jose_b64_encode_json_dump(dec, flags)) == -1)
+        alg = NULL;
 
 egress:
-    json_decref(h);
-    json_decref(p);
-    json_decref(e);
-    return ret;
+    if (alg)
+        alg = strdup(alg);
+    json_decref(dec);
+    return (char *) alg;
 }
 
-#include <ctype.h>
-
 static bool
-sign_jwk(json_t *jws, const json_t *head, const json_t *prot,
-          const json_t *jwk, const char *flags)
+process_flags(json_t *sig, const json_t *jwk, const char *flags)
 {
-    const char *alg = NULL;
-    EVP_PKEY *key = NULL;
-    json_t *h = NULL;
-    json_t *p = NULL;
-    bool ret = false;
+    json_t *kid = NULL;
 
-    h = json_deep_copy(head);
-    if (head && !h)
-        goto egress;
-
-    if (!h && has_flags(flags, false, "KI"))
-        h = json_object();
-
-    p = json_deep_copy(prot);
-    if (prot && !p)
-        goto egress;
-
-    if (!p && has_flags(flags, false, "ki"))
-        p = json_object();
+    kid = json_object_get(jwk, "kid");
 
     for (size_t i = 0; flags && flags[i]; i++) {
         const char *k = NULL;
+        const char *n = NULL;
         json_t *v = NULL;
+        json_t *o = NULL;
+
+        n = isupper(flags[i]) ? "header" : "protected";
+        o = json_object_get(sig, n);
+
+        if (json_is_object(o))
+            o = json_incref(o);
+        else if (islower(flags[i]) && json_is_string(o))
+            o = jose_b64_decode_json_load(o, 0);
+
+        o = o ? o : json_object();
+        if (json_object_set_new(sig, n, o) == -1)
+            return false;
 
         switch (tolower(flags[i])) {
         case 'k': k = "jwk"; v = jose_jwk_copy(jwk, false); break;
-        case 'i': k = "kid"; v = json_incref(json_object_get(jwk, "kid")); break;
+        case 'i': k = "kid"; v = json_incref(kid); break;
         default: continue;
         }
 
-        if (json_object_set_new(isupper(flags[i]) ? h : p, k, v) == -1)
+        if (json_object_set_new(o, k, v) == -1)
+            return false;
+    }
+
+    return true;
+}
+
+static bool
+jws_sign(json_t *jws, json_t *sig, EVP_PKEY *key,
+         const json_t *jwk, const char *flags)
+{
+    const char *payl = NULL;
+    jose_buf_t *s = NULL;
+    char *alg = NULL;
+    json_t *p = NULL;
+    bool ret = false;
+
+    if (!key)
+        goto egress;
+
+    if (json_unpack(jws, "{s:s}", "payload", &payl) == -1)
+        goto egress;
+
+    if (!jose_jwk_op_allowed(jwk, "sign"))
+        goto egress;
+
+    if (!json_is_object(sig)) {
+        json_decref(sig);
+        sig = json_object();
+    }
+
+    if (!process_flags(sig, jwk, flags))
+        goto egress;
+
+    alg = choose_algorithm(sig, key, jwk);
+    if (!alg)
+        goto egress;
+
+    p = json_object_get(sig, "protected");
+    if (json_is_object(p)) {
+        p = jose_b64_encode_json_dump(p, JSON_SORT_KEYS | JSON_COMPACT);
+        if (json_object_set_new(sig, "protected", p) == -1)
             goto egress;
     }
 
-    if (json_unpack(p, "{s: s}", "alg", &alg) == -1 &&
-        json_unpack(h, "{s: s}", "alg", &alg) == -1) {
-        if (json_unpack((json_t *) jwk, "{s: s}", "alg", &alg) == 0) {
-            if (!h && !p)
-                p = json_object();
+    if (!json_is_string(p))
+        goto egress;
 
-            if (json_object_set_new(p ? p : h, "alg", json_string(alg)) == -1)
-                goto egress;
-        }
+    s = sign(json_string_value(p), payl, key, alg);
+    if (s) {
+        json_t *tmp = jose_b64_encode_json_buf(s);
+        if (json_object_set_new(sig, "signature", tmp) == -1)
+            goto egress;
+
+        ret = add_sig(jws, sig);
     }
 
-    key = jose_jwk_to_key(jwk);
-    if (key)
-        ret = jose_jws_sign(jws, h, p, key);
-
 egress:
-    EVP_PKEY_free(key);
-    json_decref(h);
+    jose_buf_free(s);
     json_decref(p);
+    free(alg);
     return ret;
 }
 
 bool
-jose_jws_sign_jwk(json_t *jws, const json_t *head, const json_t *prot,
-                  const json_t *jwks, const char *flags)
+jose_jws_sign(json_t *jws, EVP_PKEY *key, json_t *sig)
+{
+    return jws_sign(jws, sig, key, NULL, NULL);
+}
+
+bool
+jose_jws_sign_pack(json_t *jws, EVP_PKEY *key, const char *fmt, ...)
+{
+    bool ret = false;
+    va_list ap;
+
+    va_start(ap, fmt);
+    ret = jose_jws_sign_vpack(jws, key, fmt, ap);
+    va_end(ap);
+
+    return ret;
+}
+
+bool
+jose_jws_sign_vpack(json_t *jws, EVP_PKEY *key, const char *fmt, va_list ap)
+{
+    json_t *sig = NULL;
+
+    sig = json_vpack_ex(NULL, 0, fmt, ap);
+    if (!sig)
+        return false;
+
+    return jose_jws_sign(jws, key, sig);
+}
+
+static bool
+sign_jwk(json_t *jws, const json_t *jwk, const char *flags, json_t *sig)
+{
+    EVP_PKEY *key = NULL;
+    bool ret = false;
+
+    key = jose_jwk_to_key(jwk);
+    if (jwk)
+        ret = jws_sign(jws, sig, key, jwk, flags);
+
+    EVP_PKEY_free(key);
+    return ret;
+}
+
+bool
+jose_jws_sign_jwk(json_t *jws, const json_t *jwks, const char *flags,
+                  json_t *sig)
 {
     const json_t *array = NULL;
 
-    if (!jws || !jwks)
+    if (!jws || !jwks) {
+        json_decref(sig);
         return false;
+    }
 
     if (json_is_array(jwks))
         array = jwks;
@@ -407,14 +468,57 @@ jose_jws_sign_jwk(json_t *jws, const json_t *head, const json_t *prot,
 
     if (json_is_array(array)) {
         for (size_t i = 0; i < json_array_size(array); i++) {
-            const json_t *jwk = json_array_get(array, i);
+            const json_t *jwk = NULL;
+            json_t *s = NULL;
 
-            if (!sign_jwk(jws, head, prot, jwk, flags))
+            jwk = json_array_get(array, i);
+            if (!jwk) {
+                json_decref(sig);
                 return false;
+            }
+
+            s = json_deep_copy(sig);
+            if (!s) {
+                json_decref(sig);
+                return false;
+            }
+
+            if (!sign_jwk(jws, jwk, flags, s)) {
+                json_decref(sig);
+                return false;
+            }
         }
 
+        json_decref(sig);
         return json_array_size(array) > 0;
     }
 
-    return sign_jwk(jws, head, prot, jwks, flags);
+    return sign_jwk(jws, jwks, flags, sig);
+}
+
+bool
+jose_jws_sign_jwk_pack(json_t *jws, const json_t *jwks, const char *flags,
+                       const char *fmt, ...)
+{
+    bool ret = false;
+    va_list ap;
+
+    va_start(ap, fmt);
+    ret = jose_jws_sign_jwk_vpack(jws, jwks, flags, fmt, ap);
+    va_end(ap);
+
+    return ret;
+}
+
+bool
+jose_jws_sign_jwk_vpack(json_t *jws, const json_t *jwks, const char *flags,
+                        const char *fmt, va_list ap)
+{
+    json_t *sig = NULL;
+
+    sig = json_vpack_ex(NULL, 0, fmt, ap);
+    if (!sig)
+        return false;
+
+    return jose_jws_sign_jwk(jws, jwks, flags, sig);
 }

@@ -13,31 +13,27 @@
 
 #include <string.h>
 
-uint8_t *
-sign(const char *prot, const char *payl, EVP_PKEY *key,
-     const char *alg, size_t *len);
+jose_buf_t *
+sign(const char *prot, const char *payl, EVP_PKEY *key, const char *alg);
 
 static bool
-verify(const char *prot, const char *payl,
-       EVP_PKEY *key, const char *alg,
-       const uint8_t sig[], size_t len)
+verify(const char *prot, const char *payl, EVP_PKEY *key, const char *alg,
+       const jose_buf_t *sig)
 {
     EVP_PKEY_CTX *pctx = NULL;
     const EVP_MD *md = NULL;
     EVP_MD_CTX *ctx = NULL;
     const char *req = NULL;
-    ECDSA_SIG ecdsa = {};
-    uint8_t *alt = NULL;
+    jose_buf_t *alt = NULL;
     bool ret = false;
-    size_t slen = 0;
     int bytes = 0;
     int pad = 0;
 
     switch (EVP_PKEY_base_id(key)) {
     case EVP_PKEY_HMAC:
-        alt = sign(prot, payl, key, alg, &slen);
-        if (alt && len == slen)
-            ret = CRYPTO_memcmp(alt, sig, len) == 0;
+        alt = sign(prot, payl, key, alg);
+        if (alt && alt->used == sig->used)
+            ret = CRYPTO_memcmp(alt, sig, sig->used) == 0;
 
         free(alt);
         return ret;
@@ -59,31 +55,44 @@ verify(const char *prot, const char *payl,
         }
         break;
 
-    case EVP_PKEY_EC:
-        switch (EC_GROUP_get_curve_name(EC_KEY_get0_group(key->pkey.ec))) {
+    case EVP_PKEY_EC: {
+        const EC_GROUP *grp = NULL;
+        ECDSA_SIG ecdsa = {};
+
+        grp = EC_KEY_get0_group(key->pkey.ec);
+        if (!grp)
+            return false;
+
+        switch (EC_GROUP_get_curve_name(grp)) {
         case NID_X9_62_prime256v1: req = "ES256"; md = EVP_sha256(); break;
         case NID_secp384r1:        req = "ES384"; md = EVP_sha384(); break;
         case NID_secp521r1:        req = "ES512"; md = EVP_sha512(); break;
-        default: return NULL;
+        default: return false;
         }
 
         if (strcmp(alg, req) != 0)
-            return NULL;
+            return false;
 
-        ecdsa.r = bn_decode(sig, len / 2);
-        ecdsa.s = bn_decode(&sig[len / 2], len / 2);
+        ecdsa.r = bn_decode(sig->data, sig->used / 2);
+        ecdsa.s = bn_decode(&sig->data[sig->used / 2], sig->used / 2);
+
+        alt = jose_buf_new(i2d_ECDSA_SIG(&ecdsa, NULL), false);
+        if (!alt)
+            return false;
 
         if (ecdsa.r && ecdsa.s)
-            bytes = i2d_ECDSA_SIG(&ecdsa, &alt);
+            bytes = i2d_ECDSA_SIG(&ecdsa, &(uint8_t *) { alt->data });
 
         BN_free(ecdsa.r);
         BN_free(ecdsa.s);
 
-        sig = alt;
-        len = bytes;
         if (bytes <= 0)
             goto egress;
+
+        alt->used = bytes;
+        sig = alt;
         break;
+    }
 
     default:
         return false;
@@ -108,11 +117,11 @@ verify(const char *prot, const char *payl,
     if (EVP_DigestVerifyUpdate(ctx, payl, strlen(payl)) < 0)
         goto egress;
 
-    ret = EVP_DigestVerifyFinal(ctx, sig, len) == 1;
+    ret = EVP_DigestVerifyFinal(ctx, sig->data, sig->used) == 1;
 
 egress:
     EVP_MD_CTX_destroy(ctx);
-    OPENSSL_free(alt);
+    jose_buf_free(alt);
     return ret;
 }
 
@@ -123,10 +132,9 @@ verify_sig(const char *pay, const json_t *sig, EVP_PKEY *key)
     const json_t *head = NULL;
     const char *sign = NULL;
     const char *alg = NULL;
-    uint8_t *buf = NULL;
+    jose_buf_t *buf = NULL;
     json_t *p = NULL;
     bool ret = false;
-    size_t len = 0;
 
     if (json_unpack((json_t *) sig, "{s: s, s? o, s? o}", "signature", &sign,
                     "protected", &prot, "header", &head) == -1)
@@ -135,12 +143,8 @@ verify_sig(const char *pay, const json_t *sig, EVP_PKEY *key)
     if (!prot && !head)
         return false;
 
-    len = jose_b64_dlen(strlen(sign));
-    buf = malloc(len);
+    buf = jose_b64_decode_buf(sign, false);
     if (!buf)
-        return false;
-
-    if (!jose_b64_decode(sign, buf))
         goto egress;
 
     p = jose_b64_decode_json_load(prot, 0);
@@ -151,7 +155,7 @@ verify_sig(const char *pay, const json_t *sig, EVP_PKEY *key)
         json_unpack((json_t *) head, "{s: s}", "alg", &alg) == -1)
         goto egress;
 
-    ret = verify(prot ? json_string_value(prot) : "", pay, key, alg, buf, len);
+    ret = verify(prot ? json_string_value(prot) : "", pay, key, alg, buf);
 
 egress:
     json_decref(p);
