@@ -24,7 +24,7 @@ jose_jwk_from_key(EVP_PKEY *key, bool prv);
  * Private key material will be included if and only if prv is true.
  */
 json_t * __attribute__((warn_unused_result))
-jose_jwk_copy(const json_t *jwk, bool prv);
+jose_jwk_dup(const json_t *jwk, bool prv);
 
 /**
  * Convert a JWK to an EVP_PKEY.

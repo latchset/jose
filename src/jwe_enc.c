@@ -481,7 +481,7 @@ seal_jwk(json_t *jwe, const jose_buf_t *cek, const json_t *head,
         h = json_object();
 
     if (has_flags(flags, false, "K") && !json_object_get(h, "jwk")) {
-        json_t *copy = jose_jwk_copy(jwk, false);
+        json_t *copy = jose_jwk_dup(jwk, false);
         if (json_object_set_new(h, "jwk", copy) == -1)
             goto egress;
     }

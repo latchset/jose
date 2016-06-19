@@ -20,7 +20,7 @@ jose_jwkset_copy(const json_t *jwkset, bool prv)
     for (size_t i = 0; i < json_array_size(keys); i++) {
         const json_t *k = json_array_get(keys, i);
 
-        if (json_array_append_new(copy, jose_jwk_copy(k, prv)) == -1)
+        if (json_array_append_new(copy, jose_jwk_dup(k, prv)) == -1)
             goto error;
     }
 

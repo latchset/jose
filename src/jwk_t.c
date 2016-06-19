@@ -167,7 +167,7 @@ test_key(const json_t *jwk, const struct vector *v)
     }
 
     EVP_PKEY_free(key);
-    cpy = jose_jwk_copy(jwk, true);
+    cpy = jose_jwk_dup(jwk, true);
     assert(cpy);
 
     key = jose_jwk_to_key(cpy);
@@ -187,7 +187,7 @@ test_key(const json_t *jwk, const struct vector *v)
     }
 
     EVP_PKEY_free(key);
-    cpy = jose_jwk_copy(jwk, false);
+    cpy = jose_jwk_dup(jwk, false);
     assert(cpy);
 
     key = jose_jwk_to_key(cpy);

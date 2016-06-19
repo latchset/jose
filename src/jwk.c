@@ -542,7 +542,7 @@ jose_jwk_from_key(EVP_PKEY *key, bool prv)
 }
 
 json_t *
-jose_jwk_copy(const json_t *jwk, bool prv)
+jose_jwk_dup(const json_t *jwk, bool prv)
 {
     json_t *out = NULL;
 

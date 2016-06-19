@@ -336,7 +336,7 @@ process_flags(json_t *sig, const json_t *jwk, const char *flags)
             return false;
 
         switch (tolower(flags[i])) {
-        case 'k': k = "jwk"; v = jose_jwk_copy(jwk, false); break;
+        case 'k': k = "jwk"; v = jose_jwk_dup(jwk, false); break;
         case 'i': k = "kid"; v = json_incref(kid); break;
         default: continue;
         }
