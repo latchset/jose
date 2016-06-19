@@ -4,7 +4,7 @@
 #include "jwk.h"
 
 json_t *
-jose_jwkset_copy(const json_t *jwkset, bool prv)
+jose_jwkset_dup(const json_t *jwkset, bool prv)
 {
     const json_t *keys = NULL;
     json_t *copy = NULL;

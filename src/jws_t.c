@@ -362,7 +362,7 @@ test_general_sign_and_verify(const struct example *e)
         assert(jose_jws_verify_jwk(jws, jwks, true));
     }
 
-    jwkset = jose_jwkset_copy(jwks, true);
+    jwkset = jose_jwkset_dup(jwks, true);
     assert(jwkset);
     assert(jose_jws_verify_jwk(jws, jwkset, true));
 
