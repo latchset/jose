@@ -420,3 +420,41 @@ jose_jwk_to_key(const json_t *jwk)
     default: return NULL;
     }
 }
+
+bool
+jose_jwk_use_allowed(const json_t *jwk, const char *use)
+{
+    json_t *u = NULL;
+
+    if (!use)
+        return false;
+
+    u = json_object_get(jwk, "use");
+    if (!json_is_string(u))
+        return true;
+
+    return strcmp(json_string_value(u), use) == 0;
+}
+
+bool
+jose_jwk_op_allowed(const json_t *jwk, const char *op)
+{
+    json_t *ko = NULL;
+
+    ko = json_object_get(jwk, "key_ops");
+    if (!json_is_array(ko))
+        return true;
+
+    for (size_t i = 0; i < json_array_size(ko); i++) {
+        json_t *o = NULL;
+
+        o = json_array_get(ko, i);
+        if (!json_is_string(o))
+            continue;
+
+        if (strcmp(json_string_value(o), op) == 0)
+            return true;
+    }
+
+    return false;
+}

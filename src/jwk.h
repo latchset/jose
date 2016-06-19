@@ -30,3 +30,9 @@ jose_jwk_copy(const json_t *jwk, bool prv);
  */
 EVP_PKEY * __attribute__((warn_unused_result))
 jose_jwk_to_key(const json_t *jwk);
+
+bool
+jose_jwk_use_allowed(const json_t *jwk, const char *use);
+
+bool
+jose_jwk_op_allowed(const json_t *jwk, const char *op);
