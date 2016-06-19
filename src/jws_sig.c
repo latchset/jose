@@ -411,31 +411,6 @@ jose_jws_sign(json_t *jws, EVP_PKEY *key, json_t *sig)
     return jws_sign(jws, sig, key, NULL, NULL);
 }
 
-bool
-jose_jws_sign_pack(json_t *jws, EVP_PKEY *key, const char *fmt, ...)
-{
-    bool ret = false;
-    va_list ap;
-
-    va_start(ap, fmt);
-    ret = jose_jws_sign_vpack(jws, key, fmt, ap);
-    va_end(ap);
-
-    return ret;
-}
-
-bool
-jose_jws_sign_vpack(json_t *jws, EVP_PKEY *key, const char *fmt, va_list ap)
-{
-    json_t *sig = NULL;
-
-    sig = json_vpack_ex(NULL, 0, fmt, ap);
-    if (!sig)
-        return false;
-
-    return jose_jws_sign(jws, key, sig);
-}
-
 static bool
 sign_jwk(json_t *jws, const json_t *jwk, const char *flags, json_t *sig)
 {
@@ -494,31 +469,4 @@ jose_jws_sign_jwk(json_t *jws, const json_t *jwks, const char *flags,
     }
 
     return sign_jwk(jws, jwks, flags, sig);
-}
-
-bool
-jose_jws_sign_jwk_pack(json_t *jws, const json_t *jwks, const char *flags,
-                       const char *fmt, ...)
-{
-    bool ret = false;
-    va_list ap;
-
-    va_start(ap, fmt);
-    ret = jose_jws_sign_jwk_vpack(jws, jwks, flags, fmt, ap);
-    va_end(ap);
-
-    return ret;
-}
-
-bool
-jose_jws_sign_jwk_vpack(json_t *jws, const json_t *jwks, const char *flags,
-                        const char *fmt, va_list ap)
-{
-    json_t *sig = NULL;
-
-    sig = json_vpack_ex(NULL, 0, fmt, ap);
-    if (!sig)
-        return false;
-
-    return jose_jws_sign_jwk(jws, jwks, flags, sig);
 }

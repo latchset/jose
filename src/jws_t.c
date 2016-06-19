@@ -334,8 +334,9 @@ test_general_sign_and_verify(const struct example *e)
         assert(json_array_append_new(jwks, jwk) == 0);
 
         /* Sign the JWS. */
-        assert(jose_jws_sign_jwk_pack(jws, jwk, "K", "{s:s}",
-                                      "protected", e->sigs[i].prot));
+        assert(jose_jws_sign_jwk(jws, jwk, "K",
+                                 json_pack("{s:s}", "protected",
+                                           e->sigs[i].prot)));
 
         json_dumpf(jws, stderr, JSON_SORT_KEYS);
         fprintf(stderr, "\n\n");

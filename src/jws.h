@@ -29,23 +29,8 @@ bool __attribute__((warn_unused_result))
 jose_jws_sign(json_t *jws, EVP_PKEY *key, json_t *sig);
 
 bool __attribute__((warn_unused_result))
-jose_jws_sign_pack(json_t *jws, EVP_PKEY *key, const char *fmt, ...);
-
-bool __attribute__((warn_unused_result))
-jose_jws_sign_vpack(json_t *jws, EVP_PKEY *key, const char *fmt, va_list ap);
-
-
-bool __attribute__((warn_unused_result))
 jose_jws_sign_jwk(json_t *jws, const json_t *jwks, const char *flags,
                   json_t *sig);
-
-bool __attribute__((warn_unused_result))
-jose_jws_sign_jwk_pack(json_t *jws, const json_t *jwks, const char *flags,
-                       const char *fmt, ...);
-
-bool __attribute__((warn_unused_result))
-jose_jws_sign_jwk_vpack(json_t *jws, const json_t *jwks, const char *flags,
-                        const char *fmt, va_list ap);
 
 /**
  * Validates a JWS using the specified EVP_PKEY.
