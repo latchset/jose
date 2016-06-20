@@ -1,15 +1,12 @@
 /* vim: set tabstop=8 shiftwidth=4 softtabstop=4 expandtab smarttab colorcolumn=80: */
 
-#define _GNU_SOURCE
 #include "jws.h"
 #include "jwk.h"
 #include "b64.h"
 #include "conv.h"
 
 #include <openssl/ecdsa.h>
-#include <openssl/hmac.h>
 #include <openssl/rsa.h>
-#include <openssl/sha.h>
 
 #include <string.h>
 
@@ -33,9 +30,9 @@ verify(const char *prot, const char *payl, EVP_PKEY *key, const char *alg,
     case EVP_PKEY_HMAC:
         alt = sign(prot, payl, key, alg);
         if (alt && alt->used == sig->used)
-            ret = CRYPTO_memcmp(alt, sig, sig->used) == 0;
+            ret = CRYPTO_memcmp(alt->data, sig->data, sig->used) == 0;
 
-        free(alt);
+        jose_buf_free(alt);
         return ret;
 
     case EVP_PKEY_RSA:
@@ -193,38 +190,15 @@ jose_jws_verify(const json_t *jws, EVP_PKEY *key)
 }
 
 bool
-jose_jws_verify_jwk(const json_t *jws, const json_t *jwks, bool all)
+jose_jws_verify_jwk(const json_t *jws, const json_t *jwk)
 {
-    const json_t *array = NULL;
     EVP_PKEY *key = NULL;
     bool valid = false;
 
-    if (!jws || !jwks)
+    if (!jws || !jwk)
         return false;
 
-    if (json_is_array(jwks))
-        array = jwks;
-    else if (json_is_array(json_object_get(jwks, "keys")))
-        array = json_object_get(jwks, "keys");
-
-    if (json_is_array(array)) {
-        for (size_t i = 0; i < json_array_size(array); i++) {
-            const json_t *jwk = json_array_get(array, i);
-
-            key = jose_jwk_to_key(jwk);
-            valid = jose_jws_verify(jws, key);
-            EVP_PKEY_free(key);
-
-            if (valid && !all)
-                return true;
-            if (!valid && all)
-                return false;
-        }
-
-        return all && json_array_size(array) > 0;
-    }
-
-    key = jose_jwk_to_key(jwks);
+    key = jose_jwk_to_key(jwk);
     valid = jose_jws_verify(jws, key);
     EVP_PKEY_free(key);
     return valid;

@@ -73,7 +73,7 @@ vect_str(const char *name, const char *ext)
     if (!buf)
         return NULL;
 
-    for (size_t i = 0; i < buf->used; i++) {
+    for (size_t i = 1; i <= buf->used; i++) {
         if (isspace(buf->data[buf->used - i]))
             buf->data[buf->used - i] = 0;
     }

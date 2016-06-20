@@ -10,7 +10,6 @@
 #include <openssl/sha.h>
 #include <openssl/evp.h>
 
-#include <ctype.h>
 #include <string.h>
 
 static bool
@@ -84,8 +83,8 @@ add_sig(json_t *jws, json_t *sig)
     }
 
     /* If we have some signatures already, append to the array. */
-    if (signatures && json_array_append(signatures, sig) == -1)
-        return false;
+    if (signatures)
+        return json_array_append(signatures, sig) == 0;
 
     return json_object_update(jws, sig) == 0;
 }
@@ -258,7 +257,7 @@ error:
 }
 
 static char *
-choose_algorithm(json_t *sig, EVP_PKEY *key, const json_t *jwk)
+choose_algorithm(json_t *sig, EVP_PKEY *key, const char *kalg)
 {
     const int flags = JSON_SORT_KEYS | JSON_COMPACT;
     const char *alg = NULL;
@@ -280,8 +279,8 @@ choose_algorithm(json_t *sig, EVP_PKEY *key, const json_t *jwk)
     if (json_unpack(sig, "{s:{s:s}}", "header", "alg", &alg) == 0)
         goto egress;
 
-    if (json_unpack((json_t *) jwk, "{s:o}", "alg", &alg) == 0)
-        goto egress;
+    if (kalg)
+        alg = kalg;
 
     if (!alg)
         alg = suggest(key);
@@ -311,51 +310,12 @@ egress:
 }
 
 static bool
-process_flags(json_t *sig, const json_t *jwk, const char *flags)
-{
-    json_t *kid = NULL;
-
-    kid = json_object_get(jwk, "kid");
-
-    for (size_t i = 0; flags && flags[i]; i++) {
-        const char *k = NULL;
-        const char *n = NULL;
-        json_t *v = NULL;
-        json_t *o = NULL;
-
-        n = isupper(flags[i]) ? "header" : "protected";
-        o = json_object_get(sig, n);
-
-        if (json_is_object(o))
-            o = json_incref(o);
-        else if (islower(flags[i]) && json_is_string(o))
-            o = jose_b64_decode_json_load(o, 0);
-
-        o = o ? o : json_object();
-        if (json_object_set_new(sig, n, o) == -1)
-            return false;
-
-        switch (tolower(flags[i])) {
-        case 'k': k = "jwk"; v = jose_jwk_dup(jwk, false); break;
-        case 'i': k = "kid"; v = json_incref(kid); break;
-        default: continue;
-        }
-
-        if (json_object_set_new(o, k, v) == -1)
-            return false;
-    }
-
-    return true;
-}
-
-static bool
-jws_sign(json_t *jws, json_t *sig, EVP_PKEY *key,
-         const json_t *jwk, const char *flags)
+jws_sign(json_t *jws, EVP_PKEY *key, json_t *sig, const char *kalg)
 {
     const char *payl = NULL;
     jose_buf_t *s = NULL;
+    json_t *prot = NULL;
     char *alg = NULL;
-    json_t *p = NULL;
     bool ret = false;
 
     if (!key)
@@ -364,32 +324,30 @@ jws_sign(json_t *jws, json_t *sig, EVP_PKEY *key,
     if (json_unpack(jws, "{s:s}", "payload", &payl) == -1)
         goto egress;
 
-    if (!jose_jwk_op_allowed(jwk, "sign"))
-        goto egress;
-
     if (!json_is_object(sig)) {
         json_decref(sig);
         sig = json_object();
     }
 
-    if (!process_flags(sig, jwk, flags))
-        goto egress;
-
-    alg = choose_algorithm(sig, key, jwk);
+    alg = choose_algorithm(sig, key, kalg);
     if (!alg)
         goto egress;
 
-    p = json_object_get(sig, "protected");
-    if (json_is_object(p)) {
-        p = jose_b64_encode_json_dump(p, JSON_SORT_KEYS | JSON_COMPACT);
-        if (json_object_set_new(sig, "protected", p) == -1)
+    if (kalg && strcmp(alg, kalg) != 0)
+        goto egress;
+
+    prot = json_object_get(sig, "protected");
+    if (json_is_object(prot)) {
+        prot = jose_b64_encode_json_dump(prot, JSON_SORT_KEYS | JSON_COMPACT);
+        if (!json_is_string(prot))
+            goto egress;
+        if (json_object_set_new(sig, "protected", prot) == -1)
             goto egress;
     }
 
-    if (!json_is_string(p))
-        goto egress;
 
-    s = sign(json_string_value(p), payl, key, alg);
+    s = sign(json_is_string(prot) ? json_string_value(prot) : "",
+             payl, key, alg);
     if (s) {
         json_t *tmp = jose_b64_encode_json_buf(s);
         if (json_object_set_new(sig, "signature", tmp) == -1)
@@ -399,8 +357,8 @@ jws_sign(json_t *jws, json_t *sig, EVP_PKEY *key,
     }
 
 egress:
+    json_decref(sig);
     jose_buf_free(s);
-    json_decref(p);
     free(alg);
     return ret;
 }
@@ -408,65 +366,30 @@ egress:
 bool
 jose_jws_sign(json_t *jws, EVP_PKEY *key, json_t *sig)
 {
-    return jws_sign(jws, sig, key, NULL, NULL);
-}
-
-static bool
-sign_jwk(json_t *jws, const json_t *jwk, const char *flags, json_t *sig)
-{
-    EVP_PKEY *key = NULL;
-    bool ret = false;
-
-    key = jose_jwk_to_key(jwk);
-    if (jwk)
-        ret = jws_sign(jws, sig, key, jwk, flags);
-
-    EVP_PKEY_free(key);
-    return ret;
+    return jws_sign(jws, key, sig, NULL);
 }
 
 bool
-jose_jws_sign_jwk(json_t *jws, const json_t *jwks, const char *flags,
-                  json_t *sig)
+jose_jws_sign_jwk(json_t *jws, const json_t *jwk, json_t *sig)
 {
-    const json_t *array = NULL;
+    const char *kalg = NULL;
+    EVP_PKEY *key = NULL;
+    bool ret = false;
 
-    if (!jws || !jwks) {
-        json_decref(sig);
-        return false;
-    }
+    if (!jose_jwk_op_allowed(jwk, "sign"))
+        goto egress;
 
-    if (json_is_array(jwks))
-        array = jwks;
-    else if (json_is_array(json_object_get(jwks, "keys")))
-        array = json_object_get(jwks, "keys");
+    if (json_unpack((json_t *) jwk, "{s?s}", "alg", &kalg) == -1)
+        goto egress;
 
-    if (json_is_array(array)) {
-        for (size_t i = 0; i < json_array_size(array); i++) {
-            const json_t *jwk = NULL;
-            json_t *s = NULL;
+    key = jose_jwk_to_key(jwk);
+    if (!key)
+        goto egress;
 
-            jwk = json_array_get(array, i);
-            if (!jwk) {
-                json_decref(sig);
-                return false;
-            }
+    ret = jws_sign(jws, key, json_incref(sig), kalg);
+    EVP_PKEY_free(key);
 
-            s = json_deep_copy(sig);
-            if (!s) {
-                json_decref(sig);
-                return false;
-            }
-
-            if (!sign_jwk(jws, jwk, flags, s)) {
-                json_decref(sig);
-                return false;
-            }
-        }
-
-        json_decref(sig);
-        return json_array_size(array) > 0;
-    }
-
-    return sign_jwk(jws, jwks, flags, sig);
+egress:
+    json_decref(sig);
+    return ret;
 }
