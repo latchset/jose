@@ -2,7 +2,11 @@
 
 #define _GNU_SOURCE
 #include "jwe.h"
+#include "b64.h"
 #include "conv.h"
+
+#include <openssl/evp.h>
+#include <openssl/rand.h>
 
 json_t *
 jose_jwe_from_compact(const char *jwe)
@@ -52,4 +56,65 @@ jose_jwe_to_compact(const json_t *jwe)
              protected, encrypted_key, iv, ciphertext, tag);
 
     return out;
+}
+
+EVP_PKEY *
+jose_jwe_generate_cek(json_t *jwe)
+{
+    const char *enc = NULL;
+    jose_buf_t *buf = NULL;
+    EVP_PKEY *key = NULL;
+    json_t *p = NULL;
+    json_t *s = NULL;
+    size_t len = 0;
+
+    if (json_unpack(jwe, "{s?O,s?o}", "protected", &p,
+                    "unprotected", &s) == -1)
+        return NULL;
+
+    if (json_is_string(p)) {
+        json_t *dec = jose_b64_decode_json_load(p, 0);
+        json_decref(p);
+        p = dec;
+    }
+
+    if (p && !json_is_object(p))
+        goto egress;
+
+    if (json_unpack(p, "{s:s}", "enc", &enc) == -1 &&
+        json_unpack(s, "{s:s}", "enc", &enc) == -1) {
+        enc = "A128GCM";
+
+        if (!p)
+            p = json_object();
+
+        if (json_object_set_new(p, "enc", json_string(enc)) == -1 ||
+            json_object_set(jwe, "protected", p) == -1)
+            goto egress;
+    }
+
+    switch (str_to_enum(enc, "A128GCM", "A192GCM", "A256GCM", "A128CBC-HS256",
+                        "A192CBC-HS384", "A256CBC-HS512",NULL)) {
+    case 0: len = 16; break;
+    case 1: len = 24; break;
+    case 2: len = 32; break;
+    case 3: len = 32; break;
+    case 4: len = 48; break;
+    case 5: len = 64; break;
+    default: goto egress;
+    }
+
+    buf = jose_buf_new(len, true);
+    if (!buf)
+        goto egress;
+
+    if (RAND_bytes(buf->data, buf->used) <= 0)
+        goto egress;
+
+    key = EVP_PKEY_new_mac_key(EVP_PKEY_HMAC, NULL, buf->data, buf->used);
+
+egress:
+    jose_buf_free(buf);
+    json_decref(p);
+    return key;
 }

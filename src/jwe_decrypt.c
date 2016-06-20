@@ -13,116 +13,32 @@
 
 #include <string.h>
 
-static jose_buf_t *
-unseal(EVP_PKEY *key, const char *alg, const jose_buf_t *ct)
-{
-    const EVP_CIPHER *cph = NULL;
-    EVP_CIPHER_CTX *ctx = NULL;
-    const uint8_t *k = NULL;
-    uint8_t *iv = NULL;
-    size_t klen = 0;
-    int pad = 0;
-    int tmp = 0;
-
-    jose_buf_t *cek = NULL;
-
-    switch (EVP_PKEY_base_id(key)) {
-    case EVP_PKEY_HMAC:
-        switch (str_to_enum(alg, "A128KW", "A192KW", "A256KW", NULL)) {
-        case 0: cph = EVP_aes_128_wrap(); break;
-        case 1: cph = EVP_aes_192_wrap(); break;
-        case 2: cph = EVP_aes_256_wrap(); break;
-        default: return NULL;
-        }
-
-        k = EVP_PKEY_get0_hmac(key, &klen);
-        if (!k)
-            goto error;
-
-        if ((int) klen != EVP_CIPHER_key_length(cph))
-            goto error;
-
-        iv = alloca(EVP_CIPHER_iv_length(cph));
-        memset(iv, 0xA6, EVP_CIPHER_iv_length(cph));
-
-        cek = jose_buf_new(ct->used, true);
-        if (!cek)
-            goto error;
-
-        ctx = EVP_CIPHER_CTX_new();
-        if (!ctx)
-            goto error;
-
-        if (EVP_DecryptInit(ctx, cph, k, iv) <= 0)
-            goto error;
-
-        if (EVP_DecryptUpdate(ctx, cek->data, &tmp, ct->data, ct->used) <= 0)
-            goto error;
-        cek->used = tmp;
-
-        if (EVP_DecryptFinal(ctx, &cek->data[klen], &tmp) <= 0)
-            goto error;
-        cek->used += tmp;
-
-        EVP_CIPHER_CTX_free(ctx);
-        return cek;
-
-
-    case EVP_PKEY_RSA:
-        switch (str_to_enum(alg, "RSA1_5", "RSA-OAEP", "RSA-OAEP-256", NULL)) {
-        case 0: pad = RSA_PKCS1_PADDING; break;
-        case 1: pad = RSA_PKCS1_OAEP_PADDING; break;
-        default: return NULL;
-        }
-
-        cek = jose_buf_new(RSA_size(key->pkey.rsa), true);
-        if (!cek)
-            return NULL;
-
-        tmp = RSA_private_decrypt(ct->used, ct->data, cek->data,
-                                  key->pkey.rsa, pad);
-        if (tmp < 0)
-            goto error;
-
-        cek->used = tmp;
-        return cek;
-
-    default:
-        return NULL;
-    }
-
-error:
-    EVP_CIPHER_CTX_free(ctx);
-    jose_buf_free(cek);
-    return NULL;
-}
-
-jose_buf_t *
-decrypt(const char *enc, const jose_buf_t *iv, const char aad[],
-        const jose_buf_t *ct, const jose_buf_t *tag, const jose_buf_t *cek);
-
 static size_t
 min(size_t a, size_t b)
 {
     return a > b ? b : a;
 }
 
-jose_buf_t *
+static jose_buf_t *
 decrypt(const char *enc, const jose_buf_t *iv, const char aad[],
-        const jose_buf_t *ct, const jose_buf_t *tag, const jose_buf_t *cek)
+        const jose_buf_t *ct, const jose_buf_t *tag, EVP_PKEY *cek)
 {
     const EVP_CIPHER *cph = NULL;
     EVP_CIPHER_CTX *ctx = NULL;
     const EVP_MD *md = NULL;
+    const uint8_t *c = NULL;
     jose_buf_t *pt = NULL;
     HMAC_CTX hctx = {};
+    size_t clen = 0;
     size_t tagl = 0;
     size_t keyl = 0;
     int len = 0;
 
-    HMAC_CTX_init(&hctx);
-
     if (!enc || !iv || !aad || !ct || !tag || !cek)
+        return NULL;
+
+    c = EVP_PKEY_get0_hmac(cek, &clen);
+    if (!c)
         return NULL;
 
     switch (str_to_enum(enc, "A128GCM", "A192GCM", "A256GCM",
@@ -146,6 +62,8 @@ decrypt(const char *enc, const jose_buf_t *iv, const char aad[],
     if (!skey)
         return NULL;
 
+    HMAC_CTX_init(&hctx);
+
     if (RAND_bytes(skey->data, skey->used) <= 0)
         goto error;
     if (RAND_bytes(stag, sizeof(stag)) <= 0)
@@ -153,7 +71,7 @@ decrypt(const char *enc, const jose_buf_t *iv, const char aad[],
     if (RAND_bytes(siv, sizeof(siv)) <= 0)
         goto error;
 
-    memcpy(skey->data, cek->data, min(cek->used, skey->used));
+    memcpy(skey->data, c, min(clen, skey->used));
     memcpy(stag, tag->data, min(tag->used, sizeof(stag)));
     memcpy(siv, iv->data, min(iv->used, sizeof(siv)));
 
@@ -234,107 +152,8 @@ error:
     return NULL;
 }
 
-static jose_buf_t *
-unseal_recip(EVP_PKEY *key, const json_t *prot, const json_t *shrd,
-             const json_t *rcp)
-{
-    const char *alg = NULL;
-    jose_buf_t *ct = NULL;
-    jose_buf_t *pt = NULL;
-
-    if (json_unpack((json_t *) prot, "{s: s}", "alg", &alg) == -1 &&
-        json_unpack((json_t *) shrd, "{s: s}", "alg", &alg) == -1 &&
-        json_unpack((json_t *) rcp, "{s: {s: s}}",
-                    "header", "alg", &alg) == -1)
-        return NULL;
-
-    ct = jose_b64_decode_json_buf(
-        json_object_get(rcp,"encrypted_key"),
-        false
-    );
-    if (!ct)
-        return NULL;
-
-    pt = unseal(key, alg, ct);
-    jose_buf_free(ct);
-    return pt;
-}
-
 jose_buf_t *
-jose_jwe_unseal(const json_t *jwe, EVP_PKEY *key)
-{
-    const json_t *prot = NULL;
-    const json_t *shrd = NULL;
-    const json_t *rcps = NULL;
-    jose_buf_t *cek = NULL;
-    json_t *p = NULL;
-
-    if (json_unpack((json_t *) jwe, "{s? o, s? o, s? o}",
-                    "protected", &prot, "unprotected", &shrd,
-                    "recipients", &rcps) == -1)
-        return NULL;
-
-    p = jose_b64_decode_json_load(prot, 0);
-    if (prot && !p)
-        return NULL;
-
-    if (json_is_array(rcps)) {
-        for (size_t i = 0; i < json_array_size(rcps) && !cek; i++) {
-            const json_t *recp = json_array_get(rcps, i);
-            cek = unseal_recip(key, p, shrd, recp);
-        }
-    } else if (!rcps) {
-        cek = unseal_recip(key, p, shrd, jwe);
-    }
-
-    json_decref(p);
-    return cek;
-}
-
-static jose_buf_t *
-unseal_jwk(const json_t *jwe, const json_t *jwk)
-{
-    EVP_PKEY *key = NULL;
-    jose_buf_t *cek = NULL;
-
-    key = jose_jwk_to_key(jwk);
-    if (!key)
-        return NULL;
-
-    cek = jose_jwe_unseal(jwe, key);
-    EVP_PKEY_free(key);
-    return cek;
-}
-
-jose_buf_t *
-jose_jwe_unseal_jwk(const json_t *jwe, const json_t *jwks)
-{
-    const json_t *array = NULL;
-
-    if (!jwe || !jwks)
-        return false;
-
-    if (json_is_array(jwks))
-        array = jwks;
-    else if (json_is_array(json_object_get(jwks, "keys")))
-        array = json_object_get(jwks, "keys");
-
-    if (json_is_array(array)) {
-        jose_buf_t *cek = NULL;
-
-        for (size_t i = 0; i < json_array_size(array) && !cek; i++) {
-            const json_t *jwk = json_array_get(array, i);
-            cek = unseal_jwk(jwe, jwk);
-        }
-
-        return cek;
-    }
-
-    return unseal_jwk(jwe, jwks);
-}
-
-jose_buf_t *
-jose_jwe_decrypt(const json_t *jwe, const jose_buf_t *cek)
+jose_jwe_decrypt(const json_t *jwe, EVP_PKEY *cek)
 {
     const json_t *prot = NULL;
     const json_t *shrd = NULL;
@@ -397,7 +216,7 @@ egress:
 }
 
 json_t *
-jose_jwe_decrypt_json(const json_t *jwe, const jose_buf_t *cek, int flags)
+jose_jwe_decrypt_json(const json_t *jwe, EVP_PKEY *cek)
 {
     jose_buf_t *pt = NULL;
     json_t *json = NULL;
@@ -406,7 +225,7 @@ jose_jwe_decrypt_json(const json_t *jwe, const jose_buf_t *cek, int flags)
     if (!pt)
         return NULL;
 
-    json = json_loadb((char *) pt->data, pt->used, flags, NULL);
+    json = json_loadb((char *) pt->data, pt->used, JSON_DECODE_ANY, NULL);
     jose_buf_free(pt);
     return json;
 }

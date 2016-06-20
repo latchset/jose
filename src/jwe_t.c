@@ -2,7 +2,10 @@
 
 #include "jwe.h"
 #include "b64.h"
+#include "conv.h"
 #include "vect.h"
+
+#include <openssl/evp.h>
 
 #include <assert.h>
 #include <limits.h>
@@ -16,15 +19,35 @@ static const char plaintext[] =
     "yourself. But you cannot trust us to let you face trouble "
     "alone, and go off without a word. We are your friends, Frodo.";
 
-static const char *vectors[] = {
-    "rfc7520_5.1",
-    "rfc7520_5.2",
-    NULL
+static const struct {
+    const char *name;
+    const char *type;
+} vectors[] = {
+    { "rfc7520_5.1", "jwec" },
+    { "rfc7520_5.1", "jwef" },
+    { "rfc7520_5.1", "jweg" },
+    { "rfc7520_5.2", "jwec" },
+    { "rfc7520_5.2", "jwef" },
+    { "rfc7520_5.2", "jweg" },
+    {}
 };
 
+static EVP_PKEY *
+load_cek(const char *name)
+{
+    jose_buf_t *buf = NULL;
+    EVP_PKEY *cek = NULL;
+
+    buf = vect_b64(name, "cek");
+    assert(buf);
+
+    cek = EVP_PKEY_new_mac_key(EVP_PKEY_HMAC, NULL, buf->data, buf->used);
+    jose_buf_free(buf);
+    return cek;
+}
 
 static void
-test_decrypt(const json_t *jwe, const jose_buf_t *cek)
+test_decrypt(const json_t *jwe, EVP_PKEY *cek)
 {
     jose_buf_t *pt = NULL;
     pt = jose_jwe_decrypt(jwe, cek);
@@ -35,95 +58,73 @@ test_decrypt(const json_t *jwe, const jose_buf_t *cek)
 }
 
 static void
-test_unseal(const json_t *jwe, const jose_buf_t *cek, const json_t *jwk)
+test_unseal(const json_t *jwe, EVP_PKEY *cek, const json_t *jwk)
 {
-    jose_buf_t *tmp = NULL;
+    EVP_PKEY *tmp = NULL;
     tmp = jose_jwe_unseal_jwk(jwe, jwk);
     assert(tmp);
-    assert(cek->used == tmp->used);
-    assert(memcmp(cek->data, tmp->data, cek->used) == 0);
-    jose_buf_free(tmp);
+    assert(tmp->ameth);
+    assert(ASN1_OCTET_STRING_cmp(EVP_PKEY_get0(cek), EVP_PKEY_get0(tmp)) == 0);
+    EVP_PKEY_free(tmp);
 }
 
 int
 main(int argc, char *argv[])
 {
-    static char *types[] = { "jweg", "jwef", "jwec", NULL };
+    for (size_t i = 0; vectors[i].name; i++) {
+        EVP_PKEY *cek = NULL;
+        json_t *jwe = NULL;
+        json_t *jwk = NULL;
 
-    for (size_t i = 0; vectors[i]; i++) {
-        for (size_t j = 0; types[j]; j++) {
-            jose_buf_t *cek = NULL;
-            json_t *prot = NULL;
-            json_t *shrd = NULL;
-            json_t *head = NULL;
-            json_t *jwe = NULL;
-            json_t *jwk = NULL;
-            json_t *p = NULL;
+        fprintf(stderr, "==================== %s (%s) ====================\n",
+                vectors[i].name, vectors[i].type);
 
-            fprintf(stderr, "%s %s\n", vectors[i], types[j]);
+        if (strcmp(vectors[i].type, "jwec") == 0) {
+            char *a = NULL;
+            char *b = NULL;
 
-            if (strcmp(types[j], "jwec") == 0) {
-                char *a = NULL;
-                char *b = NULL;
+            a = vect_str(vectors[i].name, vectors[i].type);
+            assert(a);
 
-                a = vect_str(vectors[i], types[j]);
-                assert(a);
+            jwe = jose_jwe_from_compact(a);
+            assert(json_is_object(jwe));
 
-                jwe = jose_jwe_from_compact(a);
-                assert(json_is_object(jwe));
+            b = jose_jwe_to_compact(jwe);
+            assert(b);
 
-                b = jose_jwe_to_compact(jwe);
-                assert(b);
-
-                assert(strcmp(a, b) == 0);
-                free(a);
-                free(b);
-            } else {
-                jwe = vect_json(vectors[i], "jweg");
-                assert(jwe);
-            }
-
-            /* First, ensure that decrypt works with the hard-coded CEK. */
-            cek = vect_b64(vectors[i], "cek");
-            assert(cek);
-            test_decrypt(jwe, cek);
-
-            /* Next, ensure that unseal produces the hard-coded CEK. */
-            jwk = vect_json(vectors[i], "jwk");
-            assert(jwk);
-            test_unseal(jwe, cek, jwk);
-
-            /* Now, let's extract the headers so we can attempt to recreate
-             * the encryption/signing process. */
-            if (strcmp(types[j], "jweg") == 0) {
-                assert(json_unpack(jwe, "{s? O, s? O, s? [{s? O}!]}",
-                                   "protected", &prot,
-                                   "unprotected", &shrd,
-                                   "recipients", "header", &head) == 0);
-            } else {
-                assert(json_unpack(jwe, "{s? O, s? O, s? O}",
-                                   "protected", &prot,
-                                   "unprotected", &shrd,
-                                   "header", &head) == 0);
-            }
-            p = jose_b64_decode_json_load(prot, 0);
-            assert(!prot || p);
-            json_decref(prot);
-
-            json_decref(jwe);
-            jwe = json_object();
+            assert(strcmp(a, b) == 0);
+            free(a);
+            free(b);
+        } else {
+            jwe = vect_json(vectors[i].name, vectors[i].type);
             assert(jwe);
-
-            assert(jose_jwe_encrypt(jwe, p, shrd, (uint8_t *) plaintext,
-                                    strlen(plaintext), &cek));
-
-            jose_buf_free(cek);
-            json_decref(shrd);
-            json_decref(head);
-            json_decref(jwe);
-            json_decref(jwk);
-            json_decref(p);
         }
+
+        /* First, ensure that decrypt works with the hard-coded CEK. */
+        cek = load_cek(vectors[i].name);
+        assert(cek);
+        test_decrypt(jwe, cek);
+
+        /* Next, ensure that unseal produces the hard-coded CEK. */
+        jwk = vect_json(vectors[i].name, "jwk");
+        assert(jwk);
+        test_unseal(jwe, cek, jwk);
+
+        json_object_del(jwe, "encrypted_key");
+        json_object_del(jwe, "recipients");
+        json_object_del(jwe, "ciphertext");
+        json_object_del(jwe, "header");
+        json_object_del(jwe, "tag");
+        json_object_del(jwe, "iv");
+
+        assert(jose_jwe_encrypt(jwe, cek, (uint8_t *) plaintext,
+                                strlen(plaintext)));
+
+        assert(jose_jwe_seal_jwk(jwe, cek, jwk, NULL));
+
+        EVP_PKEY_free(cek);
+        json_decref(jwe);
+        json_decref(jwk);
     }
 
     return 0;
