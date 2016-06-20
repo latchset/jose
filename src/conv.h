@@ -34,5 +34,8 @@ str_to_enum(const char *str, ...);
 bool
 has_flags(const char *flags, bool all, const char *query);
 
+json_t *
+encode_protected(json_t *obj);
+
 const unsigned char *
 EVP_PKEY_get0_hmac(EVP_PKEY *pkey, size_t *len);

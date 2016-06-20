@@ -178,6 +178,32 @@ has_flags(const char *flags, bool all, const char *query)
     return all;
 }
 
+json_t *
+encode_protected(json_t *obj)
+{
+    json_t *p = NULL;
+
+    if (json_unpack(obj, "{s?o}", "protected", &p) == -1)
+        return false;
+
+    if (!p)
+        return json_string("");
+
+    if (json_is_string(p))
+        return json_incref(p);
+
+    if (!json_is_object(p))
+        return NULL;
+
+    p = jose_b64_encode_json_dump(p, JSON_SORT_KEYS | JSON_COMPACT);
+    if (!p)
+        return NULL;
+
+    if (json_object_set_new(obj, "protected", p) == -1)
+        return NULL;
+
+    return p;
+}
 
 /*
  * This really doesn't belong here, but OpenSSL doesn't (yet) help us.
