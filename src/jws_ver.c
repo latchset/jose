@@ -195,7 +195,10 @@ jose_jws_verify_jwk(const json_t *jws, const json_t *jwk)
     EVP_PKEY *key = NULL;
     bool valid = false;
 
-    if (!jws || !jwk)
+    if (!jose_jwk_use_allowed(jwk, "sig"))
+        return false;
+
+    if (!jose_jwk_op_allowed(jwk, "verify"))
         return false;
 
     key = jose_jwk_to_key(jwk);

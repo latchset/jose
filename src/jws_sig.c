@@ -257,13 +257,12 @@ error:
 }
 
 static char *
-choose_algorithm(json_t *sig, EVP_PKEY *key, const char *kalg)
+choose_alg(json_t *sig, EVP_PKEY *key, const char *kalg)
 {
     const int flags = JSON_SORT_KEYS | JSON_COMPACT;
     const char *alg = NULL;
     json_t *enc = NULL;
     json_t *dec = NULL;
-    json_t *h = NULL;
 
     if (json_unpack(sig, "{s:{s:s}}", "protected", "alg", &alg) == 0)
         goto egress;
@@ -279,23 +278,11 @@ choose_algorithm(json_t *sig, EVP_PKEY *key, const char *kalg)
     if (json_unpack(sig, "{s:{s:s}}", "header", "alg", &alg) == 0)
         goto egress;
 
-    if (kalg)
-        alg = kalg;
-
+    alg = kalg;
     if (!alg)
         alg = suggest(key);
-
     if (!alg)
         goto egress;
-
-    json_unpack(sig, "{s?o}", "header", &h);
-
-    if (json_object_size(h) > 0 && json_object_size(dec) == 0) {
-        if (json_object_set_new(h, "alg", json_string(alg)) == -1)
-            alg = NULL;
-
-        goto egress;
-    }
 
     if (json_object_set_new(dec, "alg", json_string(alg)) == -1 ||
         json_object_set_new(sig, "protected",
@@ -303,8 +290,12 @@ choose_algorithm(json_t *sig, EVP_PKEY *key, const char *kalg)
         alg = NULL;
 
 egress:
-    if (alg)
-        alg = strdup(alg);
+    if (alg) {
+        if (!kalg || strcmp(kalg, alg) == 0)
+            alg = strdup(alg);
+        else
+            alg = NULL;
+    }
     json_decref(dec);
     return (char *) alg;
 }
@@ -329,22 +320,13 @@ jws_sign(json_t *jws, EVP_PKEY *key, json_t *sig, const char *kalg)
         sig = json_object();
     }
 
-    alg = choose_algorithm(sig, key, kalg);
+    alg = choose_alg(sig, key, kalg);
     if (!alg)
         goto egress;
 
-    if (kalg && strcmp(alg, kalg) != 0)
+    prot = encode_protected(sig);
+    if (!prot)
         goto egress;
-
-    prot = json_object_get(sig, "protected");
-    if (json_is_object(prot)) {
-        prot = jose_b64_encode_json_dump(prot, JSON_SORT_KEYS | JSON_COMPACT);
-        if (!json_is_string(prot))
-            goto egress;
-        if (json_object_set_new(sig, "protected", prot) == -1)
-            goto egress;
-    }
-
 
     s = sign(json_is_string(prot) ? json_string_value(prot) : "",
              payl, key, alg);
@@ -375,6 +357,9 @@ jose_jws_sign_jwk(json_t *jws, const json_t *jwk, json_t *sig)
     const char *kalg = NULL;
     EVP_PKEY *key = NULL;
     bool ret = false;
+
+    if (!jose_jwk_use_allowed(jwk, "sig"))
+        goto egress;
 
     if (!jose_jwk_op_allowed(jwk, "sign"))
         goto egress;
