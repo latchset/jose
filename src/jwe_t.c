@@ -49,12 +49,16 @@ load_cek(const char *name)
 static void
 test_decrypt(const json_t *jwe, EVP_PKEY *cek)
 {
-    jose_buf_t *pt = NULL;
-    pt = jose_jwe_decrypt(jwe, cek);
-    assert(pt);
-    assert(pt->used == strlen(plaintext));
-    assert(memcmp(pt->data, plaintext, pt->used) == 0);
-    jose_buf_free(pt);
+    json_t *ct = json_object_get(jwe, "ciphertext");
+    assert(json_is_string(ct));
+
+    uint8_t pt[jose_b64_dlen(json_string_length(ct))];
+    ssize_t ptl;
+
+    ptl = jose_jwe_decrypt(jwe, cek, pt);
+    assert(ptl >= 0);
+    assert((size_t) ptl == strlen(plaintext));
+    assert(memcmp(pt, plaintext, ptl) == 0);
 }
 
 static void

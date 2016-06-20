@@ -48,8 +48,8 @@ jose_jwe_unseal(const json_t *jwe, EVP_PKEY *key);
 EVP_PKEY * __attribute__((warn_unused_result))
 jose_jwe_unseal_jwk(const json_t *jwe, const json_t *jwk);
 
-jose_buf_t * __attribute__((warn_unused_result))
-jose_jwe_decrypt(const json_t *jwe, EVP_PKEY *cek);
+ssize_t __attribute__((warn_unused_result))
+jose_jwe_decrypt(const json_t *jwe, EVP_PKEY *cek, uint8_t pt[]);
 
 json_t * __attribute__((warn_unused_result))
 jose_jwe_decrypt_json(const json_t *jwe, EVP_PKEY *cek);
