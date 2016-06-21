@@ -187,7 +187,7 @@ encode_protected(json_t *obj)
     if (!json_is_object(p))
         return NULL;
 
-    p = jose_b64_encode_json_dump(p, JSON_SORT_KEYS | JSON_COMPACT);
+    p = jose_b64_encode_json_dump(p);
     if (!p)
         return NULL;
 

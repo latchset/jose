@@ -180,7 +180,7 @@ jose_jwe_decrypt(const json_t *jwe, EVP_PKEY *cek, uint8_t pt[])
                     "ciphertext", &ect, "tag", &etg, "iv", &eiv) == -1)
         return -1;
 
-    p = jose_b64_decode_json_load(prot, 0);
+    p = jose_b64_decode_json_load(prot);
     if (prot && !p)
         goto egress;
 

@@ -73,7 +73,7 @@ jose_jwe_generate_cek(json_t *jwe)
         return NULL;
 
     if (json_is_string(p)) {
-        json_t *dec = jose_b64_decode_json_load(p, 0);
+        json_t *dec = jose_b64_decode_json_load(p);
         json_decref(p);
         p = dec;
     }

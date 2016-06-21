@@ -259,7 +259,6 @@ error:
 static char *
 choose_alg(json_t *sig, EVP_PKEY *key, const char *kalg)
 {
-    const int flags = JSON_SORT_KEYS | JSON_COMPACT;
     const char *alg = NULL;
     json_t *enc = NULL;
     json_t *dec = NULL;
@@ -268,7 +267,7 @@ choose_alg(json_t *sig, EVP_PKEY *key, const char *kalg)
         goto egress;
 
     enc = json_object_get(sig, "protected");
-    dec = jose_b64_decode_json_load(enc, 0);
+    dec = jose_b64_decode_json_load(enc);
     if (json_is_string(enc) && !json_is_object(dec))
         goto egress;
 
@@ -286,7 +285,7 @@ choose_alg(json_t *sig, EVP_PKEY *key, const char *kalg)
 
     if (json_object_set_new(dec, "alg", json_string(alg)) == -1 ||
         json_object_set_new(sig, "protected",
-                            jose_b64_encode_json_dump(dec, flags)) == -1)
+                            jose_b64_encode_json_dump(dec)) == -1)
         alg = NULL;
 
 egress:

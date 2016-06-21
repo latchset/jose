@@ -42,7 +42,7 @@ jose_b64_decode_json(const json_t *enc, uint8_t dec[]);
  * Upon successful decoding, the serialization is deserialized.
  */
 json_t * __attribute__((warn_unused_result))
-jose_b64_decode_json_load(const json_t *enc, int flags);
+jose_b64_decode_json_load(const json_t *enc);
 
 /**
  * Encodes the input byte array to a C string.
@@ -63,4 +63,4 @@ jose_b64_encode_json(const uint8_t dec[], size_t len);
  * Encodes the input JSON after serializing it.
  */
 json_t * __attribute__((warn_unused_result))
-jose_b64_encode_json_dump(const json_t *dec, int flags);
+jose_b64_encode_json_dump(const json_t *dec);

@@ -131,7 +131,7 @@ jose_jwe_unseal(const json_t *jwe, EVP_PKEY *key)
                     "recipients", &rcps) == -1)
         return NULL;
 
-    p = jose_b64_decode_json_load(prot, 0);
+    p = jose_b64_decode_json_load(prot);
     if (prot && !p)
         return NULL;
 

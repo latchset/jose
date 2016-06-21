@@ -196,7 +196,7 @@ choose_alg(json_t *jwe, EVP_PKEY *key, json_t *rcp, const char *kalg)
         return NULL;
 
     if (json_is_string(p)) {
-        json_t *dec = jose_b64_decode_json_load(p, 0);
+        json_t *dec = jose_b64_decode_json_load(p);
         json_decref(p);
         p = dec;
     }

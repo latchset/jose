@@ -152,7 +152,7 @@ verify_sig(const char *pay, const json_t *sig, EVP_PKEY *key)
     if (!jose_b64_decode(sign, buf))
         goto egress;
 
-    p = jose_b64_decode_json_load(prot, 0);
+    p = jose_b64_decode_json_load(prot);
     if (prot && !p)
         goto egress;
 
