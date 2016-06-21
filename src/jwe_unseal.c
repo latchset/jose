@@ -13,18 +13,18 @@
 
 #include <string.h>
 
-static jose_buf_t *
-unseal(EVP_PKEY *key, const char *alg, const jose_buf_t *ct)
+static ssize_t
+unseal(EVP_PKEY *key, const char *alg, const uint8_t ct[], size_t cl,
+       uint8_t pt[])
 {
     const EVP_CIPHER *cph = NULL;
     EVP_CIPHER_CTX *ctx = NULL;
     const uint8_t *k = NULL;
     uint8_t *iv = NULL;
     size_t klen = 0;
+    ssize_t pl = -1;
     int pad = 0;
     int tmp = 0;
-
-    jose_buf_t *cek = NULL;
 
     switch (EVP_PKEY_base_id(key)) {
     case EVP_PKEY_HMAC:
@@ -32,69 +32,49 @@ unseal(EVP_PKEY *key, const char *alg, const jose_buf_t *ct)
         case 0: cph = EVP_aes_128_wrap(); break;
         case 1: cph = EVP_aes_192_wrap(); break;
         case 2: cph = EVP_aes_256_wrap(); break;
-        default: return NULL;
+        default: return -1;
         }
 
         k = EVP_PKEY_get0_hmac(key, &klen);
         if (!k)
-            goto error;
+            return -1;
 
         if ((int) klen != EVP_CIPHER_key_length(cph))
-            goto error;
+            return -1;
 
         iv = alloca(EVP_CIPHER_iv_length(cph));
         memset(iv, 0xA6, EVP_CIPHER_iv_length(cph));
 
-        cek = jose_buf_new(ct->used, true);
-        if (!cek)
-            goto error;
-
         ctx = EVP_CIPHER_CTX_new();
         if (!ctx)
-            goto error;
+            return -1;
 
-        if (EVP_DecryptInit(ctx, cph, k, iv) <= 0)
-            goto error;
+        if (EVP_DecryptInit(ctx, cph, k, iv) > 0) {
+            if (EVP_DecryptUpdate(ctx, pt, &tmp, ct, cl) > 0) {
+                pl = tmp;
 
-        if (EVP_DecryptUpdate(ctx, cek->data, &tmp, ct->data, ct->used) <= 0)
-            goto error;
-        cek->used = tmp;
-
-        if (EVP_DecryptFinal(ctx, &cek->data[klen], &tmp) <= 0)
-            goto error;
-        cek->used += tmp;
+                if (EVP_DecryptFinal(ctx, &pt[tmp], &tmp) > 0)
+                    pl += tmp;
+                else
+                    pl = -1;
+            }
+        }
 
         EVP_CIPHER_CTX_free(ctx);
-        return cek;
-
+        return pl;
 
     case EVP_PKEY_RSA:
         switch (str_to_enum(alg, "RSA1_5", "RSA-OAEP", "RSA-OAEP-256", NULL)) {
         case 0: pad = RSA_PKCS1_PADDING; break;
         case 1: pad = RSA_PKCS1_OAEP_PADDING; break;
-        default: return NULL;
+        default: return -1;
         }
 
-        cek = jose_buf_new(RSA_size(key->pkey.rsa), true);
-        if (!cek)
-            return NULL;
-
-        tmp = RSA_private_decrypt(ct->used, ct->data, cek->data,
-                                  key->pkey.rsa, pad);
-        if (tmp < 0)
-            goto error;
-
-        cek->used = tmp;
-        return cek;
+        return RSA_private_decrypt(cl, ct, pt, key->pkey.rsa, pad);
 
     default:
-        return NULL;
+        return -1;
     }
-
-error:
-    EVP_CIPHER_CTX_free(ctx);
-    jose_buf_free(cek);
-    return NULL;
 }
 
 static EVP_PKEY *
@@ -102,9 +82,12 @@ unseal_recip(EVP_PKEY *key, const json_t *prot, const json_t *shrd,
              const json_t *rcp)
 {
     const char *alg = NULL;
-    jose_buf_t *ct = NULL;
-    jose_buf_t *pt = NULL;
     EVP_PKEY *cek = NULL;
+    uint8_t *ct = NULL;
+    uint8_t *pt = NULL;
+    json_t *ek = NULL;
+    ssize_t pl = 0;
+    size_t cl = 0;
 
     if (json_unpack((json_t *) prot, "{s: s}", "alg", &alg) == -1 &&
         json_unpack((json_t *) shrd, "{s: s}", "alg", &alg) == -1 &&
@@ -112,20 +95,25 @@ unseal_recip(EVP_PKEY *key, const json_t *prot, const json_t *shrd,
                     "header", "alg", &alg) == -1)
         return NULL;
 
-    ct = jose_b64_decode_json_buf(
-        json_object_get(rcp,"encrypted_key"),
-        false
-    );
-    if (!ct)
+    ek = json_object_get(rcp, "encrypted_key");
+    if (!json_is_string(ek))
         return NULL;
 
-    pt = unseal(key, alg, ct);
-    jose_buf_free(ct);
-    if (!pt)
-        return NULL;
+    cl = jose_b64_dlen(json_string_length(ek));
+    ct = malloc(cl);
+    if (ct) {
+        if (jose_b64_decode(json_string_value(ek), ct)) {
+            pt = malloc(cl);
+            if (pt) {
+                pl = unseal(key, alg, ct, cl, pt);
+                if (pl >= 0)
+                    cek = EVP_PKEY_new_mac_key(EVP_PKEY_HMAC, NULL, pt, pl);
+                free(pt);
+            }
+        }
+        free(ct);
+    }
 
-    cek = EVP_PKEY_new_mac_key(EVP_PKEY_HMAC, NULL, pt->data, pt->used);
-    jose_buf_free(pt);
     return cek;
 }
 

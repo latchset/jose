@@ -20,8 +20,8 @@ min(size_t a, size_t b)
 }
 
 static ssize_t
-decrypt(const char *enc, const jose_buf_t *iv, const char aad[],
-        const jose_buf_t *ct, const jose_buf_t *tag, EVP_PKEY *cek,
+decrypt(const char *enc, const char aad[], EVP_PKEY *cek, const uint8_t iv[],
+        size_t ivl, const uint8_t ct[], size_t ctl, uint8_t tg[], size_t tgl,
         uint8_t pt[])
 {
     const EVP_CIPHER *cph = NULL;
@@ -35,7 +35,7 @@ decrypt(const char *enc, const jose_buf_t *iv, const char aad[],
     size_t keyl = 0;
     int len = 0;
 
-    if (!enc || !iv || !aad || !ct || !tag || !cek)
+    if (!enc || !iv || !aad || !ct || !tg || !cek)
         return -1;
 
     c = EVP_PKEY_get0_hmac(cek, &clen);
@@ -57,24 +57,22 @@ decrypt(const char *enc, const jose_buf_t *iv, const char aad[],
     keyl = EVP_CIPHER_key_length(cph) * (md ? 2 : 1);
     tagl = md ? (size_t) EVP_MD_size(md) / 2 : tagl;
 
-    jose_buf_t *skey = jose_buf_new(keyl, true);
+    uint8_t skey[keyl];
     uint8_t siv[EVP_CIPHER_iv_length(cph)];
     uint8_t stag[tagl];
-    if (!skey)
-        return -1;
 
     HMAC_CTX_init(&hctx);
 
-    if (RAND_bytes(skey->data, skey->used) <= 0)
+    if (RAND_bytes(skey, sizeof(skey)) <= 0)
         goto error;
     if (RAND_bytes(stag, sizeof(stag)) <= 0)
         goto error;
     if (RAND_bytes(siv, sizeof(siv)) <= 0)
         goto error;
 
-    memcpy(skey->data, c, min(clen, skey->used));
-    memcpy(stag, tag->data, min(tag->used, sizeof(stag)));
-    memcpy(siv, iv->data, min(iv->used, sizeof(siv)));
+    memcpy(skey, c, min(clen, sizeof(skey)));
+    memcpy(stag, tg, min(tgl, sizeof(stag)));
+    memcpy(siv, iv, min(ivl, sizeof(siv)));
 
     ctx = EVP_CIPHER_CTX_new();
     if (!ctx)
@@ -83,8 +81,7 @@ decrypt(const char *enc, const jose_buf_t *iv, const char aad[],
     if (EVP_DecryptInit(ctx, cph, NULL, NULL) <= 0)
         goto error;
 
-    if (EVP_DecryptInit(ctx, NULL,
-                        md ? &skey->data[skey->used / 2] : skey->data,
+    if (EVP_DecryptInit(ctx, NULL, md ? &skey[sizeof(skey) / 2] : skey,
                         siv) <= 0)
         goto error;
 
@@ -92,7 +89,7 @@ decrypt(const char *enc, const jose_buf_t *iv, const char aad[],
                                  (uint8_t *) aad, strlen(aad)) <= 0)
         goto error;
 
-    if (EVP_DecryptUpdate(ctx, pt, &len, ct->data, ct->used) <= 0)
+    if (EVP_DecryptUpdate(ctx, pt, &len, ct, ctl) <= 0)
         goto error;
     ptl = len;
 
@@ -107,7 +104,7 @@ decrypt(const char *enc, const jose_buf_t *iv, const char aad[],
         uint8_t hsh[EVP_MD_size(md)];
         uint64_t al = 0;
 
-        if (HMAC_Init(&hctx, skey->data, skey->used / 2, md) <= 0)
+        if (HMAC_Init(&hctx, skey, sizeof(skey) / 2, md) <= 0)
             goto error;
 
         if (HMAC_Update(&hctx, (uint8_t *) aad, strlen(aad)) <= 0)
@@ -116,7 +113,7 @@ decrypt(const char *enc, const jose_buf_t *iv, const char aad[],
         if (HMAC_Update(&hctx, siv, sizeof(siv)) <= 0)
             goto error;
 
-        if (HMAC_Update(&hctx, ct->data, ct->used) <= 0)
+        if (HMAC_Update(&hctx, ct, ctl) <= 0)
             goto error;
 
         al = htobe64(strlen(aad) * 8);
@@ -132,14 +129,30 @@ decrypt(const char *enc, const jose_buf_t *iv, const char aad[],
 
     EVP_CIPHER_CTX_free(ctx);
     HMAC_CTX_cleanup(&hctx);
-    jose_buf_free(skey);
     return ptl;
 
 error:
     EVP_CIPHER_CTX_free(ctx);
     HMAC_CTX_cleanup(&hctx);
-    jose_buf_free(skey);
     return -1;
+}
+
+static uint8_t *
+decode(const char *enc, size_t *l)
+{
+    uint8_t *dec = NULL;
+
+    *l = jose_b64_dlen(strlen(enc));
+
+    dec = malloc(*l);
+    if (!dec)
+        return NULL;
+
+    if (jose_b64_decode(enc, dec))
+        return dec;
+
+    free(dec);
+    return NULL;
 }
 
 ssize_t
@@ -147,25 +160,24 @@ jose_jwe_decrypt(const json_t *jwe, EVP_PKEY *cek, uint8_t pt[])
 {
     const json_t *prot = NULL;
     const json_t *shrd = NULL;
-    const json_t *jtag = NULL;
-    const json_t *jiv = NULL;
-    const json_t *jct = NULL;
+    const char *etg = NULL;
+    const char *eiv = NULL;
+    const char *ect = NULL;
     const char *aad = NULL;
     const char *enc = NULL;
-    jose_buf_t *tag = NULL;
-    jose_buf_t *ct = NULL;
-    jose_buf_t *iv = NULL;
+    uint8_t *tg = NULL;
+    uint8_t *ct = NULL;
+    uint8_t *iv = NULL;
     json_t *p = NULL;
     json_t *a = NULL;
     ssize_t ptl = -1;
+    size_t tgl = 0;
+    size_t ctl = 0;
+    size_t ivl = 0;
 
-    if (json_unpack((json_t *) jwe, "{s? o, s: o, s? o, s? s, s? o, s? o}",
-                    "unprotected", &shrd,
-                    "ciphertext", &jct,
-                    "protected", &prot,
-                    "aad", &aad,
-                    "tag", &jtag,
-                    "iv", &jiv) == -1)
+    if (json_unpack((json_t *) jwe, "{s?o, s?o, s?s, s:s, s:s, s:s}",
+                    "unprotected", &shrd, "protected", &prot, "aad", &aad,
+                    "ciphertext", &ect, "tag", &etg, "iv", &eiv) == -1)
         return -1;
 
     p = jose_b64_decode_json_load(prot, 0);
@@ -182,34 +194,29 @@ jose_jwe_decrypt(const json_t *jwe, EVP_PKEY *cek, uint8_t pt[])
     if (!a)
         goto egress;
 
-    iv = jose_b64_decode_json_buf(jiv, false);
-    if (jiv && !iv)
-        goto egress;
 
-    ct = jose_b64_decode_json_buf(jct, false);
-    if (jct && !ct)
-        goto egress;
-
-    tag = jose_b64_decode_json_buf(jtag, false);
-    if (jtag && !tag)
-        goto egress;
-
-    ptl = decrypt(enc, iv, json_string_value(a), ct, tag, cek, pt);
+    iv = decode(eiv, &ivl);
+    ct = decode(ect, &ctl);
+    tg = decode(etg, &tgl);
+    if (iv && ct && tg) {
+        ptl = decrypt(enc, json_string_value(a), cek,
+                      iv, ivl, ct, ctl, tg, tgl, pt);
+    }
 
 egress:
-    jose_buf_free(tag);
-    jose_buf_free(ct);
-    jose_buf_free(iv);
     json_decref(p);
     json_decref(a);
+    free(tg);
+    free(ct);
+    free(iv);
     return ptl;
 }
 
 json_t *
 jose_jwe_decrypt_json(const json_t *jwe, EVP_PKEY *cek)
 {
-    jose_buf_t *pt = NULL;
     json_t *json = NULL;
+    uint8_t *pt = NULL;
     json_t *ct = NULL;
     ssize_t ptl = -1;
 
@@ -217,20 +224,13 @@ jose_jwe_decrypt_json(const json_t *jwe, EVP_PKEY *cek)
     if (!json_is_string(ct))
         return NULL;
 
-    /* Try to get a locked buffer. But don't error if we can't.
-     * This is because the size of the plaintext may exceed the amount
-     * of memory that is allowed to be locked. */
-    pt = jose_buf_new(jose_b64_dlen(json_string_length(ct)), true);
-    if (!pt) {
-        pt = jose_buf_new(jose_b64_dlen(json_string_length(ct)), false);
-        if (!pt)
-            return NULL;
+    pt = malloc(jose_b64_dlen(json_string_length(ct)));
+    if (pt) {
+        ptl = jose_jwe_decrypt(jwe, cek, pt);
+        if (ptl >= 0)
+            json = json_loadb((char *) pt, ptl, JSON_DECODE_ANY, NULL);
+        free(pt);
     }
 
-    ptl = jose_jwe_decrypt(jwe, cek, pt->data);
-    if (ptl >= 0)
-        json = json_loadb((char *) pt->data, ptl, JSON_DECODE_ANY, NULL);
-
-    jose_buf_free(pt);
     return json;
 }

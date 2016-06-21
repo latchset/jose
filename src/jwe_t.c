@@ -32,20 +32,6 @@ static const struct {
     {}
 };
 
-static EVP_PKEY *
-load_cek(const char *name)
-{
-    jose_buf_t *buf = NULL;
-    EVP_PKEY *cek = NULL;
-
-    buf = vect_b64(name, "cek");
-    assert(buf);
-
-    cek = EVP_PKEY_new_mac_key(EVP_PKEY_HMAC, NULL, buf->data, buf->used);
-    jose_buf_free(buf);
-    return cek;
-}
-
 static void
 test_decrypt(const json_t *jwe, EVP_PKEY *cek)
 {
@@ -105,7 +91,7 @@ main(int argc, char *argv[])
         }
 
         /* First, ensure that decrypt works with the hard-coded CEK. */
-        cek = load_cek(vectors[i].name);
+        cek = vect_cek(vectors[i].name);
         assert(cek);
         test_decrypt(jwe, cek);
 

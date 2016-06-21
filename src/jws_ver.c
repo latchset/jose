@@ -10,29 +10,31 @@
 
 #include <string.h>
 
-jose_buf_t *
-sign(const char *prot, const char *payl, EVP_PKEY *key, const char *alg);
+uint8_t *
+sign(const char *prot, const char *payl, EVP_PKEY *key, const char *alg,
+     size_t *len);
 
 static bool
 verify(const char *prot, const char *payl, EVP_PKEY *key, const char *alg,
-       const jose_buf_t *sig)
+       const uint8_t *sig, size_t slen)
 {
     EVP_PKEY_CTX *pctx = NULL;
     const EVP_MD *md = NULL;
     EVP_MD_CTX *ctx = NULL;
     const char *req = NULL;
-    jose_buf_t *alt = NULL;
+    uint8_t *alt = NULL;
     bool ret = false;
+    size_t alen = 0;
     int bytes = 0;
     int pad = 0;
 
     switch (EVP_PKEY_base_id(key)) {
     case EVP_PKEY_HMAC:
-        alt = sign(prot, payl, key, alg);
-        if (alt && alt->used == sig->used)
-            ret = CRYPTO_memcmp(alt->data, sig->data, sig->used) == 0;
+        alt = sign(prot, payl, key, alg, &alen);
+        if (alt && alen == slen)
+            ret = CRYPTO_memcmp(alt, sig, slen) == 0;
 
-        jose_buf_free(alt);
+        free(alt);
         return ret;
 
     case EVP_PKEY_RSA:
@@ -70,15 +72,16 @@ verify(const char *prot, const char *payl, EVP_PKEY *key, const char *alg,
         if (strcmp(alg, req) != 0)
             return false;
 
-        ecdsa.r = bn_decode(sig->data, sig->used / 2);
-        ecdsa.s = bn_decode(&sig->data[sig->used / 2], sig->used / 2);
+        ecdsa.r = bn_decode(sig, slen / 2);
+        ecdsa.s = bn_decode(&sig[slen / 2], slen / 2);
 
-        alt = jose_buf_new(i2d_ECDSA_SIG(&ecdsa, NULL), false);
+        alen = i2d_ECDSA_SIG(&ecdsa, NULL);
+        alt = malloc(alen);
         if (!alt)
             return false;
 
         if (ecdsa.r && ecdsa.s)
-            bytes = i2d_ECDSA_SIG(&ecdsa, &(uint8_t *) { alt->data });
+            bytes = i2d_ECDSA_SIG(&ecdsa, &(uint8_t *) { alt });
 
         BN_free(ecdsa.r);
         BN_free(ecdsa.s);
@@ -86,7 +89,7 @@ verify(const char *prot, const char *payl, EVP_PKEY *key, const char *alg,
         if (bytes <= 0)
             goto egress;
 
-        alt->used = bytes;
+        slen = bytes;
         sig = alt;
         break;
     }
@@ -114,11 +117,11 @@ verify(const char *prot, const char *payl, EVP_PKEY *key, const char *alg,
     if (EVP_DigestVerifyUpdate(ctx, payl, strlen(payl)) < 0)
         goto egress;
 
-    ret = EVP_DigestVerifyFinal(ctx, sig->data, sig->used) == 1;
+    ret = EVP_DigestVerifyFinal(ctx, sig, slen) == 1;
 
 egress:
     EVP_MD_CTX_destroy(ctx);
-    jose_buf_free(alt);
+    free(alt);
     return ret;
 }
 
@@ -129,9 +132,10 @@ verify_sig(const char *pay, const json_t *sig, EVP_PKEY *key)
     const json_t *head = NULL;
     const char *sign = NULL;
     const char *alg = NULL;
-    jose_buf_t *buf = NULL;
+    uint8_t *buf = NULL;
     json_t *p = NULL;
     bool ret = false;
+    size_t len = 0;
 
     if (json_unpack((json_t *) sig, "{s: s, s? o, s? o}", "signature", &sign,
                     "protected", &prot, "header", &head) == -1)
@@ -140,8 +144,12 @@ verify_sig(const char *pay, const json_t *sig, EVP_PKEY *key)
     if (!prot && !head)
         return false;
 
-    buf = jose_b64_decode_buf(sign, false);
+    len = jose_b64_dlen(strlen(sign));
+    buf = malloc(len);
     if (!buf)
+        goto egress;
+
+    if (!jose_b64_decode(sign, buf))
         goto egress;
 
     p = jose_b64_decode_json_load(prot, 0);
@@ -152,7 +160,7 @@ verify_sig(const char *pay, const json_t *sig, EVP_PKEY *key)
         json_unpack((json_t *) head, "{s: s}", "alg", &alg) == -1)
         goto egress;
 
-    ret = verify(prot ? json_string_value(prot) : "", pay, key, alg, buf);
+    ret = verify(prot ? json_string_value(prot) : "", pay, key, alg, buf, len);
 
 egress:
     json_decref(p);

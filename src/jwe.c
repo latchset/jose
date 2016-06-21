@@ -62,8 +62,8 @@ EVP_PKEY *
 jose_jwe_generate_cek(json_t *jwe)
 {
     const char *enc = NULL;
-    jose_buf_t *buf = NULL;
     EVP_PKEY *key = NULL;
+    uint8_t *buf = NULL;
     json_t *p = NULL;
     json_t *s = NULL;
     size_t len = 0;
@@ -104,17 +104,17 @@ jose_jwe_generate_cek(json_t *jwe)
     default: goto egress;
     }
 
-    buf = jose_buf_new(len, true);
+    buf = malloc(len);
     if (!buf)
         goto egress;
 
-    if (RAND_bytes(buf->data, buf->used) <= 0)
+    if (RAND_bytes(buf, len) <= 0)
         goto egress;
 
-    key = EVP_PKEY_new_mac_key(EVP_PKEY_HMAC, NULL, buf->data, buf->used);
+    key = EVP_PKEY_new_mac_key(EVP_PKEY_HMAC, NULL, buf, len);
 
 egress:
-    jose_buf_free(buf);
     json_decref(p);
+    free(buf);
     return key;
 }

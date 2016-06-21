@@ -338,25 +338,33 @@ egress:
 static EVP_PKEY *
 to_hmac(const json_t *jwk)
 {
-    jose_buf_t *buf = NULL;
     EVP_PKEY *key = NULL;
+    uint8_t *buf = NULL;
+    size_t len = 0;
 
-    buf = jose_b64_decode_json_buf(json_object_get(jwk, "k"), true);
-    if (!buf)
+    jwk = json_object_get(jwk, "k");
+    if (!json_is_string(jwk))
         return NULL;
 
-    key = EVP_PKEY_new_mac_key(EVP_PKEY_HMAC, NULL, buf->data, buf->used);
-    jose_buf_free(buf);
+    len = jose_b64_dlen(json_string_length(jwk));
+    buf = malloc(len);
+
+    if (jose_b64_decode_json(jwk, buf))
+        key = EVP_PKEY_new_mac_key(EVP_PKEY_HMAC, NULL, buf, len);
+
+    memset(buf, 0, len);
+    free(buf);
     return key;
 }
 
 static bool
 gen_hmac(json_t *jwk)
 {
-    jose_buf_t *buf = NULL;
     EVP_PKEY *key = NULL;
     json_t *bytes = NULL;
+    uint8_t *buf = NULL;
     json_t *tmp = NULL;
+    size_t len = 0;
 
     if (json_unpack(jwk, "{s?O}", "bytes", &bytes) == -1)
         return false;
@@ -369,18 +377,19 @@ gen_hmac(json_t *jwk)
         return false;
     }
 
-    buf = jose_buf_new(json_integer_value(bytes), true);
+    len = json_integer_value(bytes);
+    buf = malloc(len);
     json_decref(bytes);
     if (!buf)
         return false;
 
-    if (RAND_bytes(buf->data, buf->used) <= 0) {
-        jose_buf_free(buf);
+    if (RAND_bytes(buf, len) <= 0) {
+        free(buf);
         return false;
     }
 
-    key = EVP_PKEY_new_mac_key(EVP_PKEY_HMAC, NULL, buf->data, buf->used);
-    jose_buf_free(buf);
+    key = EVP_PKEY_new_mac_key(EVP_PKEY_HMAC, NULL, buf, len);
+    free(buf);
     if (!key)
         return false;
 

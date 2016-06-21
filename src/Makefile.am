@@ -3,12 +3,11 @@ AM_CFLAGS = @JOSE_CFLAGS@ @libcrypto_CFLAGS@ @jansson_CFLAGS@
 incdir = $(includedir)/$(PACKAGE_NAME)
 
 noinst_HEADERS = conv.h
-inc_HEADERS = buf.h b64.h jwk.h jwkset.h jws.h
+inc_HEADERS = b64.h jwk.h jwkset.h jws.h
 lib_LTLIBRARIES = libjose.la
 libjose_la_LIBADD = @libcrypto_LIBS@ @jansson_LIBS@
 libjose_la_LDFLAGS = -export-symbols-regex '^jose_'
 libjose_la_SOURCES = \
-    buf.c \
     b64.c \
     conv.c \
     jwk.c \

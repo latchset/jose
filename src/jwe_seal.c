@@ -12,18 +12,12 @@
 
 #include <string.h>
 
-static jose_buf_t *
-seal(const char *alg, EVP_PKEY *cek, EVP_PKEY *key)
+static uint8_t *
+seal(const char *alg, EVP_PKEY *cek, EVP_PKEY *key, size_t *cl)
 {
-    const EVP_CIPHER *cph = NULL;
-    EVP_CIPHER_CTX *ctx = NULL;
     const uint8_t *c = NULL;
-    const uint8_t *k = NULL;
-    jose_buf_t *out = NULL;
-    uint8_t *iv = NULL;
+    uint8_t *ct = NULL;
     size_t clen = 0;
-    size_t klen = 0;
-    int pad = 0;
     int tmp = 0;
 
     c = EVP_PKEY_get0_hmac(cek, &clen);
@@ -31,7 +25,12 @@ seal(const char *alg, EVP_PKEY *cek, EVP_PKEY *key)
         return NULL;
 
     switch (EVP_PKEY_base_id(key)) {
-    case EVP_PKEY_HMAC:
+    case EVP_PKEY_HMAC: {
+        const EVP_CIPHER *cph = NULL;
+        EVP_CIPHER_CTX *ctx = NULL;
+        const uint8_t *k = NULL;
+        size_t klen = 0;
+
         switch (str_to_enum(alg, "A128KW", "A192KW", "A256KW", NULL)) {
         case 0: cph = EVP_aes_128_wrap(); break;
         case 1: cph = EVP_aes_192_wrap(); break;
@@ -41,38 +40,42 @@ seal(const char *alg, EVP_PKEY *cek, EVP_PKEY *key)
 
         k = EVP_PKEY_get0_hmac(key, &klen);
         if (!k)
-            goto error;
+            return NULL;
 
         if ((int) klen != EVP_CIPHER_key_length(cph))
-            goto error;
+            return NULL;
 
-        iv = alloca(EVP_CIPHER_iv_length(cph));
+        uint8_t iv[EVP_CIPHER_iv_length(cph)];
         memset(iv, 0xA6, EVP_CIPHER_iv_length(cph));
 
-        out = jose_buf_new(clen + EVP_CIPHER_block_size(cph) - 1, false);
-        if (!out)
-            goto error;
+        ct = malloc(clen + EVP_CIPHER_block_size(cph) - 1);
+        if (ct) {
+            ctx = EVP_CIPHER_CTX_new();
+            if (ctx) {
+                if (EVP_EncryptInit(ctx, cph, k, iv) > 0) {
+                    if (EVP_EncryptUpdate(ctx, ct, &tmp, c, clen) > 0) {
+                        *cl = tmp;
 
-        ctx = EVP_CIPHER_CTX_new();
-        if (!ctx)
-            goto error;
+                        if (EVP_EncryptFinal(ctx, &ct[tmp], &tmp) > 0) {
+                            EVP_CIPHER_CTX_free(ctx);
+                            *cl += tmp;
+                            return ct;
+                        }
+                    }
+                }
 
-        if (EVP_EncryptInit(ctx, cph, k, iv) <= 0)
-            goto error;
+                EVP_CIPHER_CTX_free(ctx);
+            }
 
-        if (EVP_EncryptUpdate(ctx, out->data, &tmp, c, clen) <= 0)
-            goto error;
-        out->used = tmp;
+            free(ct);
+        }
 
-        if (EVP_EncryptFinal(ctx, &out->data[tmp], &tmp) <= 0)
-            goto error;
-        out->used += tmp;
+        return NULL;
+    }
 
-        EVP_CIPHER_CTX_free(ctx);
-        return out;
+    case EVP_PKEY_RSA: {
+        int pad = 0;
 
-
-    case EVP_PKEY_RSA:
         switch (str_to_enum(alg, "RSA1_5", "RSA-OAEP", "RSA-OAEP-256", NULL)) {
         case 0: pad = RSA_PKCS1_PADDING; tmp = 11; break;
         case 1: pad = RSA_PKCS1_OAEP_PADDING; tmp = 41; break;
@@ -82,27 +85,22 @@ seal(const char *alg, EVP_PKEY *cek, EVP_PKEY *key)
         if ((int) clen >= RSA_size(key->pkey.rsa) - tmp)
             return NULL;
 
-        out = jose_buf_new(RSA_size(key->pkey.rsa), false);
-        if (!out)
+        ct = malloc(RSA_size(key->pkey.rsa));
+        if (!ct)
             return NULL;
 
-        tmp = RSA_public_encrypt(clen, c, out->data, key->pkey.rsa, pad);
+        tmp = RSA_public_encrypt(clen, c, ct, key->pkey.rsa, pad);
         if (tmp < 0) {
-            free(out);
+            free(ct);
             return NULL;
         }
 
-        out->used = tmp;
-        return out;
+        return ct;
+    }
 
     default:
         return NULL;
     }
-
-error:
-    EVP_CIPHER_CTX_free(ctx);
-    free(out);
-    return NULL;
 }
 
 static bool
@@ -243,9 +241,10 @@ static bool
 jwe_seal(json_t *jwe, EVP_PKEY *cek, EVP_PKEY *key, json_t *rcp,
          const char *kalg)
 {
-    jose_buf_t *ct = NULL;
+    uint8_t *ct = NULL;
     char *alg = NULL;
     bool ret = false;
+    size_t cl = 0;
 
     if (!rcp)
         rcp = json_object();
@@ -253,9 +252,9 @@ jwe_seal(json_t *jwe, EVP_PKEY *cek, EVP_PKEY *key, json_t *rcp,
     if (json_is_object(rcp)) {
         alg = choose_alg(jwe, key, rcp, kalg);
         if (alg) {
-            ct = seal(alg, cek, key);
+            ct = seal(alg, cek, key, &cl);
             if (ct) {
-                json_t *tmp = jose_b64_encode_json_buf(ct);
+                json_t *tmp = jose_b64_encode_json(ct, cl);
                 if (json_object_set_new(rcp, "encrypted_key", tmp) == 0)
                     ret = add_seal(jwe, rcp);
                 free(ct);

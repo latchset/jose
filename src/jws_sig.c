@@ -134,19 +134,20 @@ suggest(EVP_PKEY *key)
 }
 
 /* NOTE: This is not static because it is used by verify() for HMAC. */
-jose_buf_t *
-sign(const char *prot, const char *payl, EVP_PKEY *key, const char *alg);
+uint8_t *
+sign(const char *prot, const char *payl, EVP_PKEY *key, const char *alg,
+     size_t *len);
 
-jose_buf_t *
-sign(const char *prot, const char *payl, EVP_PKEY *key, const char *alg)
+uint8_t *
+sign(const char *prot, const char *payl, EVP_PKEY *key, const char *alg,
+     size_t *len)
 {
     EVP_PKEY_CTX *pctx = NULL;
     ECDSA_SIG *ecdsa = NULL;
     const EVP_MD *md = NULL;
     const char *req = NULL;
     EVP_MD_CTX *ctx = NULL;
-    jose_buf_t *sig = NULL;
-    size_t len = 0;
+    uint8_t *sig = NULL;
     int pad = 0;
 
     switch (EVP_PKEY_base_id(key)) {
@@ -211,22 +212,21 @@ sign(const char *prot, const char *payl, EVP_PKEY *key, const char *alg)
     if (EVP_DigestSignUpdate(ctx, payl, strlen(payl)) < 0)
         goto error;
 
-    if (EVP_DigestSignFinal(ctx, NULL, &len) < 0)
+    if (EVP_DigestSignFinal(ctx, NULL, len) < 0)
         goto error;
 
-    sig = jose_buf_new(len, false);
+    sig = malloc(*len);
     if (!sig)
         goto error;
 
-    if (EVP_DigestSignFinal(ctx, sig->data, &sig->used) < 0)
+    if (EVP_DigestSignFinal(ctx, sig, len) < 0)
         goto error;
 
     /* We have to special-case ECDSA signatures: the format is different. */
     if (EVP_PKEY_base_id(key) == EVP_PKEY_EC) {
         const EC_GROUP *grp = NULL;
 
-        ecdsa = d2i_ECDSA_SIG(NULL, &(const uint8_t *) { sig->data },
-                              sig->used);
+        ecdsa = d2i_ECDSA_SIG(NULL, &(const uint8_t *) { sig }, *len);
         if (!ecdsa)
             goto error;
 
@@ -234,15 +234,15 @@ sign(const char *prot, const char *payl, EVP_PKEY *key, const char *alg)
         if (!grp)
             goto error;
 
-        len = (EC_GROUP_get_degree(grp) + 7) / 8;
+        *len = (EC_GROUP_get_degree(grp) + 7) / 8;
 
-        if (!bn_encode(ecdsa->r, sig->data, len))
+        if (!bn_encode(ecdsa->r, sig, *len))
             goto error;
 
-        if (!bn_encode(ecdsa->s, &sig->data[len], len))
+        if (!bn_encode(ecdsa->s, &sig[*len], *len))
             goto error;
 
-        sig->used = len * 2;
+        *len *= 2;
     }
 
     EVP_MD_CTX_destroy(ctx);
@@ -304,10 +304,11 @@ static bool
 jws_sign(json_t *jws, EVP_PKEY *key, json_t *sig, const char *kalg)
 {
     const char *payl = NULL;
-    jose_buf_t *s = NULL;
     json_t *prot = NULL;
+    uint8_t *s = NULL;
     char *alg = NULL;
     bool ret = false;
+    size_t len = 0;
 
     if (!key)
         goto egress;
@@ -329,9 +330,9 @@ jws_sign(json_t *jws, EVP_PKEY *key, json_t *sig, const char *kalg)
         goto egress;
 
     s = sign(json_is_string(prot) ? json_string_value(prot) : "",
-             payl, key, alg);
+             payl, key, alg, &len);
     if (s) {
-        json_t *tmp = jose_b64_encode_json_buf(s);
+        json_t *tmp = jose_b64_encode_json(s, len);
         if (json_object_set_new(sig, "signature", tmp) == -1)
             goto egress;
 
@@ -340,8 +341,8 @@ jws_sign(json_t *jws, EVP_PKEY *key, json_t *sig, const char *kalg)
 
 egress:
     json_decref(sig);
-    jose_buf_free(s);
     free(alg);
+    free(s);
     return ret;
 }
 
