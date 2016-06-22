@@ -536,6 +536,20 @@ jose_jwk_generate(json_t *jwk)
     return ret;
 }
 
+bool
+jose_jwk_publicize(json_t *jwk)
+{
+    for (size_t i = 0; jwkprv[i]; i++) {
+        if (!json_object_get(jwk, jwkprv[i]))
+            continue;
+
+        if (json_object_del(jwk, jwkprv[i]) == -1)
+            return false;
+    }
+
+    return true;
+}
+
 json_t *
 jose_jwk_from_key(EVP_PKEY *key, bool prv)
 {
@@ -562,13 +576,7 @@ jose_jwk_dup(const json_t *jwk, bool prv)
     if (!out)
         return NULL;
 
-    for (size_t i = 0; !prv && jwkprv[i]; i++) {
-        if (!json_object_get(out, jwkprv[i]))
-            continue;
-
-        if (json_object_del(out, jwkprv[i]) != -1)
-            continue;
-
+    if (!prv && !jose_jwk_publicize(out)) {
         json_decref(out);
         return NULL;
     }

@@ -12,6 +12,9 @@
 bool __attribute__((warn_unused_result))
 jose_jwk_generate(json_t *jwk);
 
+bool
+jose_jwk_publicize(json_t *jwk);
+
 /**
  * Create a JWK from an EVP_PKEY.
  */
