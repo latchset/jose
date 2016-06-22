@@ -283,6 +283,9 @@ choose_alg(json_t *sig, EVP_PKEY *key, const char *kalg)
     if (!alg)
         goto egress;
 
+    if (!dec)
+        dec = json_object();
+
     if (json_object_set_new(dec, "alg", json_string(alg)) == -1 ||
         json_object_set_new(sig, "protected",
                             jose_b64_encode_json_dump(dec)) == -1)
