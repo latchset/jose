@@ -49,7 +49,9 @@ unseal(EVP_PKEY *key, const char *alg, const uint8_t ct[], size_t cl,
         if (!ctx)
             return -1;
 
-        if (EVP_DecryptInit(ctx, cph, k, iv) > 0) {
+        EVP_CIPHER_CTX_set_flags(ctx, EVP_CIPHER_CTX_FLAG_WRAP_ALLOW);
+
+        if (EVP_DecryptInit_ex(ctx, cph, NULL, k, iv) > 0) {
             if (EVP_DecryptUpdate(ctx, pt, &tmp, ct, cl) > 0) {
                 pl = tmp;
 

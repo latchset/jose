@@ -48,11 +48,12 @@ seal(const char *alg, EVP_PKEY *cek, EVP_PKEY *key, size_t *cl)
         uint8_t iv[EVP_CIPHER_iv_length(cph)];
         memset(iv, 0xA6, EVP_CIPHER_iv_length(cph));
 
-        ct = malloc(clen + EVP_CIPHER_block_size(cph) - 1);
+        ct = malloc(clen + EVP_CIPHER_block_size(cph) * 2 - 1);
         if (ct) {
             ctx = EVP_CIPHER_CTX_new();
             if (ctx) {
-                if (EVP_EncryptInit(ctx, cph, k, iv) > 0) {
+                EVP_CIPHER_CTX_set_flags(ctx, EVP_CIPHER_CTX_FLAG_WRAP_ALLOW);
+                if (EVP_EncryptInit_ex(ctx, cph, NULL, k, iv) > 0) {
                     if (EVP_EncryptUpdate(ctx, ct, &tmp, c, clen) > 0) {
                         *cl = tmp;
 
