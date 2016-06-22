@@ -2,6 +2,9 @@ AM_CFLAGS = @JOSE_CFLAGS@ @libcrypto_CFLAGS@ @jansson_CFLAGS@
 
 incdir = $(includedir)/$(PACKAGE_NAME)
 
+bin_PROGRAMS = jose
+jose_LDADD = libjose.la
+
 noinst_HEADERS = conv.h
 inc_HEADERS = b64.h jwk.h jwkset.h jws.h
 lib_LTLIBRARIES = libjose.la
