@@ -83,7 +83,7 @@ jose_jwe_generate_cek(json_t *jwe)
 
     if (json_unpack(p, "{s:s}", "enc", &enc) == -1 &&
         json_unpack(s, "{s:s}", "enc", &enc) == -1) {
-        enc = "A128GCM";
+        enc = "A128CBC-HS256";
 
         if (!p)
             p = json_object();
