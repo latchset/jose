@@ -370,7 +370,7 @@ gen_hmac(json_t *jwk)
         return false;
 
     if (!bytes)
-        bytes = json_integer(128 / 8);
+        bytes = json_integer(256 / 8);
 
     if (!json_is_integer(bytes)) {
         json_decref(bytes);
