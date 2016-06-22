@@ -6,90 +6,23 @@
 #include "b64.h"
 #include "conv.h"
 
-#include <openssl/hmac.h>
-#include <openssl/evp.h>
-#include <openssl/rand.h>
-#include <openssl/rsa.h>
+#include "aeskw.h"
+#include "rsaes.h"
 
 #include <string.h>
-
-static ssize_t
-unseal(EVP_PKEY *key, const char *alg, const uint8_t ct[], size_t cl,
-       uint8_t pt[])
-{
-    const EVP_CIPHER *cph = NULL;
-    EVP_CIPHER_CTX *ctx = NULL;
-    const uint8_t *k = NULL;
-    uint8_t *iv = NULL;
-    size_t klen = 0;
-    ssize_t pl = -1;
-    int pad = 0;
-    int tmp = 0;
-
-    switch (EVP_PKEY_base_id(key)) {
-    case EVP_PKEY_HMAC:
-        switch (str_to_enum(alg, "A128KW", "A192KW", "A256KW", NULL)) {
-        case 0: cph = EVP_aes_128_wrap(); break;
-        case 1: cph = EVP_aes_192_wrap(); break;
-        case 2: cph = EVP_aes_256_wrap(); break;
-        default: return -1;
-        }
-
-        k = EVP_PKEY_get0_hmac(key, &klen);
-        if (!k)
-            return -1;
-
-        if ((int) klen != EVP_CIPHER_key_length(cph))
-            return -1;
-
-        iv = alloca(EVP_CIPHER_iv_length(cph));
-        memset(iv, 0xA6, EVP_CIPHER_iv_length(cph));
-
-        ctx = EVP_CIPHER_CTX_new();
-        if (!ctx)
-            return -1;
-
-        EVP_CIPHER_CTX_set_flags(ctx, EVP_CIPHER_CTX_FLAG_WRAP_ALLOW);
-
-        if (EVP_DecryptInit_ex(ctx, cph, NULL, k, iv) > 0) {
-            if (EVP_DecryptUpdate(ctx, pt, &tmp, ct, cl) > 0) {
-                pl = tmp;
-
-                if (EVP_DecryptFinal(ctx, &pt[tmp], &tmp) > 0)
-                    pl += tmp;
-                else
-                    pl = -1;
-            }
-        }
-
-        EVP_CIPHER_CTX_free(ctx);
-        return pl;
-
-    case EVP_PKEY_RSA:
-        switch (str_to_enum(alg, "RSA1_5", "RSA-OAEP", "RSA-OAEP-256", NULL)) {
-        case 0: pad = RSA_PKCS1_PADDING; break;
-        case 1: pad = RSA_PKCS1_OAEP_PADDING; break;
-        default: return -1;
-        }
-
-        return RSA_private_decrypt(cl, ct, pt, key->pkey.rsa, pad);
-
-    default:
-        return -1;
-    }
-}
 
 static EVP_PKEY *
 unseal_recip(EVP_PKEY *key, const json_t *prot, const json_t *shrd,
              const json_t *rcp)
 {
+    typeof(&aeskw_unseal) unsealer;
     const char *alg = NULL;
     EVP_PKEY *cek = NULL;
     uint8_t *ct = NULL;
     uint8_t *pt = NULL;
     json_t *ek = NULL;
     ssize_t pl = 0;
-    size_t cl = 0;
+    size_t ctl = 0;
 
     if (json_unpack((json_t *) prot, "{s: s}", "alg", &alg) == -1 &&
         json_unpack((json_t *) shrd, "{s: s}", "alg", &alg) == -1 &&
@@ -97,25 +30,40 @@ unseal_recip(EVP_PKEY *key, const json_t *prot, const json_t *shrd,
                     "header", "alg", &alg) == -1)
         return NULL;
 
+    switch (str_to_enum(alg, "RSA1_5", "RSA-OAEP", "RSA-OAEP-256",
+                        "A128KW", "A192KW", "A256KW", NULL)) {
+    case 0: unsealer = rsaes_unseal; break;
+    case 1: unsealer = rsaes_unseal; break;
+    case 2: unsealer = rsaes_unseal; break;
+    case 3: unsealer = aeskw_unseal; break;
+    case 4: unsealer = aeskw_unseal; break;
+    case 5: unsealer = aeskw_unseal; break;
+    default: return NULL;
+    }
+
     ek = json_object_get(rcp, "encrypted_key");
     if (!json_is_string(ek))
         return NULL;
 
-    cl = jose_b64_dlen(json_string_length(ek));
-    ct = malloc(cl);
-    if (ct) {
-        if (jose_b64_decode(json_string_value(ek), ct)) {
-            pt = malloc(cl);
-            if (pt) {
-                pl = unseal(key, alg, ct, cl, pt);
-                if (pl >= 0)
-                    cek = EVP_PKEY_new_mac_key(EVP_PKEY_HMAC, NULL, pt, pl);
-                free(pt);
-            }
-        }
-        free(ct);
-    }
+    ctl = jose_b64_dlen(json_string_length(ek));
+    ct = malloc(ctl);
+    if (!ct)
+        return NULL;
 
+    if (!jose_b64_decode(json_string_value(ek), ct))
+        goto egress;
+
+    pt = malloc(ctl);
+    if (!pt)
+        goto egress;
+
+    pl = unsealer(alg, key, ct, ctl, pt);
+    if (pl >= 0)
+        cek = EVP_PKEY_new_mac_key(EVP_PKEY_HMAC, NULL, pt, pl);
+
+egress:
+    free(pt);
+    free(ct);
     return cek;
 }
 

@@ -216,3 +216,65 @@ EVP_PKEY_get0_hmac(EVP_PKEY *pkey, size_t *len)
     return os->data;
 }
 
+bool
+add_entity(json_t *root, json_t *obj, const char *plural)
+{
+    bool found = false;
+    json_t *pl = NULL;
+
+    pl = json_object_get(root, plural);
+    if (pl) {
+        if (!json_is_array(pl))
+            return false;
+
+        if (json_array_size(pl) == 0) {
+            if (json_object_del(root, plural) == -1)
+                return false;
+
+            pl = NULL;
+        }
+    }
+
+    for (void *i = json_object_iter(obj); i && !found;
+               i = json_object_iter_next(obj, i)) {
+        if (json_object_get(root, json_object_iter_key(i)))
+            found = true;
+    }
+
+    /* If we have flattened format, migrate to general format. */
+    if (found) {
+        json_t *o = NULL;
+
+        if (!pl) {
+            pl = json_array();
+            if (json_object_set_new(root, plural, pl) == -1)
+                return false;
+        }
+
+        o = json_object();
+        if (json_array_append_new(pl, o) == -1)
+            return false;
+
+        for (void *i = json_object_iter(obj); i && !found;
+                   i = json_object_iter_next(obj, i)) {
+            const char *key = json_object_iter_key(i);
+            json_t *tmp = NULL;
+
+            tmp = json_object_get(root, key);
+            if (tmp) {
+                if (json_object_set(o, key, tmp) == -1)
+                    return false;
+
+                if (json_object_del(o, key) == -1)
+                    return false;
+            }
+        }
+    }
+
+    /* If we have some signatures already, append to the array. */
+    if (pl)
+        return json_array_append(pl, obj) == 0;
+
+    return json_object_update(root, obj) == 0;
+}
+

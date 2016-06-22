@@ -6,119 +6,15 @@
 #include "b64.h"
 #include "conv.h"
 
+#include "aescbch.h"
+#include "aesgcm.h"
+
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
 #include <openssl/rand.h>
 #include <openssl/rsa.h>
 
 #include <string.h>
-
-static uint8_t *
-encrypt(const char *enc, const char aad[], const uint8_t pt[], size_t ptl,
-        EVP_PKEY *cek, size_t *ivl, size_t *ctl, size_t *tagl)
-{
-    const EVP_CIPHER *cph = NULL;
-    EVP_CIPHER_CTX *ctx = NULL;
-    const uint8_t *key = NULL;
-    const EVP_MD *md = NULL;
-    uint8_t *ivcttag = NULL;
-    size_t ksz = 0;
-    int len;
-
-    key = EVP_PKEY_get0_hmac(cek, &ksz);
-    if (!key)
-        return NULL;
-
-    switch (str_to_enum(enc, "A128GCM", "A192GCM", "A256GCM", "A128CBC-HS256",
-                        "A192CBC-HS384", "A256CBC-HS512", NULL)) {
-    case 0: cph = EVP_aes_128_gcm(); *tagl = 16; break;
-    case 1: cph = EVP_aes_192_gcm(); *tagl = 16; break;
-    case 2: cph = EVP_aes_256_gcm(); *tagl = 16; break;
-    case 3: cph = EVP_aes_128_cbc(); md = EVP_sha256(); *tagl = 16; break;
-    case 4: cph = EVP_aes_192_cbc(); md = EVP_sha384(); *tagl = 24; break;
-    case 5: cph = EVP_aes_256_cbc(); md = EVP_sha512(); *tagl = 32; break;
-    default: return NULL;
-    }
-
-    if ((int) ksz != EVP_CIPHER_key_length(cph) * (md ? 2 : 1))
-        return NULL;
-
-    *ivl = EVP_CIPHER_iv_length(cph);
-    ivcttag = malloc(*ivl + *tagl + ptl + EVP_CIPHER_block_size(cph) - 1);
-    if (!ivcttag)
-        return NULL;
-
-    if (RAND_bytes(ivcttag, *ivl) <= 0)
-        goto error;
-
-    ctx = EVP_CIPHER_CTX_new();
-    if (!ctx)
-        goto error;
-
-    if (EVP_EncryptInit(ctx, cph, NULL, NULL) <= 0)
-        goto error;
-
-    if (!md) {
-        if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, *ivl, NULL) <= 0)
-            goto error;
-    }
-
-    if (EVP_EncryptInit(ctx, NULL, md ? &key[ksz / 2] : key, ivcttag) <= 0)
-        goto error;
-
-    if (!md) {
-        if (EVP_EncryptUpdate(ctx, NULL, &len, (uint8_t *) aad,
-                              strlen(aad)) <= 0)
-            goto error;
-    }
-
-    if (EVP_EncryptUpdate(ctx, &ivcttag[*ivl], &len, pt, ptl) <= 0)
-        goto error;
-    *ctl = len;
-
-    if (EVP_EncryptFinal(ctx, &ivcttag[*ivl + len], &len) <= 0)
-        goto error;
-    *ctl += len;
-
-    if (!md) {
-        if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG, *tagl,
-                                &ivcttag[*ivl + *ctl]) <= 0)
-            goto error;
-    } else {
-        uint8_t hsh[EVP_MD_size(md)];
-        HMAC_CTX hctx = {};
-        uint64_t al = 0;
-
-        if (HMAC_Init(&hctx, key, ksz / 2, md) <= 0)
-            goto error;
-
-        if (HMAC_Update(&hctx, (uint8_t *) aad, strlen(aad)) <= 0)
-            goto error;
-
-        if (HMAC_Update(&hctx, ivcttag, *ivl) <= 0)
-            goto error;
-
-        if (HMAC_Update(&hctx, &ivcttag[*ivl], *ctl) <= 0)
-            goto error;
-
-        al = htobe64(strlen(aad) * 8);
-        if (HMAC_Update(&hctx, (uint8_t *) &al, sizeof(al)) <= 0)
-            goto error;
-
-        if (HMAC_Final(&hctx, hsh, NULL) <= 0)
-            goto error;
-
-        memcpy(&ivcttag[*ivl + *ctl], hsh, *tagl);
-    }
-
-    EVP_CIPHER_CTX_free(ctx);
-    return ivcttag;
-
-error:
-    EVP_CIPHER_CTX_free(ctx);
-    free(ivcttag);
-    return NULL;
-}
 
 static char *
 choose_enc(json_t *jwe, EVP_PKEY *cek)
@@ -192,14 +88,14 @@ error:
 bool
 jose_jwe_encrypt(json_t *jwe, EVP_PKEY *cek, const uint8_t pt[], size_t ptl)
 {
+    typeof(&aesgcm_encrypt) encryptor;
     uint8_t *ivcttag = NULL;
     const char *aad = NULL;
     json_t *tmp = NULL;
     json_t *p = NULL;
-    json_t *a = NULL;
     bool ret = false;
     char *enc = NULL;
-    size_t tagl = 0;
+    size_t tgl = 0;
     size_t ctl = 0;
     size_t ivl = 0;
 
@@ -214,12 +110,20 @@ jose_jwe_encrypt(json_t *jwe, EVP_PKEY *cek, const uint8_t pt[], size_t ptl)
     if (!p)
         goto egress;
 
-    a = json_pack("s++", json_string_value(p), aad ? "." : "", aad ? aad : "");
-    if (!a)
-        goto egress;
+    switch (str_to_enum(enc, "A128GCM", "A192GCM", "A256GCM", "A128CBC-HS256",
+                        "Ai192CBC-HS384", "A256CBC-HS512", NULL)) {
+    case 0: encryptor = aesgcm_encrypt; break;
+    case 1: encryptor = aesgcm_encrypt; break;
+    case 2: encryptor = aesgcm_encrypt; break;
+    case 3: encryptor = aescbch_encrypt; break;
+    case 4: encryptor = aescbch_encrypt; break;
+    case 5: encryptor = aescbch_encrypt; break;
+    default: goto egress;
+    }
 
-    ivcttag = encrypt(enc, json_string_value(a), pt, ptl,
-                      cek, &ivl, &ctl, &tagl);
+    ivcttag = encryptor(enc, cek, pt, ptl, &ivl, &ctl, &tgl,
+                        json_string_value(p), aad ? "." : NULL,
+                        aad ? aad : "", NULL);
     if (!ivcttag)
         goto egress;
 
@@ -233,8 +137,8 @@ jose_jwe_encrypt(json_t *jwe, EVP_PKEY *cek, const uint8_t pt[], size_t ptl)
     if (json_object_set_new(jwe, "ciphertext", tmp) == -1)
         goto egress;
 
-    if (tagl > 0) {
-        tmp = jose_b64_encode_json(&ivcttag[ivl + ctl], tagl);
+    if (tgl > 0) {
+        tmp = jose_b64_encode_json(&ivcttag[ivl + ctl], tgl);
         if (json_object_set_new(jwe, "tag", tmp) == -1)
             goto egress;
     }
@@ -242,7 +146,6 @@ jose_jwe_encrypt(json_t *jwe, EVP_PKEY *cek, const uint8_t pt[], size_t ptl)
     ret = true;
 
 egress:
-    json_decref(a);
     free(ivcttag);
     free(enc);
     return ret;

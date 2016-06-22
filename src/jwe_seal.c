@@ -6,161 +6,10 @@
 #include "b64.h"
 #include "conv.h"
 
-#include <openssl/evp.h>
-#include <openssl/rand.h>
-#include <openssl/rsa.h>
+#include "rsaes.h"
+#include "aeskw.h"
 
 #include <string.h>
-
-static uint8_t *
-seal(const char *alg, EVP_PKEY *cek, EVP_PKEY *key, size_t *cl)
-{
-    const uint8_t *c = NULL;
-    uint8_t *ct = NULL;
-    size_t clen = 0;
-    int tmp = 0;
-
-    c = EVP_PKEY_get0_hmac(cek, &clen);
-    if (!c)
-        return NULL;
-
-    switch (EVP_PKEY_base_id(key)) {
-    case EVP_PKEY_HMAC: {
-        const EVP_CIPHER *cph = NULL;
-        EVP_CIPHER_CTX *ctx = NULL;
-        const uint8_t *k = NULL;
-        size_t klen = 0;
-
-        switch (str_to_enum(alg, "A128KW", "A192KW", "A256KW", NULL)) {
-        case 0: cph = EVP_aes_128_wrap(); break;
-        case 1: cph = EVP_aes_192_wrap(); break;
-        case 2: cph = EVP_aes_256_wrap(); break;
-        default: return NULL;
-        }
-
-        k = EVP_PKEY_get0_hmac(key, &klen);
-        if (!k)
-            return NULL;
-
-        if ((int) klen != EVP_CIPHER_key_length(cph))
-            return NULL;
-
-        uint8_t iv[EVP_CIPHER_iv_length(cph)];
-        memset(iv, 0xA6, EVP_CIPHER_iv_length(cph));
-
-        ct = malloc(clen + EVP_CIPHER_block_size(cph) * 2 - 1);
-        if (ct) {
-            ctx = EVP_CIPHER_CTX_new();
-            if (ctx) {
-                EVP_CIPHER_CTX_set_flags(ctx, EVP_CIPHER_CTX_FLAG_WRAP_ALLOW);
-                if (EVP_EncryptInit_ex(ctx, cph, NULL, k, iv) > 0) {
-                    if (EVP_EncryptUpdate(ctx, ct, &tmp, c, clen) > 0) {
-                        *cl = tmp;
-
-                        if (EVP_EncryptFinal(ctx, &ct[tmp], &tmp) > 0) {
-                            EVP_CIPHER_CTX_free(ctx);
-                            *cl += tmp;
-                            return ct;
-                        }
-                    }
-                }
-
-                EVP_CIPHER_CTX_free(ctx);
-            }
-
-            free(ct);
-        }
-
-        return NULL;
-    }
-
-    case EVP_PKEY_RSA: {
-        int pad = 0;
-
-        switch (str_to_enum(alg, "RSA1_5", "RSA-OAEP", "RSA-OAEP-256", NULL)) {
-        case 0: pad = RSA_PKCS1_PADDING; tmp = 11; break;
-        case 1: pad = RSA_PKCS1_OAEP_PADDING; tmp = 41; break;
-        default: return NULL;
-        }
-
-        if ((int) clen >= RSA_size(key->pkey.rsa) - tmp)
-            return NULL;
-
-        ct = malloc(RSA_size(key->pkey.rsa));
-        if (!ct)
-            return NULL;
-
-        tmp = RSA_public_encrypt(clen, c, ct, key->pkey.rsa, pad);
-        if (tmp < 0) {
-            free(ct);
-            return NULL;
-        }
-
-        return ct;
-    }
-
-    default:
-        return NULL;
-    }
-}
-
-static bool
-add_seal(json_t *jwe, json_t *rcp)
-{
-    json_t *encrypted_key = NULL;
-    json_t *recipients = NULL;
-    json_t *header = NULL;
-
-    if (json_unpack(jwe, "{s? o, s? o, s? o}",
-                    "encrypted_key", &encrypted_key,
-                    "recipients", &recipients,
-                    "header", &header) == -1)
-        return false;
-
-    if (recipients) {
-        if (!json_is_array(recipients))
-            return false;
-
-        if (json_array_size(recipients) == 0) {
-            if (json_object_del(jwe, "recipients") == -1)
-                return false;
-
-            recipients = NULL;
-        }
-    }
-
-    /* If we have a jwe in flattened format, migrate to general format. */
-    if (encrypted_key) {
-        json_t *obj = NULL;
-
-        if (!recipients) {
-            recipients = json_array();
-            if (json_object_set_new(jwe, "recipients", recipients) == -1)
-                return false;
-        }
-
-        obj = json_pack("{s: O}", "encrypted_key", encrypted_key);
-        if (json_array_append_new(recipients, obj) == -1)
-            return false;
-
-        if (json_object_del(jwe, "encrypted_key") == -1)
-            return false;
-
-        if (header) {
-            if (json_object_set(obj, "header", header) == -1)
-                return false;
-
-            if (json_object_del(jwe, "header") == -1)
-                return false;
-        }
-    }
-
-    /* If we have some recipients already, append to the array. */
-    if (recipients)
-        return json_array_append_new(recipients, rcp) == 0;
-
-    return json_object_update_missing(jwe, rcp) == 0;
-}
 
 static const char *
 suggest(EVP_PKEY *key)
@@ -242,29 +91,54 @@ static bool
 jwe_seal(json_t *jwe, EVP_PKEY *cek, EVP_PKEY *key, json_t *rcp,
          const char *kalg)
 {
+    typeof(&aeskw_seal) sealer;
+    const uint8_t *pt = NULL;
     uint8_t *ct = NULL;
+    json_t *tmp = NULL;
     char *alg = NULL;
     bool ret = false;
-    size_t cl = 0;
+    size_t ptl = 0;
+    size_t ctl = 0;
 
     if (!rcp)
         rcp = json_object();
 
-    if (json_is_object(rcp)) {
-        alg = choose_alg(jwe, key, rcp, kalg);
-        if (alg) {
-            ct = seal(alg, cek, key, &cl);
-            if (ct) {
-                json_t *tmp = jose_b64_encode_json(ct, cl);
-                if (json_object_set_new(rcp, "encrypted_key", tmp) == 0)
-                    ret = add_seal(jwe, rcp);
-                free(ct);
-            }
-        }
+    if (!json_is_object(rcp))
+        goto egress;
+
+    alg = choose_alg(jwe, key, rcp, kalg);
+    if (!alg)
+        goto egress;
+
+    switch (str_to_enum(alg, "RSA1_5", "RSA-OAEP", "RSA-OAEP-256",
+                        "A128KW", "A192KW", "A256KW", NULL)) {
+    case 0: sealer = rsaes_seal; break;
+    case 1: sealer = rsaes_seal; break;
+    case 2: sealer = rsaes_seal; break;
+    case 3: sealer = aeskw_seal; break;
+    case 4: sealer = aeskw_seal; break;
+    case 5: sealer = aeskw_seal; break;
+    default: goto egress;
     }
 
+    pt = EVP_PKEY_get0_hmac(cek, &ptl);
+    if (!pt)
+        goto egress;
+
+    ct = sealer(alg, key, pt, ptl, &ctl);
+    if (!ct)
+        goto egress;
+
+    tmp = jose_b64_encode_json(ct, ctl);
+    if (json_object_set_new(rcp, "encrypted_key", tmp) == -1)
+        goto egress;
+
+    ret = add_entity(jwe, rcp, "recipients");
+
+egress:
     json_decref(rcp);
     free(alg);
+    free(ct);
     return ret;
 }
 
