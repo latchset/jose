@@ -28,11 +28,7 @@ libjose_la_SOURCES = \
     jwk.c \
     jwkset.c \
     jws.c \
-    jwe.c \
-    jwe_encrypt.c \
-    jwe_decrypt.c \
-    jwe_seal.c \
-    jwe_unseal.c
+    jwe.c
 
 check_HEADERS = vect.h jtbl.h
 check_PROGRAMS = hmac_t b64_t jwk_t jwkset_t jws_t jwe_t
