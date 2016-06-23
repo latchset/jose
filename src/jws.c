@@ -141,7 +141,8 @@ jws_sign(json_t *jws, EVP_PKEY *key, json_t *sig, const char *kalg)
         if (json_object_set_new(sig, "signature", tmp) == -1)
             goto egress;
 
-        ret = add_entity(jws, sig, "signatures");
+        ret = add_entity(jws, sig, "signatures", "signature", "protected",
+                         "header", NULL);
     }
 
 egress:

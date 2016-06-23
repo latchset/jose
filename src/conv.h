@@ -35,4 +35,4 @@ const unsigned char *
 EVP_PKEY_get0_hmac(EVP_PKEY *pkey, size_t *len);
 
 bool
-add_entity(json_t *root, json_t *obj, const char *plural);
+add_entity(json_t *root, json_t *obj, const char *plural, ...);

@@ -217,10 +217,11 @@ EVP_PKEY_get0_hmac(EVP_PKEY *pkey, size_t *len)
 }
 
 bool
-add_entity(json_t *root, json_t *obj, const char *plural)
+add_entity(json_t *root, json_t *obj, const char *plural, ...)
 {
     bool found = false;
     json_t *pl = NULL;
+    va_list ap;
 
     pl = json_object_get(root, plural);
     if (pl) {
@@ -235,11 +236,12 @@ add_entity(json_t *root, json_t *obj, const char *plural)
         }
     }
 
-    for (void *i = json_object_iter(obj); i && !found;
-               i = json_object_iter_next(obj, i)) {
-        if (json_object_get(root, json_object_iter_key(i)))
+    va_start(ap, plural);
+    for (const char *key; (key = va_arg(ap, const char *)); ) {
+        if (json_object_get(root, key))
             found = true;
     }
+    va_end(ap);
 
     /* If we have flattened format, migrate to general format. */
     if (found) {
@@ -255,20 +257,20 @@ add_entity(json_t *root, json_t *obj, const char *plural)
         if (json_array_append_new(pl, o) == -1)
             return false;
 
-        for (void *i = json_object_iter(obj); i && !found;
-                   i = json_object_iter_next(obj, i)) {
-            const char *key = json_object_iter_key(i);
+        va_start(ap, plural);
+        for (const char *key; (key = va_arg(ap, const char *)); ) {
             json_t *tmp = NULL;
 
             tmp = json_object_get(root, key);
             if (tmp) {
-                if (json_object_set(o, key, tmp) == -1)
+                if (json_object_set(o, key, tmp) == -1 ||
+                    json_object_del(root, key) == -1) {
+                    va_end(ap);
                     return false;
-
-                if (json_object_del(o, key) == -1)
-                    return false;
+                }
             }
         }
+        va_end(ap);
     }
 
     /* If we have some signatures already, append to the array. */

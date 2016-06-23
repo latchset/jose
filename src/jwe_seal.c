@@ -133,7 +133,7 @@ jwe_seal(json_t *jwe, EVP_PKEY *cek, EVP_PKEY *key, json_t *rcp,
     if (json_object_set_new(rcp, "encrypted_key", tmp) == -1)
         goto egress;
 
-    ret = add_entity(jwe, rcp, "recipients");
+    ret = add_entity(jwe, rcp, "recipients", "header", "encrypted_key", NULL);
 
 egress:
     json_decref(rcp);
