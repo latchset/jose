@@ -7,7 +7,7 @@
 
 uint8_t *
 rsaes_seal(const char *alg, EVP_PKEY *key, const uint8_t pt[], size_t ptl,
-           size_t *ctl)
+           size_t *ivl, size_t *ctl, size_t *tgl)
 {
     uint8_t *ct = NULL;
     int tmp = 0;
@@ -32,15 +32,21 @@ rsaes_seal(const char *alg, EVP_PKEY *key, const uint8_t pt[], size_t ptl,
         return NULL;
     }
 
+    *ivl = 0;
+    *tgl = 0;
     *ctl = tmp;
     return ct;
 }
 
 ssize_t
-rsaes_unseal(const char *alg, EVP_PKEY *key, const uint8_t ct[], size_t ctl,
+rsaes_unseal(const char *alg, EVP_PKEY *key, const uint8_t iv[], size_t ivl,
+             const uint8_t ct[], size_t ctl, const uint8_t tg[], size_t tgl,
              uint8_t pt[])
 {
     int pad = 0;
+
+    if (iv || ivl > 0 || tg || tgl > 0)
+        return -1;
 
     if (EVP_PKEY_base_id(key) != EVP_PKEY_RSA)
         return -1;

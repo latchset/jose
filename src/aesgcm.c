@@ -160,3 +160,32 @@ error:
     EVP_CIPHER_CTX_free(ctx);
     return -1;
 }
+
+uint8_t *
+aesgcmkw_seal(const char *alg, EVP_PKEY *key, const uint8_t pt[], size_t ptl,
+              size_t *ivl, size_t *ctl, size_t *tgl)
+{
+    switch (str_to_enum(alg, "A128GCMKW", "A192GCMKW", "A256GCMKW", NULL)) {
+    case 0: alg = "A128GCM"; break;
+    case 1: alg = "A192GCM"; break;
+    case 2: alg = "A256GCM"; break;
+    default: return NULL;
+    }
+
+    return aesgcm_encrypt(alg, key, pt, ptl, ivl, ctl, tgl, NULL);
+}
+
+ssize_t
+aesgcmkw_unseal(const char *alg, EVP_PKEY *key, const uint8_t iv[], size_t ivl,
+                const uint8_t ct[], size_t ctl, const uint8_t tg[], size_t tgl,
+                uint8_t pt[])
+{
+    switch (str_to_enum(alg, "A128GCMKW", "A192GCMKW", "A256GCMKW", NULL)) {
+    case 0: alg = "A128GCM"; break;
+    case 1: alg = "A192GCM"; break;
+    case 2: alg = "A256GCM"; break;
+    default: return -1;
+    }
+
+    return aesgcm_decrypt(alg, key, iv, ivl, ct, ctl, tg, tgl, pt, NULL);
+}

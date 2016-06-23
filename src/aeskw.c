@@ -9,7 +9,7 @@
 
 uint8_t *
 aeskw_seal(const char *alg, EVP_PKEY *key, const uint8_t pt[], size_t ptl,
-           size_t *ctl)
+           size_t *ivl, size_t *ctl, size_t *tgl)
 {
     const EVP_CIPHER *cph = NULL;
     EVP_CIPHER_CTX *ctx = NULL;
@@ -56,6 +56,8 @@ aeskw_seal(const char *alg, EVP_PKEY *key, const uint8_t pt[], size_t ptl,
         goto error;
     *ctl += tmp;
 
+    *ivl = 0;
+    *tgl = 0;
     EVP_CIPHER_CTX_free(ctx);
     return ct;
 
@@ -66,7 +68,8 @@ error:
 }
 
 ssize_t
-aeskw_unseal(const char *alg, EVP_PKEY *key, const uint8_t ct[], size_t ctl,
+aeskw_unseal(const char *alg, EVP_PKEY *key, const uint8_t iv[], size_t ivl,
+             const uint8_t ct[], size_t ctl, const uint8_t tg[], size_t tgl,
              uint8_t pt[])
 {
     const EVP_CIPHER *cph = NULL;
@@ -75,6 +78,9 @@ aeskw_unseal(const char *alg, EVP_PKEY *key, const uint8_t ct[], size_t ctl,
     ssize_t pl = -1;
     size_t kl = 0;
     int tmp = 0;
+
+    if (iv || ivl > 0 || tg || tgl > 0)
+        return -1;
 
     switch (str_to_enum(alg, "A128KW", "A192KW", "A256KW", NULL)) {
     case 0: cph = EVP_aes_128_wrap(); break;
@@ -90,8 +96,8 @@ aeskw_unseal(const char *alg, EVP_PKEY *key, const uint8_t ct[], size_t ctl,
     if ((int) kl != EVP_CIPHER_key_length(cph))
         return -1;
 
-    uint8_t iv[EVP_CIPHER_iv_length(cph)];
-    memset(iv, 0xA6, EVP_CIPHER_iv_length(cph));
+    uint8_t iiv[EVP_CIPHER_iv_length(cph)];
+    memset(iiv, 0xA6, EVP_CIPHER_iv_length(cph));
 
     ctx = EVP_CIPHER_CTX_new();
     if (!ctx)
@@ -99,7 +105,7 @@ aeskw_unseal(const char *alg, EVP_PKEY *key, const uint8_t ct[], size_t ctl,
 
     EVP_CIPHER_CTX_set_flags(ctx, EVP_CIPHER_CTX_FLAG_WRAP_ALLOW);
 
-    if (EVP_DecryptInit_ex(ctx, cph, NULL, k, iv) <= 0)
+    if (EVP_DecryptInit_ex(ctx, cph, NULL, k, iiv) <= 0)
         goto egress;
 
     if (EVP_DecryptUpdate(ctx, pt, &tmp, ct, ctl) <= 0)

@@ -70,39 +70,24 @@ EVP_PKEY *
 jose_jwe_generate_cek(json_t *jwe)
 {
     const char *enc = NULL;
+    json_t *header = NULL;
     EVP_PKEY *key = NULL;
     uint8_t *buf = NULL;
-    json_t *p = NULL;
-    json_t *s = NULL;
     size_t len = 0;
 
-    if (json_unpack(jwe, "{s?O,s?o}", "protected", &p,
-                    "unprotected", &s) == -1)
-        return NULL;
-
-    if (json_is_string(p)) {
-        json_t *dec = jose_b64_decode_json_load(p);
-        json_decref(p);
-        p = dec;
-    }
-
-    if (p && !json_is_object(p))
+    header = merge_header(json_object_get(jwe, "protected"),
+                          json_object_get(jwe, "unprotected"), NULL);
+    if (!header)
         goto egress;
 
-    if (json_unpack(p, "{s:s}", "enc", &enc) == -1 &&
-        json_unpack(s, "{s:s}", "enc", &enc) == -1) {
+    if (json_unpack(header, "{s:s}", "enc", &enc) == -1) {
         enc = "A128CBC-HS256";
-
-        if (!p)
-            p = json_object();
-
-        if (json_object_set_new(p, "enc", json_string(enc)) == -1 ||
-            json_object_set(jwe, "protected", p) == -1)
+        if (!set_protected_new(jwe, "enc", json_string(enc)))
             goto egress;
     }
 
     switch (str_to_enum(enc, "A128GCM", "A192GCM", "A256GCM", "A128CBC-HS256",
-                        "A192CBC-HS384", "A256CBC-HS512",NULL)) {
+                        "A192CBC-HS384", "A256CBC-HS512", NULL)) {
     case 0: len = 16; break;
     case 1: len = 24; break;
     case 2: len = 32; break;
@@ -122,7 +107,7 @@ jose_jwe_generate_cek(json_t *jwe)
     key = EVP_PKEY_new_mac_key(EVP_PKEY_HMAC, NULL, buf, len);
 
 egress:
-    json_decref(p);
+    json_decref(header);
     free(buf);
     return key;
 }
@@ -131,8 +116,7 @@ static char *
 choose_enc(json_t *jwe, EVP_PKEY *cek)
 {
     const char *enc = NULL;
-    json_t *p = NULL;
-    json_t *s = NULL;
+    json_t *header = NULL;
     size_t len = 0;
 
     if (!cek)
@@ -144,35 +128,22 @@ choose_enc(json_t *jwe, EVP_PKEY *cek)
     if (!EVP_PKEY_get0_hmac(cek, &len))
         return NULL;
 
-    if (json_unpack(jwe, "{s?O,s?o}", "protected", &p,
-                    "unprotected", &s) == -1)
-        return NULL;
-
-    if (json_is_string(p)) {
-        json_t *dec = jose_b64_decode_json_load(p);
-        json_decref(p);
-        p = dec;
-    }
-
-    if (p && !json_is_object(p))
+    header = merge_header(json_object_get(jwe, "protected"),
+                          json_object_get(jwe, "unprotected"), NULL);
+    if (!header)
         goto error;
 
-    if (json_unpack(p, "{s:s}", "enc", &enc) == -1 &&
-        json_unpack(s, "{s:s}", "enc", &enc) == -1) {
+    if (json_unpack(header, "{s:s}", "enc", &enc) == -1) {
         switch (len) {
         case 16: enc = "A128GCM"; break;
         case 24: enc = "A192GCM"; break;
-        case 32: enc = "A128CBC-HS256"; break;
+        case 32: enc = "A128CBC-HS256"; break; /* Prefer A128CBC-HS256 */
         case 48: enc = "A192CBC-HS384"; break;
         case 64: enc = "A256CBC-HS512"; break;
         default: goto error;
         }
 
-        if (!p)
-            p = json_object();
-
-        if (json_object_set_new(p, "enc", json_string(enc)) == -1 ||
-            json_object_set(jwe, "protected", p) == -1)
+        if (!set_protected_new(jwe, "enc", json_string(enc)))
             goto error;
     }
 
@@ -188,11 +159,11 @@ choose_enc(json_t *jwe, EVP_PKEY *cek)
     }
 
     enc = strdup(enc);
-    json_decref(p);
+    json_decref(header);
     return (char *) enc;
 
 error:
-    json_decref(p);
+    json_decref(header);
     return NULL;
 }
 
@@ -277,61 +248,42 @@ jose_jwe_encrypt_json(json_t *jwe, EVP_PKEY *cek, const json_t *pt)
     return ret;
 }
 
-static const char *
-suggest(EVP_PKEY *key)
-{
-    size_t len = 0;
-
-    switch (EVP_PKEY_base_id(key)) {
-    case EVP_PKEY_HMAC:
-        if (!EVP_PKEY_get0_hmac(key, &len))
-            return NULL;
-
-        switch (len * 8) {
-        case 128: return "A128KW";
-        case 192: return "A192KW";
-        case 256: return "A256KW";
-        default: return NULL;
-        }
-
-    case EVP_PKEY_RSA: return "RSA-OAEP";
-    default: return NULL;
-    }
-}
-
 static char *
 choose_alg(json_t *jwe, EVP_PKEY *key, json_t *rcp, const char *kalg)
 {
     const char *alg = NULL;
-    json_t *p = NULL;
-    json_t *s = NULL;
+    json_t *header = NULL;
     json_t *h = NULL;
 
-    if (json_unpack(jwe, "{s?O,s?o}", "protected", &p,
-                    "unprotected", &s) == -1)
-        return NULL;
-
-    if (json_is_string(p)) {
-        json_t *dec = jose_b64_decode_json_load(p);
-        json_decref(p);
-        p = dec;
-    }
-
-    if (p && !json_is_object(p))
+    header = merge_header(json_object_get(jwe, "protected"),
+                          json_object_get(jwe, "unprotected"), rcp);
+    if (!header)
         goto egress;
 
-    if (json_unpack(p, "{s:s}", "alg", &alg) == 0)
-        goto egress;
-
-    if (json_unpack(s, "{s:s}", "alg", &alg) == 0)
-        goto egress;
-
-    if (json_unpack(rcp, "{s:{s:s}}", "header", "alg", &alg) == 0)
+    if (json_unpack(header, "{s:s}", "alg", &alg) == 0)
         goto egress;
 
     alg = kalg;
-    if (!alg)
-        alg = suggest(key);
+    if (!alg) {
+        size_t len = 0;
+
+        switch (EVP_PKEY_base_id(key)) {
+        case EVP_PKEY_HMAC:
+            if (!EVP_PKEY_get0_hmac(key, &len))
+                goto egress;
+
+            switch (len * 8) {
+            case 128: alg = "A128KW"; break;
+            case 192: alg = "A192KW"; break;
+            case 256: alg = "A256KW"; break;
+            default: goto egress;
+            }
+            break;
+
+        case EVP_PKEY_RSA: alg = "RSA-OAEP"; break;
+        default: goto egress;
+        }
+    }
 
     h = json_object_get(rcp, "header");
     if (!h && json_object_set_new(rcp, "header", h = json_object()) == -1) {
@@ -349,7 +301,7 @@ egress:
         else
             alg = NULL;
     }
-    json_decref(p);
+    json_decref(header);
     return (char *) alg;
 }
 
@@ -359,12 +311,15 @@ jwe_seal(json_t *jwe, EVP_PKEY *cek, EVP_PKEY *key, json_t *rcp,
 {
     typeof(&aeskw_seal) sealer;
     const uint8_t *pt = NULL;
-    uint8_t *ct = NULL;
+    uint8_t *ivcttg = NULL;
     json_t *tmp = NULL;
+    json_t *h = NULL;
     char *alg = NULL;
     bool ret = false;
     size_t ptl = 0;
+    size_t ivl = 0;
     size_t ctl = 0;
+    size_t tgl = 0;
 
     if (!rcp)
         rcp = json_object();
@@ -377,13 +332,17 @@ jwe_seal(json_t *jwe, EVP_PKEY *cek, EVP_PKEY *key, json_t *rcp,
         goto egress;
 
     switch (str_to_enum(alg, "RSA1_5", "RSA-OAEP", "RSA-OAEP-256",
-                        "A128KW", "A192KW", "A256KW", NULL)) {
+                        "A128KW", "A192KW", "A256KW",
+                        "A128GCMKW", "A192GCMKW", "A256GCMKW", NULL)) {
     case 0: sealer = rsaes_seal; break;
     case 1: sealer = rsaes_seal; break;
     case 2: sealer = rsaes_seal; break;
     case 3: sealer = aeskw_seal; break;
     case 4: sealer = aeskw_seal; break;
     case 5: sealer = aeskw_seal; break;
+    case 6: sealer = aesgcmkw_seal; break;
+    case 7: sealer = aesgcmkw_seal; break;
+    case 8: sealer = aesgcmkw_seal; break;
     default: goto egress;
     }
 
@@ -391,20 +350,40 @@ jwe_seal(json_t *jwe, EVP_PKEY *cek, EVP_PKEY *key, json_t *rcp,
     if (!pt)
         goto egress;
 
-    ct = sealer(alg, key, pt, ptl, &ctl);
-    if (!ct)
+    ivcttg = sealer(alg, key, pt, ptl, &ivl, &ctl, &tgl);
+    if (!ivcttg)
         goto egress;
 
-    tmp = jose_b64_encode_json(ct, ctl);
+    if (ivl > 0 || tgl > 0) {
+        h = json_object_get(rcp, "header");
+        if (!h && json_object_set_new(rcp, "header", h = json_object()) == -1)
+            goto egress;
+        if (!json_is_object(h))
+            goto egress;
+    }
+
+    if (ivl > 0) {
+        tmp = jose_b64_encode_json(ivcttg, ivl);
+        if (json_object_set_new(h, "iv", tmp) == -1)
+            goto egress;
+    }
+
+    tmp = jose_b64_encode_json(&ivcttg[ivl], ctl);
     if (json_object_set_new(rcp, "encrypted_key", tmp) == -1)
         goto egress;
+
+    if (tgl > 0) {
+        tmp = jose_b64_encode_json(&ivcttg[ivl + ctl], tgl);
+        if (json_object_set_new(h, "tag", tmp) == -1)
+            goto egress;
+    }
 
     ret = add_entity(jwe, rcp, "recipients", "header", "encrypted_key", NULL);
 
 egress:
     json_decref(rcp);
+    free(ivcttg);
     free(alg);
-    free(ct);
     return ret;
 }
 
@@ -440,90 +419,113 @@ egress:
     return ret;
 }
 
+static uint8_t *
+decode(const char *enc, size_t *l)
+{
+    uint8_t *dec = NULL;
+
+    if (!enc)
+        return NULL;
+
+    *l = jose_b64_dlen(strlen(enc));
+
+    dec = malloc(*l);
+    if (!dec)
+        return NULL;
+
+    if (jose_b64_decode(enc, dec))
+        return dec;
+
+    free(dec);
+    return NULL;
+}
+
 static EVP_PKEY *
-unseal_recip(EVP_PKEY *key, const json_t *prot, const json_t *shrd,
-             const json_t *rcp)
+unseal_recip(const json_t *jwe, const json_t *rcp, EVP_PKEY *key)
 {
     typeof(&aeskw_unseal) unsealer;
     const char *alg = NULL;
+    const char *eiv = NULL;
+    const char *ect = NULL;
+    const char *etg = NULL;
+    json_t *header = NULL;
     EVP_PKEY *cek = NULL;
+    uint8_t *iv = NULL;
     uint8_t *ct = NULL;
+    uint8_t *tg = NULL;
     uint8_t *pt = NULL;
-    json_t *ek = NULL;
     ssize_t pl = 0;
+    size_t ivl = 0;
     size_t ctl = 0;
+    size_t tgl = 0;
 
-    if (json_unpack((json_t *) prot, "{s: s}", "alg", &alg) == -1 &&
-        json_unpack((json_t *) shrd, "{s: s}", "alg", &alg) == -1 &&
-        json_unpack((json_t *) rcp, "{s: {s: s}}",
-                    "header", "alg", &alg) == -1)
-        return NULL;
+    header = merge_header(json_object_get(jwe, "protected"),
+                          json_object_get(jwe, "unprotected"),
+                          json_object_get(rcp, "header"));
+    if (!header)
+        goto egress;
+
+    if (json_unpack(header, "{s: s, s? s, s? s}",
+                    "alg", &alg, "iv", &eiv, "tag", &etg) == -1)
+        goto egress;
+
+    if (json_unpack((json_t *) rcp, "{s: s}", "encrypted_key", &ect) == -1)
+        goto egress;
 
     switch (str_to_enum(alg, "RSA1_5", "RSA-OAEP", "RSA-OAEP-256",
-                        "A128KW", "A192KW", "A256KW", NULL)) {
+                        "A128KW", "A192KW", "A256KW",
+                        "A128GCMKW", "A192GCMKW", "A256GCMKW", NULL)) {
     case 0: unsealer = rsaes_unseal; break;
     case 1: unsealer = rsaes_unseal; break;
     case 2: unsealer = rsaes_unseal; break;
     case 3: unsealer = aeskw_unseal; break;
     case 4: unsealer = aeskw_unseal; break;
     case 5: unsealer = aeskw_unseal; break;
+    case 6: unsealer = aesgcmkw_unseal; break;
+    case 7: unsealer = aesgcmkw_unseal; break;
+    case 8: unsealer = aesgcmkw_unseal; break;
     default: return NULL;
     }
 
-    ek = json_object_get(rcp, "encrypted_key");
-    if (!json_is_string(ek))
-        return NULL;
-
-    ctl = jose_b64_dlen(json_string_length(ek));
-    ct = malloc(ctl);
-    if (!ct)
-        return NULL;
-
-    if (!jose_b64_decode(json_string_value(ek), ct))
+    iv = decode(eiv, &ivl);
+    ct = decode(ect, &ctl);
+    tg = decode(etg, &tgl);
+    if (!ct || (eiv && !iv) || (etg && !tg))
         goto egress;
 
     pt = malloc(ctl);
     if (!pt)
         goto egress;
 
-    pl = unsealer(alg, key, ct, ctl, pt);
+    pl = unsealer(alg, key, iv, ivl, ct, ctl, tg, tgl, pt);
     if (pl >= 0)
         cek = EVP_PKEY_new_mac_key(EVP_PKEY_HMAC, NULL, pt, pl);
 
 egress:
+    json_decref(header);
     free(pt);
+    free(iv);
     free(ct);
+    free(tg);
     return cek;
 }
 
 EVP_PKEY *
 jose_jwe_unseal(const json_t *jwe, EVP_PKEY *key)
 {
-    const json_t *prot = NULL;
-    const json_t *shrd = NULL;
     const json_t *rcps = NULL;
     EVP_PKEY *cek = NULL;
-    json_t *p = NULL;
 
-    if (json_unpack((json_t *) jwe, "{s? o, s? o, s? o}",
-                    "protected", &prot, "unprotected", &shrd,
-                    "recipients", &rcps) == -1)
-        return NULL;
-
-    p = jose_b64_decode_json_load(prot);
-    if (prot && !p)
-        return NULL;
-
+    rcps = json_object_get(jwe, "recipients");
     if (json_is_array(rcps)) {
         for (size_t i = 0; i < json_array_size(rcps) && !cek; i++) {
-            const json_t *recp = json_array_get(rcps, i);
-            cek = unseal_recip(key, p, shrd, recp);
+            const json_t *rcp = json_array_get(rcps, i);
+            cek = unseal_recip(jwe, rcp, key);
         }
     } else if (!rcps) {
-        cek = unseal_recip(key, p, shrd, jwe);
+        cek = unseal_recip(jwe, jwe, key);
     }
 
-    json_decref(p);
     return cek;
 }
 
@@ -542,55 +544,35 @@ jose_jwe_unseal_jwk(const json_t *jwe, const json_t *jwk)
     return cek;
 }
 
-static uint8_t *
-decode(const char *enc, size_t *l)
-{
-    uint8_t *dec = NULL;
-
-    *l = jose_b64_dlen(strlen(enc));
-
-    dec = malloc(*l);
-    if (!dec)
-        return NULL;
-
-    if (jose_b64_decode(enc, dec))
-        return dec;
-
-    free(dec);
-    return NULL;
-}
-
 ssize_t
 jose_jwe_decrypt(const json_t *jwe, EVP_PKEY *cek, uint8_t pt[])
 {
     typeof(&aesgcm_decrypt) decryptor;
     const json_t *prot = NULL;
-    const json_t *shrd = NULL;
     const char *etg = NULL;
     const char *eiv = NULL;
     const char *ect = NULL;
     const char *aad = NULL;
     const char *enc = NULL;
+    json_t *header = NULL;
     uint8_t *tg = NULL;
     uint8_t *ct = NULL;
     uint8_t *iv = NULL;
-    json_t *p = NULL;
     ssize_t ptl = -1;
     size_t tgl = 0;
     size_t ctl = 0;
     size_t ivl = 0;
 
-    if (json_unpack((json_t *) jwe, "{s?o, s?o, s?s, s:s, s:s, s:s}",
-                    "unprotected", &shrd, "protected", &prot, "aad", &aad,
-                    "ciphertext", &ect, "tag", &etg, "iv", &eiv) == -1)
-        return -1;
-
-    p = jose_b64_decode_json_load(prot);
-    if (prot && !p)
+    if (json_unpack((json_t *) jwe, "{ss,s?s,ss,ss}", "ciphertext", &ect,
+                    "aad", &aad, "tag", &etg, "iv", &eiv) == -1)
         goto egress;
 
-    if (json_unpack(p, "{s: s}", "enc", &enc) == -1 &&
-        json_unpack((json_t *) shrd, "{s: s}", "enc", &enc) == -1)
+    prot = json_object_get(jwe, "protected");
+    header = merge_header(prot, json_object_get(jwe, "unprotected"), NULL);
+    if (!header)
+        goto egress;
+
+    if (json_unpack(header, "{s:s}", "enc", &enc) == -1)
         goto egress;
 
     switch (str_to_enum(enc, "A128GCM", "A192GCM", "A256GCM", "A128CBC-HS256",
@@ -609,12 +591,12 @@ jose_jwe_decrypt(const json_t *jwe, EVP_PKEY *cek, uint8_t pt[])
     tg = decode(etg, &tgl);
     if (iv && ct && tg) {
         ptl = decryptor(enc, cek, iv, ivl, ct, ctl, tg, tgl, pt,
-                        json_string_value(prot),
+                        json_is_string(prot) ? json_string_value(prot) : "",
                         aad ? "." : NULL, aad ? aad : "", NULL);
     }
 
 egress:
-    json_decref(p);
+    json_decref(header);
     free(tg);
     free(ct);
     free(iv);

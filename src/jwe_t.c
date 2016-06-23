@@ -29,6 +29,9 @@ static const struct {
     { "rfc7520_5.2", "jwec" },
     { "rfc7520_5.2", "jwef" },
     { "rfc7520_5.2", "jweg" },
+    { "rfc7520_5.7", "jwec" },
+    { "rfc7520_5.7", "jwef" },
+    { "rfc7520_5.7", "jweg" },
     {}
 };
 
