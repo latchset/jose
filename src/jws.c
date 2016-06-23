@@ -51,21 +51,11 @@ static char *
 choose_alg(json_t *sig, EVP_PKEY *key, const char *kalg)
 {
     const char *alg = NULL;
-    json_t *enc = NULL;
-    json_t *dec = NULL;
+    json_t *header = NULL;
 
-    if (json_unpack(sig, "{s:{s:s}}", "protected", "alg", &alg) == 0)
-        goto egress;
-
-    enc = json_object_get(sig, "protected");
-    dec = jose_b64_decode_json_load(enc);
-    if (json_is_string(enc) && !json_is_object(dec))
-        goto egress;
-
-    if (json_unpack(dec, "{s:s}", "alg", &alg) == 0)
-        goto egress;
-
-    if (json_unpack(sig, "{s:{s:s}}", "header", "alg", &alg) == 0)
+    header = merge_header(json_object_get(sig, "protected"), NULL,
+                          json_object_get(sig, "header"));
+    if (json_unpack(header, "{s:s}", "alg", &alg) == 0)
         goto egress;
 
     alg = kalg;
@@ -79,12 +69,7 @@ choose_alg(json_t *sig, EVP_PKEY *key, const char *kalg)
     if (!alg)
         goto egress;
 
-    if (!dec)
-        dec = json_object();
-
-    if (json_object_set_new(dec, "alg", json_string(alg)) == -1 ||
-        json_object_set_new(sig, "protected",
-                            jose_b64_encode_json_dump(dec)) == -1)
+    if (!set_protected_new(sig, "alg", json_string(alg)))
         alg = NULL;
 
 egress:
@@ -94,7 +79,7 @@ egress:
         else
             alg = NULL;
     }
-    json_decref(dec);
+    json_decref(header);
     return (char *) alg;
 }
 
@@ -189,31 +174,24 @@ egress:
 static bool
 verify_sig(const char *payl, const json_t *sig, EVP_PKEY *key)
 {
+    const json_t *prtctd = NULL;
     const char *prot = NULL;
     const char *sign = NULL;
     const char *alg = NULL;
+    json_t *header = NULL;
     uint8_t *buf = NULL;
-    json_t *p = NULL;
-    json_t *h = NULL;
     bool ret = false;
     size_t len = 0;
 
-    if (json_unpack((json_t *) sig, "{s: s, s? o, s? o}", "signature", &sign,
-                    "protected", &p, "header", &h) == -1)
+    prtctd = json_object_get(sig, "protected");
+    header = merge_header(prtctd, NULL, json_object_get(sig, "header"));
+    if (!header)
+        goto egress;
+
+    if (json_unpack((json_t *) sig, "{s: s}", "signature", &sign) == -1)
         return false;
 
-    if (!p && !h)
-        return false;
-
-    if (p) {
-        prot = json_string_value(p);
-        p = jose_b64_decode_json_load(p);
-        if (!p)
-            goto egress;
-    }
-
-    if (json_unpack(p, "{s: s}", "alg", &alg) == -1 &&
-        json_unpack(h, "{s: s}", "alg", &alg) == -1)
+    if (json_unpack(header, "{s: s}", "alg", &alg) == -1)
         goto egress;
 
     len = jose_b64_dlen(strlen(sign));
@@ -224,6 +202,8 @@ verify_sig(const char *payl, const json_t *sig, EVP_PKEY *key)
     if (!jose_b64_decode(sign, buf))
         goto egress;
 
+    prot = json_is_string(prtctd) ? json_string_value(prtctd) : "";
+
     switch (alg[0]) {
     case 'E': ret = ecdsa_verify(alg, key, prot, payl, buf, len); break;
     case 'H': ret = hmac_verify(alg, key, prot, payl, buf, len); break;
@@ -232,7 +212,7 @@ verify_sig(const char *payl, const json_t *sig, EVP_PKEY *key)
     }
 
 egress:
-    json_decref(p);
+    json_decref(header);
     free(buf);
     return ret;
 }
