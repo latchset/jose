@@ -28,11 +28,17 @@ str_to_enum(const char *str, ...);
 bool
 has_flags(const char *flags, bool all, const char *query);
 
+bool
+set_protected_new(json_t *obj, const char *key, json_t *val);
+
 json_t *
 encode_protected(json_t *obj);
 
 const unsigned char *
 EVP_PKEY_get0_hmac(EVP_PKEY *pkey, size_t *len);
+
+json_t *
+merge_header(const json_t *prot, const json_t *shrd, const json_t *head);
 
 bool
 add_entity(json_t *root, json_t *obj, const char *plural, ...);

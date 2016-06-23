@@ -170,13 +170,45 @@ has_flags(const char *flags, bool all, const char *query)
     return all;
 }
 
+bool
+set_protected_new(json_t *obj, const char *key, json_t *val)
+{
+    json_t *p = NULL;
+    bool ret = false;
+
+    if (json_unpack(obj, "{s? O}", "protected", &p) == -1)
+        goto egress;
+
+    if (!p)
+        p = json_object();
+
+    if (json_is_string(p)) {
+        json_t *tmp = jose_b64_decode_json_load(p);
+        json_decref(p);
+        p = tmp;
+    }
+
+    if (!json_is_object(p))
+        goto egress;
+
+    if (json_object_set(p, key, val) == -1)
+        goto egress;
+
+    ret = json_object_set(obj, "protected", p) == 0;
+
+egress:
+    json_decref(val);
+    json_decref(p);
+    return ret;
+}
+
 json_t *
 encode_protected(json_t *obj)
 {
     json_t *p = NULL;
 
     if (json_unpack(obj, "{s?o}", "protected", &p) == -1)
-        return false;
+        return NULL;
 
     if (!p)
         return json_string("");
@@ -214,6 +246,70 @@ EVP_PKEY_get0_hmac(EVP_PKEY *pkey, size_t *len)
     os = EVP_PKEY_get0(pkey);
     *len = os->length;
     return os->data;
+}
+
+json_t *
+merge_header(const json_t *prot, const json_t *shrd, const json_t *head)
+{
+    json_t *p = NULL;
+    json_t *s = NULL;
+    json_t *h = NULL;
+    json_t *d = NULL;
+    json_t *a = NULL;
+
+    if (json_is_string(prot)) {
+        prot = d = jose_b64_decode_json_load(prot);
+        if (!d)
+            goto error;
+    }
+
+    if (prot && !json_is_object(prot))
+        goto error;
+
+    if (shrd && !json_is_object(shrd))
+        goto error;
+
+    if (head && !json_is_object(head))
+        goto error;
+
+    p = json_deep_copy(prot);
+    if (prot && !p)
+        goto error;
+
+    s = json_deep_copy(shrd);
+    if (shrd && !s)
+        goto error;
+
+    h = json_deep_copy(head);
+    if (head && !h)
+        goto error;
+
+    a = json_object();
+    if (!a)
+        goto error;
+
+    if (p && json_object_update_missing(a, p) == -1)
+        goto error;
+
+    if (s && json_object_update_missing(a, s) == -1)
+        goto error;
+
+    if (h && json_object_update_missing(a, h) == -1)
+        goto error;
+
+    json_decref(p);
+    json_decref(s);
+    json_decref(h);
+    json_decref(d);
+    return a;
+
+error:
+    json_decref(p);
+    json_decref(s);
+    json_decref(h);
+    json_decref(d);
+    json_decref(a);
+    return NULL;
 }
 
 bool
