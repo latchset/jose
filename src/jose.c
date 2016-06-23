@@ -325,9 +325,6 @@ jose_encrypt(int argc, char *argv[])
     }
     free(b);
 
-    json_dumpf(jwe, stderr, JSON_SORT_KEYS);
-    fprintf(stderr, "\n");
-
     for (int i = 3; i < argc; i++) {
         json_t *jwk = NULL;
         FILE *file = NULL;
