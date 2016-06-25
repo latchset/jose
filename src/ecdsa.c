@@ -2,7 +2,6 @@
 
 #include "ecdsa.h"
 #include "conv.h"
-#include "hash.h"
 
 #include <openssl/ecdsa.h>
 
@@ -13,25 +12,48 @@ setup(const char *alg, EVP_PKEY *key, const char *prot, const char *payl,
       uint8_t hsh[])
 {
     const EVP_MD *md = NULL;
-    const char *req = NULL;
+    EVP_MD_CTX *ctx = NULL;
+    const char *tmp = NULL;
+    unsigned int ign = 0;
+    size_t ret = 0;
 
     if (EVP_PKEY_base_id(key) != EVP_PKEY_EC)
         return 0;
 
     switch (EC_GROUP_get_curve_name(EC_KEY_get0_group(key->pkey.ec))) {
-    case NID_X9_62_prime256v1: req = "ES256"; md = EVP_sha256(); break;
-    case NID_secp384r1:        req = "ES384"; md = EVP_sha384(); break;
-    case NID_secp521r1:        req = "ES512"; md = EVP_sha512(); break;
+    case NID_X9_62_prime256v1: tmp = "ES256"; md = EVP_sha256(); break;
+    case NID_secp384r1:        tmp = "ES384"; md = EVP_sha384(); break;
+    case NID_secp521r1:        tmp = "ES512"; md = EVP_sha512(); break;
     default: return 0;
     }
 
-    if (strcmp(alg, req) != 0)
+    if (strcmp(alg, tmp) != 0)
         return 0;
 
-    if (!hash(md, hsh, prot ? prot : "", ".", payl ? payl : "", NULL))
-        return 0;
+    ctx = EVP_MD_CTX_create();
+    if (!ctx)
+        goto egress;
 
-    return EVP_MD_size(md);
+    if (EVP_DigestInit(ctx, md) <= 0)
+        goto egress;
+
+    tmp = prot ? prot : "";
+    if (EVP_DigestUpdate(ctx, (const uint8_t *) tmp, strlen(tmp)) <= 0)
+        goto egress;
+
+    if (EVP_DigestUpdate(ctx, (const uint8_t *) ".", 1) <= 0)
+        goto egress;
+
+    tmp = payl ? payl : "";
+    if (EVP_DigestUpdate(ctx, (const uint8_t *) tmp, strlen(tmp)) <= 0)
+        goto egress;
+
+    if (EVP_DigestFinal(ctx, hsh, &ign) > 0)
+        ret = EVP_MD_size(md);
+
+egress:
+    EVP_MD_CTX_destroy(ctx);
+    return ret;
 }
 
 const char *

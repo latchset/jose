@@ -5,14 +5,13 @@ incdir = $(includedir)/$(PACKAGE_NAME)
 bin_PROGRAMS = jose
 jose_LDADD = libjose.la
 
-noinst_HEADERS = conv.h hash.h hmac.h ecdsa.h rsassa.h aescbch.h aesgcm.h rsaes.h aeskw.h
+noinst_HEADERS = conv.h hmac.h ecdsa.h rsassa.h aescbch.h aesgcm.h rsaes.h aeskw.h
 inc_HEADERS = b64.h jwk.h jwkset.h jws.h jwe.h
 lib_LTLIBRARIES = libint.la libjose.la
 
 libint_la_LIBADD = @libcrypto_LIBS@ @jansson_LIBS@
 libint_la_SOURCES = \
     conv.c \
-    hash.c \
     hmac.c \
     ecdsa.c \
     rsassa.c \
