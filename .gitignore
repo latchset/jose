@@ -35,7 +35,7 @@ tags
 test-*
 vgcore.*
 
-src/jose
+src/jose/jose
 src/tests/b64
 src/tests/jwk
 src/tests/jwkset

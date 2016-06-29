@@ -35,5 +35,5 @@ JOSE_CFLAGS="\
 "
 AC_SUBST([JOSE_CFLAGS])
 
-AC_CONFIG_FILES([jose.pc Makefile src/Makefile src/tests/Makefile])
+AC_CONFIG_FILES([jose.pc Makefile src/Makefile src/jose/Makefile src/tests/Makefile])
 AC_OUTPUT

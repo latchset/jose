@@ -1,4 +1,4 @@
-SUBDIRS = . tests
+SUBDIRS = . tests jose
 
 AM_CFLAGS = @JOSE_CFLAGS@ @libcrypto_CFLAGS@ @jansson_CFLAGS@ @zlib_CFLAGS@
 
@@ -6,11 +6,7 @@ incdir = $(includedir)/$(PACKAGE_NAME)
 
 noinst_HEADERS = conv.h hook.h
 inc_HEADERS = b64.h jwk.h jwkset.h jws.h jwe.h
-
-bin_PROGRAMS = jose
 lib_LTLIBRARIES = libjose.la
-
-jose_LDADD = libjose.la
 
 libjose_la_LIBADD = @libcrypto_LIBS@ @jansson_LIBS@ @zlib_LIBS@
 libjose_la_LDFLAGS = -export-symbols-regex '^jose_'
