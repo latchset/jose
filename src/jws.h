@@ -25,13 +25,7 @@ char * __attribute__((warn_unused_result))
 jose_jws_to_compact(const json_t *jws);
 
 bool __attribute__((warn_unused_result))
-jose_jws_sign(json_t *jws, EVP_PKEY *key, json_t *sig);
+jose_jws_sign(json_t *jws, const json_t *jwk, json_t *sig);
 
 bool __attribute__((warn_unused_result))
-jose_jws_sign_jwk(json_t *jws, const json_t *jwk, json_t *sig);
-
-bool __attribute__((warn_unused_result))
-jose_jws_verify(const json_t *jws, EVP_PKEY *key);
-
-bool __attribute__((warn_unused_result))
-jose_jws_verify_jwk(const json_t *jws, const json_t *jwk);
+jose_jws_verify(const json_t *jws, const json_t *jwk);

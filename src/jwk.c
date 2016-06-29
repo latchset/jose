@@ -2,6 +2,7 @@
 
 #include "jwk.h"
 #include "b64.h"
+#include "hook.h"
 #include "conv.h"
 
 #include <openssl/ec.h>
@@ -360,26 +361,13 @@ to_hmac(const json_t *jwk)
 static bool
 gen_hmac(json_t *jwk)
 {
-    EVP_PKEY *key = NULL;
-    json_t *bytes = NULL;
+    json_int_t len = 0;
     uint8_t *buf = NULL;
-    json_t *tmp = NULL;
-    size_t len = 0;
 
-    if (json_unpack(jwk, "{s?O}", "bytes", &bytes) == -1)
+    if (json_unpack(jwk, "{s:i}", "bytes", &len) == -1)
         return false;
 
-    if (!bytes)
-        bytes = json_integer(256 / 8);
-
-    if (!json_is_integer(bytes)) {
-        json_decref(bytes);
-        return false;
-    }
-
-    len = json_integer_value(bytes);
     buf = malloc(len);
-    json_decref(bytes);
     if (!buf)
         return false;
 
@@ -388,26 +376,13 @@ gen_hmac(json_t *jwk)
         return false;
     }
 
-    key = EVP_PKEY_new_mac_key(EVP_PKEY_HMAC, NULL, buf, len);
+    if (json_object_set_new(jwk, "k", jose_b64_encode_json(buf, len)) == -1) {
+        free(buf);
+        return false;
+    }
     free(buf);
-    if (!key)
-        return false;
 
-    tmp = jose_jwk_from_key(key, true);
-    EVP_PKEY_free(key);
-
-    if (json_object_update(jwk, tmp) == -1) {
-        json_decref(tmp);
-        return false;
-    }
-
-    if (json_object_get(jwk, "bytes") && json_object_del(jwk, "bytes") == -1) {
-        json_decref(tmp);
-        return false;
-    }
-
-    json_decref(tmp);
-    return true;
+    return json_object_del(jwk, "bytes") == 0;
 }
 
 static bool
@@ -417,9 +392,9 @@ gen_rsa(json_t *jwk)
     json_t *exp = NULL;
     BIGNUM *bn = NULL;
     RSA *key = NULL;
-    int bits = 2048;
+    int bits = 0;
 
-    if (json_unpack(jwk, "{s?i,s?O}", "bits", &bits, "e", &exp) == -1)
+    if (json_unpack(jwk, "{s:i,s?O}", "bits", &bits, "e", &exp) == -1)
         return false;
 
     if (bits < 2048) {
@@ -522,6 +497,11 @@ jose_jwk_generate(json_t *jwk)
 {
     const char *kty = NULL;
     bool ret = false;
+
+    for (algo_t *a = algos; a; a = a->next) {
+        if (a->generate && !a->generate(jwk))
+            return false;
+    }
 
     if (json_unpack(jwk, "{s:s}", "kty", &kty) == -1)
         return NULL;

@@ -25,29 +25,24 @@ jose_jwe_from_compact(const char *jwe);
 char * __attribute__((warn_unused_result))
 jose_jwe_to_compact(const json_t *jwe);
 
-EVP_PKEY *
-jose_jwe_generate_cek(json_t *jwe);
 
 bool __attribute__((warn_unused_result))
-jose_jwe_encrypt(json_t *jwe, EVP_PKEY *cek, const uint8_t pt[], size_t ptl);
+jose_jwe_encrypt(json_t *jwe, const json_t *cek,
+                 const uint8_t pt[], size_t ptl);
 
 bool __attribute__((warn_unused_result))
-jose_jwe_encrypt_json(json_t *jwe, EVP_PKEY *cek, const json_t *pt);
+jose_jwe_encrypt_json(json_t *jwe, const json_t *cek, json_t *pt);
+
 
 bool __attribute__((warn_unused_result))
-jose_jwe_seal(json_t *jwe, EVP_PKEY *cek, EVP_PKEY *key, json_t *rcp);
-
-bool __attribute__((warn_unused_result))
-jose_jwe_seal_jwk(json_t *jwe, EVP_PKEY *cek, const json_t *jwk, json_t *rcp);
-
-EVP_PKEY * __attribute__((warn_unused_result))
-jose_jwe_unseal(const json_t *jwe, EVP_PKEY *key);
-
-EVP_PKEY * __attribute__((warn_unused_result))
-jose_jwe_unseal_jwk(const json_t *jwe, const json_t *jwk);
-
-ssize_t __attribute__((warn_unused_result))
-jose_jwe_decrypt(const json_t *jwe, EVP_PKEY *cek, uint8_t pt[]);
+jose_jwe_seal(json_t *jwe, const json_t *cek, const json_t *jwk, json_t *rcp);
 
 json_t * __attribute__((warn_unused_result))
-jose_jwe_decrypt_json(const json_t *jwe, EVP_PKEY *cek);
+jose_jwe_unseal(const json_t *jwe, const json_t *jwk);
+
+
+uint8_t * __attribute__((warn_unused_result))
+jose_jwe_decrypt(const json_t *jwe, const json_t *cek, size_t *ptl);
+
+json_t * __attribute__((warn_unused_result))
+jose_jwe_decrypt_json(const json_t *jwe, const json_t *cek);

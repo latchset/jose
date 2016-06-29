@@ -31,7 +31,7 @@ has_flags(const char *flags, bool all, const char *query);
 bool
 set_protected_new(json_t *obj, const char *key, json_t *val);
 
-json_t *
+const char *
 encode_protected(json_t *obj);
 
 const unsigned char *

@@ -186,7 +186,7 @@ jose_sign(int argc, char *argv[])
             return EXIT_FAILURE;
         }
 
-        if (!jose_jws_sign_jwk(jws, jwk, NULL)) {
+        if (!jose_jws_sign(jws, jwk, NULL)) {
             fprintf(stderr, "Error creating signature!\n");
             json_decref(jws);
             json_decref(jwk);
@@ -237,7 +237,7 @@ jose_verify(int argc, char *argv[])
             return EXIT_FAILURE;
         }
 
-        if (jose_jws_verify_jwk(jws, jwk)) {
+        if (jose_jws_verify(jws, jwk)) {
             const char *payload = NULL;
             uint8_t *out = NULL;
             size_t len = 0;
@@ -279,7 +279,8 @@ jose_verify(int argc, char *argv[])
 static int
 jose_encrypt(int argc, char *argv[])
 {
-    EVP_PKEY *cek = NULL;
+    const char *enc = NULL;
+    json_t *cek = NULL;
     json_t *jwe = NULL;
     uint8_t *b = NULL;
     size_t l = 0;
@@ -308,18 +309,36 @@ jose_encrypt(int argc, char *argv[])
         l += r;
     }
 
-    cek = jose_jwe_generate_cek(jwe);
+    if (json_unpack(jwe, "{s:s}", "enc", &enc) == -1) {
+        fprintf(stderr, "Error finding encryption algorithm!\n");
+        json_decref(jwe);
+        free(b);
+        return EXIT_FAILURE;
+    }
+
+    if (!enc)
+        enc = "A128CBC-HS256";
+
+    cek = json_pack("{s:s}", "alg", enc);
     if (!cek) {
+        fprintf(stderr, "Error creating CEK template!\n");
+        json_decref(jwe);
+        free(b);
+        return EXIT_FAILURE;
+    }
+
+    if (!jose_jwk_generate(cek)) {
         fprintf(stderr, "Error generating CEK!\n");
         json_decref(jwe);
+        json_decref(cek);
         free(b);
         return EXIT_FAILURE;
     }
 
     if (!jose_jwe_encrypt(jwe, cek, b, l)) {
         fprintf(stderr, "Error encrypting input!\n");
-        EVP_PKEY_free(cek);
         json_decref(jwe);
+        json_decref(cek);
         free(b);
         return EXIT_FAILURE;
     }
@@ -332,8 +351,8 @@ jose_encrypt(int argc, char *argv[])
         file = fopen(argv[i], "r");
         if (!file) {
             fprintf(stderr, "Unable to open: %s!\n", argv[i]);
-            EVP_PKEY_free(cek);
             json_decref(jwe);
+            json_decref(cek);
             return EXIT_FAILURE;
         }
 
@@ -341,16 +360,16 @@ jose_encrypt(int argc, char *argv[])
         fclose(file);
         if (!jwk) {
             fprintf(stderr, "Invalid JWK: %s!\n", argv[i]);
-            EVP_PKEY_free(cek);
             json_decref(jwe);
+            json_decref(cek);
             return EXIT_FAILURE;
         }
 
-        if (!jose_jwe_seal_jwk(jwe, cek, jwk, NULL)) {
+        if (!jose_jwe_seal(jwe, cek, jwk, NULL)) {
             fprintf(stderr, "Error creating seal!\n");
-            EVP_PKEY_free(cek);
             json_decref(jwe);
             json_decref(jwk);
+            json_decref(cek);
             return EXIT_FAILURE;
         }
 
@@ -359,12 +378,12 @@ jose_encrypt(int argc, char *argv[])
 
     if (json_dumpf(jwe, stdout, JSON_SORT_KEYS) == -1) {
         fprintf(stderr, "Error dumping JWS!\n");
-        EVP_PKEY_free(cek);
         json_decref(jwe);
+        json_decref(cek);
         return EXIT_FAILURE;
     }
 
-    EVP_PKEY_free(cek);
+    json_decref(cek);
     json_decref(jwe);
     return EXIT_SUCCESS;
 }
@@ -372,9 +391,7 @@ jose_encrypt(int argc, char *argv[])
 static int
 jose_decrypt(int argc, char *argv[])
 {
-    uint8_t *out = NULL;
     json_t *jwe = NULL;
-    ssize_t len = 0;
 
     if (argc < 3)
         return EXIT_FAILURE;
@@ -383,16 +400,8 @@ jose_decrypt(int argc, char *argv[])
     if (!jwe)
         return EXIT_FAILURE;
 
-    len = json_string_length(json_object_get(jwe, "ciphertext"));
-    len = jose_b64_dlen(len);
-    out = malloc(len);
-    if (!out) {
-        fprintf(stderr, "Out of memory!\n");
-        goto error;
-    }
-
     for (int i = 2; i < argc; i++) {
-        EVP_PKEY *cek = NULL;
+        json_t *cek = NULL;
         json_t *jwk = NULL;
         FILE *file = NULL;
 
@@ -409,18 +418,21 @@ jose_decrypt(int argc, char *argv[])
             goto error;
         }
 
-        cek = jose_jwe_unseal_jwk(jwe, jwk);
+        cek = jose_jwe_unseal(jwe, jwk);
         if (cek) {
-            len = jose_jwe_decrypt(jwe, cek, out);
-            if (len < 0) {
+            uint8_t *out = NULL;
+            size_t len = 0;
+
+            out = jose_jwe_decrypt(jwe, cek, &len);
+            if (!out) {
                 fprintf(stderr, "Error during decryption!\n");
-                EVP_PKEY_free(cek);
+                json_decref(cek);
                 json_decref(jwk);
                 goto error;
             }
 
             fwrite(out, 1, len, stdout);
-            EVP_PKEY_free(cek);
+            json_decref(cek);
             json_decref(jwe);
             json_decref(jwk);
             free(out);
@@ -433,7 +445,6 @@ jose_decrypt(int argc, char *argv[])
     fprintf(stderr, "Decryption failed!\n");
 
 error:
-    free(out);
     json_decref(jwe);
     return EXIT_FAILURE;
 }

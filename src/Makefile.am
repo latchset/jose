@@ -1,46 +1,32 @@
-AM_CFLAGS = @JOSE_CFLAGS@ @libcrypto_CFLAGS@ @jansson_CFLAGS@
+SUBDIRS = . tests
+
+AM_CFLAGS = @JOSE_CFLAGS@ @libcrypto_CFLAGS@ @jansson_CFLAGS@ @zlib_CFLAGS@
 
 incdir = $(includedir)/$(PACKAGE_NAME)
 
+noinst_HEADERS = conv.h hook.h
+inc_HEADERS = b64.h jwk.h jwkset.h jws.h jwe.h
+
 bin_PROGRAMS = jose
+lib_LTLIBRARIES = libjose.la
+
 jose_LDADD = libjose.la
 
-noinst_HEADERS = conv.h hmac.h ecdsa.h rsassa.h aescbch.h aesgcm.h rsaes.h aeskw.h
-inc_HEADERS = b64.h jwk.h jwkset.h jws.h jwe.h
-lib_LTLIBRARIES = libint.la libjose.la
-
-libint_la_LIBADD = @libcrypto_LIBS@ @jansson_LIBS@
-libint_la_SOURCES = \
-    conv.c \
-    hmac.c \
-    ecdsa.c \
-    rsassa.c \
-    aescbch.c \
-    aesgcm.c \
-    rsaes.c \
-    aeskw.c
-
-libjose_la_LIBADD = libint.la
+libjose_la_LIBADD = @libcrypto_LIBS@ @jansson_LIBS@ @zlib_LIBS@
 libjose_la_LDFLAGS = -export-symbols-regex '^jose_'
 libjose_la_SOURCES = \
+    hook.c \
+    conv.c \
+    hooks/hmac.c \
+    hooks/ecdsa.c \
+    hooks/rsassa.c \
+    hooks/aescbch.c \
+    hooks/aesgcm.c \
+    hooks/rsaes.c \
+    hooks/aeskw.c \
+    hooks/deflate.c \
     b64.c \
     jwk.c \
     jwkset.c \
     jws.c \
     jwe.c
-
-check_HEADERS = vect.h jtbl.h
-check_PROGRAMS = hmac_t b64_t jwk_t jwkset_t jws_t jwe_t
-check_LTLIBRARIES = libtest.la
-
-libtest_la_SOURCES = vect.c jtbl.c
-
-hmac_t_LDADD = libint.la libjose.la libtest.la
-
-b64_t_LDADD = libint.la libjose.la libtest.la
-jwk_t_LDADD = libint.la libjose.la libtest.la
-jwkset_t_LDADD = libint.la libjose.la libtest.la
-jws_t_LDADD = libint.la libjose.la libtest.la
-jwe_t_LDADD = libint.la libjose.la libtest.la
-
-TESTS = $(check_PROGRAMS)

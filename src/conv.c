@@ -202,7 +202,7 @@ egress:
     return ret;
 }
 
-json_t *
+const char *
 encode_protected(json_t *obj)
 {
     json_t *p = NULL;
@@ -211,10 +211,10 @@ encode_protected(json_t *obj)
         return NULL;
 
     if (!p)
-        return json_string("");
+        return "";
 
     if (json_is_string(p))
-        return json_incref(p);
+        return json_string_value(p);
 
     if (!json_is_object(p))
         return NULL;
@@ -226,7 +226,7 @@ encode_protected(json_t *obj)
     if (json_object_set_new(obj, "protected", p) == -1)
         return NULL;
 
-    return p;
+    return json_string_value(p);
 }
 
 /*

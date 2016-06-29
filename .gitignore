@@ -34,3 +34,10 @@ missing
 tags
 test-*
 vgcore.*
+
+src/jose
+src/tests/b64
+src/tests/jwk
+src/tests/jwkset
+src/tests/jws
+src/tests/jwe

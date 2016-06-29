@@ -12,6 +12,7 @@ LT_INIT([disable-static])
 PKG_PROG_PKG_CONFIG([0.25])
 PKG_CHECK_MODULES([libcrypto], [libcrypto])
 PKG_CHECK_MODULES([jansson], [jansson])
+PKG_CHECK_MODULES([zlib], [zlib])
 
 JOSE_CFLAGS="\
 -Wall \
@@ -34,5 +35,5 @@ JOSE_CFLAGS="\
 "
 AC_SUBST([JOSE_CFLAGS])
 
-AC_CONFIG_FILES([jose.pc Makefile src/Makefile])
+AC_CONFIG_FILES([jose.pc Makefile src/Makefile src/tests/Makefile])
 AC_OUTPUT
