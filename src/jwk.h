@@ -2,46 +2,51 @@
 
 #pragma once
 
-#include <openssl/evp.h>
 #include <jansson.h>
 #include <stdbool.h>
+#include <stdint.h>
 
-/**
- * Generate a new (random) JWK.
- */
+typedef enum {
+    JOSE_JWK_TYPE_NONE = 0,
+
+    JOSE_JWK_TYPE_OCT  = 1 << 0,
+    JOSE_JWK_TYPE_RSA  = 1 << 1,
+    JOSE_JWK_TYPE_EC   = 1 << 2,
+
+    JOSE_JWK_TYPE_SYM = JOSE_JWK_TYPE_OCT,
+    JOSE_JWK_TYPE_ASYM = JOSE_JWK_TYPE_RSA | JOSE_JWK_TYPE_EC,
+
+    JOSE_JWK_TYPE_ALL =
+        JOSE_JWK_TYPE_OCT |
+        JOSE_JWK_TYPE_RSA |
+        JOSE_JWK_TYPE_EC
+} jose_jwk_type_t;
+
+typedef struct jose_jwk_resolver {
+    struct jose_jwk_resolver *next;
+    bool (*resolve)(json_t *jwk);
+} jose_jwk_resolver_t;
+
+typedef struct jose_jwk_generator {
+    struct jose_jwk_generator *next;
+    const char *kty;
+    bool (*generate)(json_t *jwk);
+} jose_jwk_generator_t;
+
+void
+jose_jwk_register_resolver(jose_jwk_resolver_t *resolver);
+
+void
+jose_jwk_register_generator(jose_jwk_generator_t *generator);
+
+jose_jwk_type_t __attribute__((warn_unused_result))
+jose_jwk_type(const json_t *jwk);
+
 bool __attribute__((warn_unused_result))
 jose_jwk_generate(json_t *jwk);
 
-bool
-jose_jwk_publicize(json_t *jwk);
+bool __attribute__((warn_unused_result))
+jose_jwk_clean(json_t *jwk, jose_jwk_type_t prv);
 
-/**
- * Create a JWK from an EVP_PKEY.
- */
-json_t * __attribute__((warn_unused_result))
-jose_jwk_from_key(EVP_PKEY *key, bool prv);
-
-/**
- * Create a copy of the JWK.
- *
- * Private key material will be included if and only if prv is true.
- */
-json_t * __attribute__((warn_unused_result))
-jose_jwk_dup(const json_t *jwk, bool prv);
-
-/**
- * Convert a JWK to an EVP_PKEY.
- *
- * NOTE WELL: RSA is vulnerable to a timing attack. OpenSSL provides
- *            countermeasures to protect against this. However, this
- *            requires that the OpenSSL PRNG is properly seeded before
- *            this function is called. You have been warned.
- */
-EVP_PKEY * __attribute__((warn_unused_result))
-jose_jwk_to_key(const json_t *jwk);
-
-bool
-jose_jwk_use_allowed(const json_t *jwk, const char *use);
-
-bool
-jose_jwk_op_allowed(const json_t *jwk, const char *op);
+bool __attribute__((warn_unused_result))
+jose_jwk_allowed(const json_t *jwk, const char *use, const char *op);

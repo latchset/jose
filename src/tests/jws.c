@@ -3,7 +3,6 @@
 #define _GNU_SOURCE
 #include "../jws.h"
 #include "../b64.h"
-#include "../jwkset.h"
 
 #include "vect.h"
 

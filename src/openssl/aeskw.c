@@ -1,9 +1,11 @@
 /* vim: set tabstop=8 shiftwidth=4 softtabstop=4 expandtab smarttab colorcolumn=80: */
 
-#include "../hook.h"
-#include "../conv.h"
+#include "../core.h"
 #include "../b64.h"
+#include "../jwk.h"
+#include "../jwe.h"
 
+#include <openssl/evp.h>
 #include <openssl/rand.h>
 
 #include <string.h>
@@ -11,7 +13,7 @@
 #define NAMES "A128KW", "A192KW", "A256KW"
 
 static bool
-generate(json_t *jwk)
+resolve(json_t *jwk)
 {
     const char *kty = NULL;
     const char *alg = NULL;
@@ -23,7 +25,7 @@ generate(json_t *jwk)
                     "kty", &kty, "alg", &alg, "bytes", &bytes) == -1)
         return false;
 
-    switch (str_to_enum(alg, NAMES, NULL)) {
+    switch (core_str2enum(alg, NAMES, NULL)) {
     case 0: len = 16; break;
     case 1: len = 24; break;
     case 2: len = 32; break;
@@ -76,144 +78,157 @@ suggest(const json_t *jwk)
     }
 }
 
-static uint8_t *
-seal(const char *alg, EVP_PKEY *key,
-     const uint8_t pt[], size_t ptl,
-     size_t *ivl, size_t *ctl, size_t *tgl)
+static bool
+seal(const json_t *jwe, json_t *rcp, const json_t *jwk,
+     const char *alg, const json_t *cek)
 {
     const EVP_CIPHER *cph = NULL;
     EVP_CIPHER_CTX *ctx = NULL;
-    const uint8_t *k = NULL;
+    uint8_t *ky = NULL;
+    uint8_t *pt = NULL;
     uint8_t *ct = NULL;
-    size_t kl = 0;
+    bool ret = false;
+    size_t kyl = 0;
+    size_t ptl = 0;
+    size_t ctl = 0;
     int tmp;
 
-    switch (str_to_enum(alg, NAMES, NULL)) {
+    switch (core_str2enum(alg, NAMES, NULL)) {
     case 0: cph = EVP_aes_128_wrap(); break;
     case 1: cph = EVP_aes_192_wrap(); break;
     case 2: cph = EVP_aes_256_wrap(); break;
-    default: return NULL;
+    default: return false;
     }
-
-    k = EVP_PKEY_get0_hmac(key, &kl);
-    if (!k)
-        return NULL;
-
-    if ((int) kl != EVP_CIPHER_key_length(cph))
-        return NULL;
 
     uint8_t iv[EVP_CIPHER_iv_length(cph)];
     memset(iv, 0xA6, EVP_CIPHER_iv_length(cph));
 
+    ky = jose_b64_decode_buf_json(json_object_get(jwk, "k"), &kyl);
+    if (!ky)
+        goto egress;
+
+    if ((int) kyl != EVP_CIPHER_key_length(cph))
+        goto egress;
+
+    pt = jose_b64_decode_buf_json(json_object_get(cek, "k"), &ptl);
+    if (!pt)
+        goto egress;
+
     ct = malloc(ptl + EVP_CIPHER_block_size(cph) * 2 - 1);
     if (!ct)
-        goto error;
+        goto egress;
 
     ctx = EVP_CIPHER_CTX_new();
     if (!ctx)
-        goto error;
+        goto egress;
 
     EVP_CIPHER_CTX_set_flags(ctx, EVP_CIPHER_CTX_FLAG_WRAP_ALLOW);
 
-    if (EVP_EncryptInit_ex(ctx, cph, NULL, k, iv) <= 0)
-        goto error;
+    if (EVP_EncryptInit_ex(ctx, cph, NULL, ky, iv) <= 0)
+        goto egress;
 
     if (EVP_EncryptUpdate(ctx, ct, &tmp, pt, ptl) <= 0)
-        goto error;
-    *ctl = tmp;
+        goto egress;
+    ctl = tmp;
 
     if (EVP_EncryptFinal(ctx, &ct[tmp], &tmp) <= 0)
-        goto error;
-    *ctl += tmp;
+        goto egress;
+    ctl += tmp;
 
-    *ivl = 0;
-    *tgl = 0;
-    EVP_CIPHER_CTX_free(ctx);
-    return ct;
+    ret = json_object_set_new(rcp, "encrypted_key",
+                              jose_b64_encode_json(ct, ctl)) == 0;
 
-error:
+egress:
     EVP_CIPHER_CTX_free(ctx);
+    free(ky);
+    free(pt);
     free(ct);
-    return NULL;
+    return ret;
 }
 
-static uint8_t *
-unseal(const char *alg, EVP_PKEY *key,
-       const uint8_t iv[], size_t ivl,
-       const uint8_t ct[], size_t ctl,
-       const uint8_t tg[], size_t tgl,
-       size_t *ptl)
+static bool
+unseal(const json_t *jwe, const json_t *rcp, const json_t *jwk,
+       const char *alg, json_t *cek)
 {
     const EVP_CIPHER *cph = NULL;
     EVP_CIPHER_CTX *ctx = NULL;
-    const uint8_t *ky = NULL;
+    uint8_t *ky = NULL;
+    uint8_t *ct = NULL;
     uint8_t *pt = NULL;
+    bool ret = false;
     size_t kyl = 0;
+    size_t ctl = 0;
+    size_t ptl = 0;
     int tmp = 0;
 
-    if (iv || ivl > 0 || tg || tgl > 0)
-        return NULL;
-
-    switch (str_to_enum(alg, NAMES, NULL)) {
+    switch (core_str2enum(alg, NAMES, NULL)) {
     case 0: cph = EVP_aes_128_wrap(); break;
     case 1: cph = EVP_aes_192_wrap(); break;
     case 2: cph = EVP_aes_256_wrap(); break;
     default: return NULL;
     }
 
-    ky = EVP_PKEY_get0_hmac(key, &kyl);
+    uint8_t iv[EVP_CIPHER_iv_length(cph)];
+    memset(iv, 0xA6, EVP_CIPHER_iv_length(cph));
+
+    ky = jose_b64_decode_buf_json(json_object_get(jwk, "k"), &kyl);
     if (!ky)
-        return NULL;
+        goto egress;
 
-    if (kyl != (size_t) EVP_CIPHER_key_length(cph))
-        return NULL;
+    if ((int) kyl != EVP_CIPHER_key_length(cph))
+        goto egress;
 
-    uint8_t iiv[EVP_CIPHER_iv_length(cph)];
-    memset(iiv, 0xA6, EVP_CIPHER_iv_length(cph));
+    ct = jose_b64_decode_buf_json(json_object_get(rcp, "encrypted_key"), &ctl);
+    if (!ct)
+        goto egress;
 
     pt = malloc(ctl);
     if (!pt)
-        return NULL;
+        goto egress;
 
     ctx = EVP_CIPHER_CTX_new();
     if (!ctx)
-        goto error;
+        goto egress;
 
     EVP_CIPHER_CTX_set_flags(ctx, EVP_CIPHER_CTX_FLAG_WRAP_ALLOW);
 
-    if (EVP_DecryptInit_ex(ctx, cph, NULL, ky, iiv) <= 0)
-        goto error;
+    if (EVP_DecryptInit_ex(ctx, cph, NULL, ky, iv) <= 0)
+        goto egress;
 
     if (EVP_DecryptUpdate(ctx, pt, &tmp, ct, ctl) <= 0)
-        goto error;
-    *ptl = tmp;
+        goto egress;
+    ptl = tmp;
 
     if (EVP_DecryptFinal(ctx, &pt[tmp], &tmp) <= 0)
-        goto error;
-    *ptl += tmp;
+        goto egress;
+    ptl += tmp;
 
-    EVP_CIPHER_CTX_free(ctx);
-    return pt;
+    ret = json_object_set_new(cek, "k", jose_b64_encode_json(pt, ptl)) == 0;
 
-error:
+egress:
     EVP_CIPHER_CTX_free(ctx);
-    memset(pt, 0, *ptl);
+    free(ky);
+    free(ct);
     free(pt);
-    return NULL;
+    return ret;
 }
-
-static algo_t algo = {
-    .names = (const char*[]) { NAMES, NULL },
-    .type = ALGO_TYPE_SEAL,
-    .generate = generate,
-    .suggest = suggest,
-    .unseal = unseal,
-    .seal = seal,
-};
 
 static void __attribute__((constructor))
 constructor(void)
 {
-    algo.next = algos;
-    algos = &algo;
+    static const char *algs[] = { NAMES, NULL };
+
+    static jose_jwk_resolver_t resolver = {
+        .resolve = resolve
+    };
+
+    static jose_jwe_sealer_t sealer = {
+        .algs = algs,
+        .suggest = suggest,
+        .seal = seal,
+        .unseal = unseal,
+    };
+
+    jose_jwk_register_resolver(&resolver);
+    jose_jwe_register_sealer(&sealer);
 }

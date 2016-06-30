@@ -28,6 +28,18 @@ bool __attribute__((warn_unused_result))
 jose_b64_decode(const char *enc, uint8_t dec[]);
 
 /**
+ * Decodes the encoded C string to an allocated buffer.
+ */
+uint8_t * __attribute__((warn_unused_result))
+jose_b64_decode_buf(const char *enc, size_t *len);
+
+/**
+ * Decodes the encoded JSON string to an allocated buffer.
+ */
+uint8_t *
+jose_b64_decode_buf_json(const json_t *enc, size_t *len);
+
+/**
  * Decodes the encoded JSON string to a byte array.
  *
  * NOTE: The buffer MUST be at least as long as

@@ -1,6 +1,7 @@
 /* vim: set tabstop=8 shiftwidth=4 softtabstop=4 expandtab smarttab colorcolumn=80: */
 
 #include "../jwk.h"
+#include "../openssl.h"
 #include "vect.h"
 #include "jtbl.h"
 
@@ -155,11 +156,11 @@ test_key(const json_t *jwk, const struct vector *v)
     fprintf(stderr, "\n");
 
     if (v->allow)
-        assert(jose_jwk_use_allowed(jwk, v->allow));
+        assert(jose_jwk_allowed(jwk, v->allow, NULL));
     if (v->excld)
-        assert(!jose_jwk_use_allowed(jwk, v->excld));
+        assert(!jose_jwk_allowed(jwk, v->excld, NULL));
 
-    key = jose_jwk_to_key(jwk);
+    key = jose_openssl_jwk_to_key(jwk, JOSE_JWK_TYPE_ALL);
     assert(key);
     assert(EVP_PKEY_base_id(key) == v->type);
 
@@ -175,10 +176,11 @@ test_key(const json_t *jwk, const struct vector *v)
     }
 
     EVP_PKEY_free(key);
-    cpy = jose_jwk_dup(jwk, true);
+    cpy = json_deep_copy(jwk);
     assert(cpy);
+    assert(jose_jwk_clean(cpy, JOSE_JWK_TYPE_NONE));
 
-    key = jose_jwk_to_key(cpy);
+    key = jose_openssl_jwk_to_key(cpy, JOSE_JWK_TYPE_ALL);
     json_decref(cpy);
     assert(key);
     assert(EVP_PKEY_base_id(key) == v->type);
@@ -195,10 +197,11 @@ test_key(const json_t *jwk, const struct vector *v)
     }
 
     EVP_PKEY_free(key);
-    cpy = jose_jwk_dup(jwk, false);
+    cpy = json_deep_copy(jwk);
     assert(cpy);
+    assert(jose_jwk_clean(cpy, JOSE_JWK_TYPE_ALL));
 
-    key = jose_jwk_to_key(cpy);
+    key = jose_openssl_jwk_to_key(cpy, JOSE_JWK_TYPE_ALL);
     json_decref(cpy);
 
     if (v->type != EVP_PKEY_HMAC) {
@@ -220,6 +223,110 @@ test_key(const json_t *jwk, const struct vector *v)
     } else {
         assert(!key);
     }
+}
+
+static void
+test_clean(void)
+{
+    json_t *none = NULL;
+    json_t *oct = NULL;
+    json_t *rsa = NULL;
+    json_t *ec = NULL;
+    json_t *asym = NULL;
+    json_t *all = NULL;
+    json_t *tmp = NULL;
+
+    none = json_pack(
+        "{s:[{s:s,s:s},{s:s,s:s},{s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s}]}", "keys",
+        "kty", "oct", "k", "",
+        "kty", "EC", "d", "",
+        "kty", "RSA", "d", "", "p", "", "q", "",
+                      "dp", "", "dq", "", "qi", "", "oth", ""
+    );
+    oct = json_pack(
+        "{s:[{s:s},{s:s,s:s},{s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s}]}", "keys",
+        "kty", "oct",
+        "kty", "EC", "d", "",
+        "kty", "RSA", "d", "", "p", "", "q", "",
+                      "dp", "", "dq", "", "qi", "", "oth", ""
+    );
+    rsa = json_pack(
+        "{s:[{s:s,s:s},{s:s,s:s},{s:s}]}", "keys",
+        "kty", "oct", "k", "",
+        "kty", "EC", "d", "",
+        "kty", "RSA"
+    );
+    ec = json_pack(
+        "{s:[{s:s,s:s},{s:s},{s:s,s:s,s:s,s:s,s:s,s:s,s:s,s:s}]}", "keys",
+        "kty", "oct", "k", "",
+        "kty", "EC",
+        "kty", "RSA", "d", "", "p", "", "q", "",
+                      "dp", "", "dq", "", "qi", "", "oth", ""
+    );
+    asym = json_pack(
+        "{s:[{s:s,s:s},{s:s},{s:s}]}", "keys",
+        "kty", "oct", "k", "",
+        "kty", "EC",
+        "kty", "RSA"
+    );
+    all = json_pack(
+        "{s:[{s:s},{s:s},{s:s}]}", "keys",
+        "kty", "oct",
+        "kty", "EC",
+        "kty", "RSA"
+    );
+    assert(none);
+    assert(oct);
+    assert(rsa);
+    assert(ec);
+    assert(asym);
+    assert(all);
+
+    assert(tmp = json_deep_copy(none));
+    assert(jose_jwk_clean(tmp, JOSE_JWK_TYPE_NONE));
+    assert(json_equal(none, tmp));
+    json_decref(tmp);
+
+    assert(tmp = json_deep_copy(none));
+    assert(jose_jwk_clean(tmp, JOSE_JWK_TYPE_OCT));
+    json_dumpf(oct, stderr, JSON_SORT_KEYS);
+    fprintf(stderr, "\n");
+    json_dumpf(tmp, stderr, JSON_SORT_KEYS);
+    fprintf(stderr, "\n");
+    assert(json_equal(oct, tmp));
+    json_decref(tmp);
+
+    assert(tmp = json_deep_copy(none));
+    assert(jose_jwk_clean(tmp, JOSE_JWK_TYPE_RSA));
+    assert(json_equal(rsa, tmp));
+    json_decref(tmp);
+
+    assert(tmp = json_deep_copy(none));
+    assert(jose_jwk_clean(tmp, JOSE_JWK_TYPE_EC));
+    assert(json_equal(ec, tmp));
+    json_decref(tmp);
+
+    assert(tmp = json_deep_copy(none));
+    assert(jose_jwk_clean(tmp, JOSE_JWK_TYPE_ASYM));
+    assert(json_equal(asym, tmp));
+    json_decref(tmp);
+
+    assert(tmp = json_deep_copy(none));
+    assert(jose_jwk_clean(tmp, JOSE_JWK_TYPE_SYM));
+    assert(json_equal(oct, tmp));
+    json_decref(tmp);
+
+    assert(tmp = json_deep_copy(none));
+    assert(jose_jwk_clean(tmp, JOSE_JWK_TYPE_ALL));
+    assert(json_equal(all, tmp));
+    json_decref(tmp);
+
+    json_decref(none);
+    json_decref(oct);
+    json_decref(rsa);
+    json_decref(ec);
+    json_decref(asym);
+    json_decref(all);
 }
 
 int
@@ -314,5 +421,6 @@ main(int argc, char *argv[])
         json_decref(key);
     }
 
+    test_clean();
     return 0;
 }

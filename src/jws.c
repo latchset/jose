@@ -4,10 +4,18 @@
 #include "jws.h"
 #include "b64.h"
 #include "jwk.h"
-#include "hook.h"
-#include "conv.h"
+#include "misc.h"
 
 #include <string.h>
+
+static jose_jws_signer_t *signers;
+
+void
+jose_jws_register_signer(jose_jws_signer_t *signer)
+{
+    signer->next = signers;
+    signers = signer;
+}
 
 json_t *
 jose_jws_from_compact(const char *jws)
@@ -44,26 +52,34 @@ jose_jws_to_compact(const json_t *jws)
     return out;
 }
 
+static const jose_jws_signer_t *
+find(const char *alg)
+{
+    for (const jose_jws_signer_t *s = signers; s; s = s->next) {
+        for (size_t i = 0; s->algs[i]; i++) {
+            if (strcmp(alg, s->algs[i]) == 0)
+                return s;
+        }
+    }
+
+    return NULL;
+}
+
 bool
 jose_jws_sign(json_t *jws, const json_t *jwk, json_t *sig)
 {
+    const jose_jws_signer_t *signer = NULL;
     const char *payl = NULL;
     const char *prot = NULL;
     const char *kalg = NULL;
     const char *alg = NULL;
-    EVP_PKEY *key = NULL;
-    uint8_t *sg = NULL;
     json_t *p = NULL;
     bool ret = false;
-    size_t sgl = 0;
 
     if (!sig)
         sig = json_object();
 
-    if (!jose_jwk_use_allowed(jwk, "sig"))
-        goto egress;
-
-    if (!jose_jwk_op_allowed(jwk, "sign"))
+    if (!jose_jwk_allowed(jwk, "sig", "sign"))
         goto egress;
 
     if (json_unpack(sig, "{s?o}", "protected", &p) == -1)
@@ -82,19 +98,14 @@ jose_jws_sign(json_t *jws, const json_t *jwk, json_t *sig)
     if (json_unpack(p, "{s:s}", "alg", &alg) == -1 &&
         json_unpack(sig, "{s:{s:s}}", "header", "alg", &alg) == -1) {
         alg = kalg;
-        for (const algo_t *a = algos; a && !alg; a = a->next) {
-            if (a->type == ALGO_TYPE_SIGN && a->suggest)
-                alg = a->suggest(jwk);
-        }
+        for (signer = signers; signer && !alg; signer = signer->next)
+            alg = signer->suggest(jwk);
+
         if (!set_protected_new(sig, "alg", json_string(alg)))
             goto egress;
     }
 
     if (kalg && strcmp(alg, kalg) != 0)
-        goto egress;
-
-    key = jose_jwk_to_key(jwk);
-    if (!key)
         goto egress;
 
     if (json_unpack(jws, "{s:s}", "payload", &payl) == -1)
@@ -104,48 +115,31 @@ jose_jws_sign(json_t *jws, const json_t *jwk, json_t *sig)
     if (!prot)
         goto egress;
 
-    for (const algo_t *a = algos; a && !sg; a = a->next) {
-        if (a->type != ALGO_TYPE_SIGN || !a->sign)
-            continue;
+    signer = find(alg);
+    if (!signer)
+        goto egress;
 
-        for (size_t i = 0; a->names[i] && !sg; i++) {
-            if (strcmp(alg, a->names[i]) != 0)
-                continue;
-
-            sg = a->sign(alg, key, prot, payl, &sgl);
-        }
-    }
-
-    if (sg) {
-        if (json_object_set_new(sig, "signature",
-                                jose_b64_encode_json(sg, sgl)) == -1)
-            goto egress;
-
+    if (signer->sign(sig, jwk, alg, prot, payl))
         ret = add_entity(jws, sig, "signatures", "signature", "protected",
                          "header", NULL);
-    }
 
 egress:
-    EVP_PKEY_free(key);
     json_decref(sig);
     json_decref(p);
-    free(sg);
     return ret;
 }
 
 static bool
 verify_sig(const char *payl, const json_t *sig, const json_t *jwk)
 {
+    const jose_jws_signer_t *signer = NULL;
     const char *prot = NULL;
     const char *sign = NULL;
     const char *kalg = NULL;
     const char *palg = NULL;
     const char *halg = NULL;
-    EVP_PKEY *key = NULL;
-    uint8_t *sg = NULL;
     json_t *p = NULL;
     bool ret = false;
-    size_t sgl = 0;
 
     if (json_unpack((json_t *) sig, "{s:s,s?o,s?s,s?{s?s}}",
                     "signature", &sign, "protected", &p, "protected", &prot,
@@ -176,37 +170,14 @@ verify_sig(const char *payl, const json_t *sig, const json_t *jwk)
     if (kalg && strcmp(palg ? palg : halg, kalg) != 0)
         goto egress;
 
-    sgl = jose_b64_dlen(strlen(sign));
-    sg = malloc(sgl);
-    if (!sg)
+    signer = find(palg ? palg : halg);
+    if (!signer)
         goto egress;
 
-    if (!jose_b64_decode(sign, sg))
-        goto egress;
-
-    key = jose_jwk_to_key(jwk);
-    if (!key)
-        goto egress;
-
-    for (const algo_t *a = algos; a; a = a->next) {
-        if (a->type != ALGO_TYPE_SIGN || !a->verify)
-            continue;
-
-        for (size_t i = 0; a->names[i]; i++) {
-            if (strcmp(palg ? palg : halg, a->names[i]) != 0)
-                continue;
-
-            ret = a->verify(palg ? palg : halg, key,
-                            prot ? prot : "",
-                            payl ? payl : "", sg, sgl);
-            goto egress;
-        }
-    }
+    ret = signer->verify(sig, jwk, palg ? palg : halg, prot ? prot : "", payl);
 
 egress:
-    EVP_PKEY_free(key);
     json_decref(p);
-    free(sg);
     return ret;
 }
 
@@ -216,10 +187,7 @@ jose_jws_verify(const json_t *jws, const json_t *jwk)
     const json_t *array = NULL;
     const char *payl = NULL;
 
-    if (!jose_jwk_use_allowed(jwk, "sig"))
-        return false;
-
-    if (!jose_jwk_op_allowed(jwk, "verify"))
+    if (!jose_jwk_allowed(jwk, "sig", "verify"))
         return false;
 
     if (json_unpack((json_t *) jws, "{s: s}", "payload", &payl) == -1)

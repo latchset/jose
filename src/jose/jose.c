@@ -1,98 +1,190 @@
 /* vim: set tabstop=8 shiftwidth=4 softtabstop=4 expandtab smarttab colorcolumn=80: */
 
 #include "jose.h"
-#include <openssl/rand.h>
-#include <string.h>
+#include "../core.h"
 
-static uint8_t *
-load_all(FILE *file, size_t *len)
+#include <openssl/rand.h>
+
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <string.h>
+#include <unistd.h>
+
+void *
+jcmd_load_stdin(size_t *len)
 {
-    static const size_t blocksize = 512;
     uint8_t *buf = NULL;
 
-    for (size_t r = blocksize; r == blocksize; ) {
+    if (!len)
+        return NULL;
+
+    *len = 0;
+
+    for (size_t r = 512; r == 512; ) {
         uint8_t *tmp = NULL;
 
-        tmp = realloc(buf, *len + blocksize);
+        tmp = realloc(buf, *len + 512);
         if (!tmp) {
             free(buf);
             return NULL;
         }
 
         buf = tmp;
-        r = fread(&buf[*len], 1, blocksize, stdin);
+        r = fread(&buf[*len], 1, 512, stdin);
         *len += r;
     }
 
     return buf;
 }
 
-json_t *
-load_compact(FILE *file, json_t *(*conv)(const char *))
+void *
+jcmd_load_file(const char *filename, size_t *len)
 {
+    struct stat st = {};
+    FILE *file = NULL;
     uint8_t *buf = NULL;
-    json_t *out = NULL;
-    char *str = NULL;
-    size_t len = 0;
 
-    buf = load_all(file, &len);
-    if (!buf)
+    if (!filename || !len)
         return NULL;
 
-    str = calloc(1, len + 1);
-    if (!str) {
+    if (stat(filename, &st) != 0)
+        return NULL;
+
+    file = fopen(filename, "r");
+    if (!file)
+        return NULL;
+
+    buf = malloc(st.st_size);
+    if (!buf) {
+        fclose(file);
+        return NULL;
+    }
+
+    if (fread(buf, st.st_size, 1, file) != 1) {
+        fclose(file);
         free(buf);
         return NULL;
     }
+    fclose(file);
 
-    memcpy(str, buf, len);
+    *len = st.st_size;
+    return buf;
+}
+
+json_t *
+jcmd_load(const char *file, const char *raw,
+          json_t *(*conv)(const char *))
+{
+    json_t *out = NULL;
+    char *buf = NULL;
+    size_t len = 0;
+
+    buf = jcmd_load_file(file, &len);
+    if (buf)
+        raw = buf;
+    else if (raw)
+        len = strlen(raw);
+    else
+        raw = buf = jcmd_load_stdin(&len);
+
+    out = json_loadb(raw, len, 0, NULL);
+    if (!out && conv)
+        out = conv(raw);
+
     free(buf);
-
-    out = conv(str);
-    if (!out)
-        out = json_loads(str, 0, NULL);
-
-    free(str);
     return out;
 }
 
-static size_t
-str_to_enum(const char *str, ...)
+bool
+jcmd_dump_file(const char *filename, const uint8_t buf[], size_t len)
 {
-    size_t i = 0;
-    va_list ap;
+    FILE *file = NULL;
+    bool ret = false;
 
-    va_start(ap, str);
+    if (filename)
+        file = fopen(filename, "w");
 
-    for (const char *v = NULL; (v = va_arg(ap, const char *)); i++) {
-        if (str && strcmp(str, v) == 0)
-            break;
+    ret = fwrite(buf, 1, len, file ? file : stdout) == len;
+
+    if (file)
+        fclose(file);
+
+    return ret;
+}
+
+bool
+jcmd_dump(const json_t *json, const char *filename,
+          char *(*conv)(const json_t *))
+{
+    FILE *file = NULL;
+    char *comp = NULL;
+    bool ret = false;
+
+    if (filename) {
+        file = fopen(filename, "w");
+        if (!file)
+            return false;
     }
 
-    va_end(ap);
-    return i;
+    if (conv) {
+        comp = conv(json);
+        if (!comp)
+            goto egress;
+
+        if (fwrite(comp, strlen(comp), 1, file ? file : stdout) != 1)
+            goto egress;
+    } else {
+        if (json_dumpf(json, file ? file : stdout, JSON_SORT_KEYS) == -1)
+            goto egress;
+    }
+
+    if (!file)
+        fprintf(stdout, "\n");
+
+    ret = true;
+
+egress:
+    if (file)
+        fclose(file);
+    free(comp);
+    return ret;
 }
 
 int
 main(int argc, char *argv[])
 {
-    if (argc < 2)
-        goto usage;
+    const char *cmd = NULL;
 
-    OpenSSL_add_all_algorithms();
     RAND_poll();
 
-    switch(str_to_enum(argv[1], "generate", "publicize", "sign", "verify",
-                       "encrypt", "decrypt", NULL)) {
-    case 0: return jose_generate(argc, argv);
-    case 1: return jose_publicize(argc, argv);
-    case 2: return jose_sign(argc, argv);
-    case 3: return jose_verify(argc, argv);
-    case 4: return jose_encrypt(argc, argv);
-    case 5: return jose_decrypt(argc, argv);
+    if (argc >= 2) {
+        char argv0[strlen(argv[0]) + strlen(argv[1]) + 2];
+        strcpy(argv0, argv[0]);
+        strcat(argv0, " ");
+        strcat(argv0, argv[1]);
+        cmd = argv[1];
+        argv[1] = argv0;
+
+        switch(core_str2enum(cmd, "gen", "pub", "sig",
+                             "ver", "enc", "dec", NULL)) {
+        case 0: return jcmd_gen(argc - 1, argv + 1);
+        case 1: return jcmd_pub(argc - 1, argv + 1);
+        case 2: return jcmd_sig(argc - 1, argv + 1);
+        case 3: return jcmd_ver(argc - 1, argv + 1);
+        case 4: return jcmd_enc(argc - 1, argv + 1);
+        case 5: return jcmd_dec(argc - 1, argv + 1);
+        }
     }
 
-usage:
-    fprintf(stderr, "Usage:\n");
+    fprintf(stderr,
+"Usage: jose COMMAND [OPTIONS] [ARGUMENTS]\n"
+"\n"
+"jose gen           [-o FILE] [-t TMPL]\n"
+"jose pub [-i FILE] [-o FILE] [-t TYPE ...]\n"
+"jose sig [-i FILE] [-o FILE] [-t TMPL] [-s SIGT ...] [-c] JWK ...\n"
+"jose ver [-i FILE] [-o FILE]                         [-a] JWK ...\n"
+"jose enc [-i FILE] [-o FILE] [-t TMPL] [-r RCPT ...] [-c] JWK ...\n"
+"jose dec [-i FILE] [-o FILE]                              JWK ...\n"
+"\n");
     return EXIT_FAILURE;
 }

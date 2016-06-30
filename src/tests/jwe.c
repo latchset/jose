@@ -2,7 +2,6 @@
 
 #include "../jwe.h"
 #include "../b64.h"
-#include "../conv.h"
 #include "vect.h"
 
 #include <openssl/evp.h>

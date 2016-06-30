@@ -1,8 +1,7 @@
 /* vim: set tabstop=8 shiftwidth=4 softtabstop=4 expandtab smarttab colorcolumn=80: */
 
-#include "../hook.h"
+#include "../jwe.h"
 #include <zlib.h>
-#include <stdlib.h>
 
 static uint8_t *
 comp_deflate(const uint8_t *buf, size_t len, size_t *out)
@@ -81,15 +80,14 @@ error:
     return NULL;
 }
 
-comp_t comp = {
-    .name = "DEF",
-    .deflate = comp_deflate,
-    .inflate = comp_inflate
-};
-
 static void __attribute__((constructor))
 constructor(void)
 {
-    comp.next = comps;
-    comps = &comp;
+    static jose_jwe_zipper_t zipper = {
+        .zip = "DEF",
+        .deflate = comp_deflate,
+        .inflate = comp_inflate
+    };
+
+    jose_jwe_register_zipper(&zipper);
 }

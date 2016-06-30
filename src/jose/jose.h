@@ -4,24 +4,39 @@
 #include "../jwk.h"
 #include "../jws.h"
 #include "../jwe.h"
+#include <argp.h>
+
+void *
+jcmd_load_stdin(size_t *len);
+
+void *
+jcmd_load_file(const char *filename, size_t *len);
 
 json_t *
-load_compact(FILE *file, json_t *(*conv)(const char *));
+jcmd_load(const char *file, const char *raw,
+          json_t *(*conv)(const char *));
+
+bool
+jcmd_dump_file(const char *filename, const uint8_t buf[], size_t len);
+
+bool
+jcmd_dump(const json_t *json, const char *filename,
+          char *(*conv)(const json_t *));
 
 int
-jose_generate(int argc, char *argv[]);
+jcmd_gen(int argc, char *argv[]);
 
 int
-jose_publicize(int argc, char *argv[]);
+jcmd_pub(int argc, char *argv[]);
 
 int
-jose_sign(int argc, char *argv[]);
+jcmd_sig(int argc, char *argv[]);
 
 int
-jose_verify(int argc, char *argv[]);
+jcmd_ver(int argc, char *argv[]);
 
 int
-jose_encrypt(int argc, char *argv[]);
+jcmd_enc(int argc, char *argv[]);
 
 int
-jose_decrypt(int argc, char *argv[]);
+jcmd_dec(int argc, char *argv[]);

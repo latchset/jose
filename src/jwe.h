@@ -3,10 +3,60 @@
 #pragma once
 
 #include <jansson.h>
-#include <openssl/ossl_typ.h>
-
 #include <stdbool.h>
 #include <stdint.h>
+
+typedef struct jose_jwe_crypter {
+    struct jose_jwe_crypter *next;
+    const char **encs;
+
+    const char *
+    (*suggest)(const json_t *jwk);
+
+    bool
+    (*encrypt)(json_t *jwe, const json_t *cek, const char *enc,
+               const char *prot, const char *aad,
+               const uint8_t pt[], size_t ptl);
+
+    uint8_t *
+    (*decrypt)(const json_t *jwe, const json_t *cek, const char *enc,
+               const char *prot, const char *aad, size_t *ptl);
+} jose_jwe_crypter_t;
+
+typedef struct jose_jwe_sealer {
+    struct jose_jwe_sealer *next;
+    const char **algs;
+
+    const char *
+    (*suggest)(const json_t *jwk);
+
+    bool
+    (*seal)(const json_t *jwe, json_t *rcp, const json_t *jwk,
+            const char *alg, const json_t *cek);
+    bool
+    (*unseal)(const json_t *jwe, const json_t *rcp, const json_t *jwk,
+              const char *alg, json_t *cek);
+} jose_jwe_sealer_t;
+
+typedef struct jose_jwe_zipper {
+    struct jose_jwe_zipper *next;
+    const char *zip;
+
+    uint8_t *
+    (*deflate)(const uint8_t val[], size_t len, size_t *out);
+
+    uint8_t *
+    (*inflate)(const uint8_t val[], size_t len, size_t *out);
+} jose_jwe_zipper_t;
+
+void
+jose_jwe_register_crypter(jose_jwe_crypter_t *crypter);
+
+void
+jose_jwe_register_sealer(jose_jwe_sealer_t *sealer);
+
+void
+jose_jwe_register_zipper(jose_jwe_zipper_t *zipper);
 
 /**
  * Converts a JWE from compact format into JSON format.

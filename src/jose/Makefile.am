@@ -1,13 +1,5 @@
 AM_CFLAGS = @JOSE_CFLAGS@ @libcrypto_CFLAGS@ @jansson_CFLAGS@ @zlib_CFLAGS@
 
 bin_PROGRAMS = jose
-jose_LDADD = ../libjose.la
-jose_SOURCES = \
-    generate.c \
-    publicize.c \
-    sign.c \
-    verify.c \
-    encrypt.c \
-    decrypt.c \
-    jose.c \
-    jose.h
+jose_LDADD = ../libcore.la ../libjose-openssl.la ../libjose-zlib.la
+jose_SOURCES = gen.c pub.c sig.c ver.c enc.c dec.c jose.c jose.h

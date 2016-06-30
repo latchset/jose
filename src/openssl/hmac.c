@@ -1,12 +1,12 @@
 /* vim: set tabstop=8 shiftwidth=4 softtabstop=4 expandtab smarttab colorcolumn=80: */
 
-#include "../hook.h"
-#include "../conv.h"
+#include "../core.h"
 #include "../b64.h"
+#include "../jwk.h"
+#include "../jws.h"
 
 #include <openssl/hmac.h>
 #include <openssl/rand.h>
-#include <openssl/rsa.h>
 #include <openssl/sha.h>
 
 #include <string.h>
@@ -42,7 +42,7 @@ egress:
 }
 
 static bool
-generate(json_t *jwk)
+resolve(json_t *jwk)
 {
     const char *kty = NULL;
     const char *alg = NULL;
@@ -54,7 +54,7 @@ generate(json_t *jwk)
                     "kty", &kty, "alg", &alg, "bytes", &bytes) == -1)
         return false;
 
-    switch (str_to_enum(alg, NAMES, NULL)) {
+    switch (core_str2enum(alg, NAMES, NULL)) {
     case 0: len = 32; break;
     case 1: len = 48; break;
     case 2: len = 64; break;
@@ -114,87 +114,98 @@ suggest(const json_t *jwk)
     }
 }
 
-static uint8_t *
-sign(const char *alg, EVP_PKEY *key,
-        const char *prot, const char *payl,
-        size_t *sigl)
+static bool
+sign(json_t *sig, const json_t *jwk,
+     const char *alg, const char *prot, const char *payl)
 {
     const EVP_MD *md = NULL;
-    const uint8_t *k = NULL;
-    uint8_t *sig = NULL;
-    size_t kl = 0;
+    uint8_t *ky = NULL;
+    bool ret = false;
+    size_t kyl = 0;
 
-    k = EVP_PKEY_get0_hmac(key, &kl);
-    if (!k)
-        return NULL;
-
-    switch (str_to_enum(alg, NAMES, NULL)) {
+    switch (core_str2enum(alg, NAMES, NULL)) {
     case 0: md = EVP_sha256(); break;
     case 1: md = EVP_sha384(); break;
     case 2: md = EVP_sha512(); break;
-    default: return NULL;
+    default: return false;
     }
 
-    *sigl = EVP_MD_size(md);
+    uint8_t hsh[EVP_MD_size(md)];
 
-    if (kl < *sigl)
-        return NULL;
+    ky = jose_b64_decode_buf_json(json_object_get(jwk, "k"), &kyl);
+    if (!ky || kyl < sizeof(hsh))
+        goto egress;
 
-    sig = malloc(*sigl);
-    if (!sig)
-        return NULL;
+    if (!hmac(md, ky, kyl, hsh,
+              prot ? prot : "", ".",
+              payl ? payl : ".", NULL))
+        goto egress;
 
-    if (hmac(md, k, kl, sig,
-             prot ? prot : "", ".",
-             payl ? payl : ".", NULL))
-        return sig;
+    ret = json_object_set_new(sig, "signature",
+                              jose_b64_encode_json(hsh, sizeof(hsh))) == 0;
 
-    free(sig);
-    return NULL;
-}
-
-static bool
-verify(const char *alg, EVP_PKEY *key,
-       const char *prot, const char *payl,
-       const uint8_t sig[], size_t sigl)
-{
-    const uint8_t *k = NULL;
-    uint8_t *hsh = NULL;
-    bool ret = false;
-    size_t hshl = 0;
-    size_t kl = 0;
-
-    k = EVP_PKEY_get0_hmac(key, &kl);
-    if (!k)
-        return false;
-
-    hsh = sign(alg, key, prot, payl, &hshl);
-    if (!hsh)
-        return false;
-
-    uint8_t tmp[hshl];
-
-    if (RAND_bytes(tmp, hshl) > 0) {
-        memcpy(tmp, sig, sigl > hshl ? hshl : sigl);
-        ret = CRYPTO_memcmp(tmp, hsh, hshl) == 0;
-    }
-
-    free(hsh);
+egress:
+    free(ky);
     return ret;
 }
 
-static algo_t algo = {
-    .names = (const char*[]) { NAMES, NULL },
-    .type = ALGO_TYPE_SIGN,
-    .generate = generate,
-    .suggest = suggest,
-    .verify = verify,
-    .sign = sign,
-};
+static bool
+verify(const json_t *sig, const json_t *jwk,
+       const char *alg, const char *prot, const char *payl)
+{
+    const EVP_MD *md = NULL;
+    uint8_t *ky = NULL;
+    uint8_t *sg = NULL;
+    bool ret = false;
+    size_t kyl = 0;
+    size_t sgl = 0;
+
+    switch (core_str2enum(alg, NAMES, NULL)) {
+    case 0: md = EVP_sha256(); break;
+    case 1: md = EVP_sha384(); break;
+    case 2: md = EVP_sha512(); break;
+    default: return false;
+    }
+
+    uint8_t hsh[EVP_MD_size(md)];
+
+    sg = jose_b64_decode_buf_json(json_object_get(sig, "signature"), &sgl);
+    if (!sg || sgl != sizeof(hsh))
+        goto egress;
+
+    ky = jose_b64_decode_buf_json(json_object_get(jwk, "k"), &kyl);
+    if (!ky || kyl < sizeof(hsh))
+        goto egress;
+
+    if (!hmac(md, ky, kyl, hsh,
+              prot ? prot : "", ".",
+              payl ? payl : ".", NULL))
+        goto egress;
+
+    ret = CRYPTO_memcmp(hsh, sg, sizeof(hsh)) == 0;
+
+egress:
+    free(ky);
+    free(sg);
+    return ret;
+}
 
 static void __attribute__((constructor))
 constructor(void)
 {
-    algo.next = algos;
-    algos = &algo;
+    static const char *algs[] = { NAMES, NULL };
+
+    static jose_jwk_resolver_t resolver = {
+        .resolve = resolve
+    };
+
+    static jose_jws_signer_t signer = {
+        .algs = algs,
+        .suggest = suggest,
+        .verify = verify,
+        .sign = sign,
+    };
+
+    jose_jwk_register_resolver(&resolver);
+    jose_jws_register_signer(&signer);
 }
