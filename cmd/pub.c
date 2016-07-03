@@ -1,7 +1,7 @@
 /* vim: set tabstop=8 shiftwidth=4 softtabstop=4 expandtab smarttab colorcolumn=80: */
 
 #include <cmd/jose.h>
-#include <core/core.h>
+#include <string.h>
 
 #define START "{ \"kty\": \"EC\", \"crv\": \"P-256\", "
 #define PUB "\"x\": \"...\", \"y\": \"...\""
@@ -16,6 +16,19 @@ struct options {
 static error_t
 parser(int key, char *arg, struct argp_state *state)
 {
+    static const struct {
+        const char *kty;
+        const char type;
+    } table[] = {
+        { "oct", JOSE_JWK_TYPE_OCT },
+        { "RSA", JOSE_JWK_TYPE_RSA },
+        { "EC", JOSE_JWK_TYPE_EC },
+        { "sym", JOSE_JWK_TYPE_SYM },
+        { "asym", JOSE_JWK_TYPE_ASYM },
+        { "all", JOSE_JWK_TYPE_ALL },
+        {}
+    };
+
     struct options *opts = state->input;
 
     switch (key) {
@@ -23,15 +36,9 @@ parser(int key, char *arg, struct argp_state *state)
     case 'o': opts->out = arg; return 0;
 
     case 't':
-        switch (core_str2enum(arg, "oct", "RSA", "EC",
-                              "sym", "asym", "all", NULL)) {
-        case 0: opts->types |= JOSE_JWK_TYPE_OCT; return 0;
-        case 1: opts->types |= JOSE_JWK_TYPE_RSA; return 0;
-        case 2: opts->types |= JOSE_JWK_TYPE_EC; return 0;
-        case 3: opts->types |= JOSE_JWK_TYPE_SYM; return 0;
-        case 4: opts->types |= JOSE_JWK_TYPE_ASYM; return 0;
-        case 5: opts->types |= JOSE_JWK_TYPE_ALL; return 0;
-        default: return ARGP_ERR_UNKNOWN;
+        for (size_t i = 0; table[i].kty; i++) {
+            if (strcmp(table[i].kty, arg) == 0)
+                opts->types |= table[i].type;
         }
 
     case ARGP_KEY_FINI:

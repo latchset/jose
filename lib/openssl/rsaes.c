@@ -1,6 +1,6 @@
 /* vim: set tabstop=8 shiftwidth=4 softtabstop=4 expandtab smarttab colorcolumn=80: */
 
-#include <core/core.h>
+#include "misc.h"
 #include <jose/b64.h>
 #include <jose/jwk.h>
 #include <jose/jwe.h>
@@ -24,7 +24,7 @@ resolve(json_t *jwk)
                     "kty", &kty, "alg", &alg, "bits", &bits) == -1)
         return false;
 
-    if (core_str2enum(alg, NAMES, NULL) >= 3)
+    if (str2enum(alg, NAMES, NULL) >= 3)
         return true;
 
     if (!kty) {
@@ -79,7 +79,7 @@ seal(const json_t *jwe, json_t *rcp, const json_t *jwk,
     int tmp = 0;
     int pad = 0;
 
-    switch (core_str2enum(alg, "RSA1_5", "RSA-OAEP", "RSA-OAEP-256", NULL)) {
+    switch (str2enum(alg, "RSA1_5", "RSA-OAEP", "RSA-OAEP-256", NULL)) {
     case 0: pad = RSA_PKCS1_PADDING; tmp = 11; break;
     case 1: pad = RSA_PKCS1_OAEP_PADDING; tmp = 41; break;
     default: return false;
@@ -125,7 +125,7 @@ unseal(const json_t *jwe, const json_t *rcp, const json_t *jwk,
     size_t ctl = 0;
     int tmp = 0;
 
-    switch (core_str2enum(alg, NAMES, NULL)) {
+    switch (str2enum(alg, NAMES, NULL)) {
     case 0: tmp = RSA_PKCS1_PADDING; break;
     case 1: tmp = RSA_PKCS1_OAEP_PADDING; break;
     default: return false;

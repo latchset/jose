@@ -1,6 +1,6 @@
 /* vim: set tabstop=8 shiftwidth=4 softtabstop=4 expandtab smarttab colorcolumn=80: */
 
-#include <core/core.h>
+#include "misc.h"
 #include <jose/b64.h>
 #include <jose/jwk.h>
 #include <jose/jwe.h>
@@ -25,7 +25,7 @@ resolve(json_t *jwk)
                     "kty", &kty, "alg", &alg, "bytes", &bytes) == -1)
         return false;
 
-    switch (core_str2enum(alg, NAMES, NULL)) {
+    switch (str2enum(alg, NAMES, NULL)) {
     case 0: len = 16; break;
     case 1: len = 24; break;
     case 2: len = 32; break;
@@ -93,7 +93,7 @@ seal(const json_t *jwe, json_t *rcp, const json_t *jwk,
     size_t ctl = 0;
     int tmp;
 
-    switch (core_str2enum(alg, NAMES, NULL)) {
+    switch (str2enum(alg, NAMES, NULL)) {
     case 0: cph = EVP_aes_128_wrap(); break;
     case 1: cph = EVP_aes_192_wrap(); break;
     case 2: cph = EVP_aes_256_wrap(); break;
@@ -161,7 +161,7 @@ unseal(const json_t *jwe, const json_t *rcp, const json_t *jwk,
     size_t ptl = 0;
     int tmp = 0;
 
-    switch (core_str2enum(alg, NAMES, NULL)) {
+    switch (str2enum(alg, NAMES, NULL)) {
     case 0: cph = EVP_aes_128_wrap(); break;
     case 1: cph = EVP_aes_192_wrap(); break;
     case 2: cph = EVP_aes_256_wrap(); break;

@@ -1,6 +1,6 @@
 /* vim: set tabstop=8 shiftwidth=4 softtabstop=4 expandtab smarttab colorcolumn=80: */
 
-#include <core/core.h>
+#include "misc.h"
 #include <jose/b64.h>
 #include <jose/jwk.h>
 #include <jose/jws.h>
@@ -25,7 +25,7 @@ resolve(json_t *jwk)
                     "kty", &kty, "alg", &alg, "bits", &bits) == -1)
         return false;
 
-    if (core_str2enum(alg, NAMES, NULL) >= 6)
+    if (str2enum(alg, NAMES, NULL) >= 6)
         return true;
 
     if (!kty) {
@@ -90,7 +90,7 @@ sign(json_t *sig, const json_t *jwk,
     size_t sgl = 0;
     int pad = 0;
 
-    switch (core_str2enum(alg, NAMES, NULL)) {
+    switch (str2enum(alg, NAMES, NULL)) {
     case 0: md = EVP_sha256(); pad = RSA_PKCS1_PADDING; break;
     case 1: md = EVP_sha384(); pad = RSA_PKCS1_PADDING; break;
     case 2: md = EVP_sha512(); pad = RSA_PKCS1_PADDING; break;
@@ -168,7 +168,7 @@ verify(const json_t *sig, const json_t *jwk,
     if (RSA_size(key->pkey.rsa) < 2048 / 8)
         return false;
 
-    switch (core_str2enum(alg, NAMES, NULL)) {
+    switch (str2enum(alg, NAMES, NULL)) {
     case 0: md = EVP_sha256(); pad = RSA_PKCS1_PADDING; break;
     case 1: md = EVP_sha384(); pad = RSA_PKCS1_PADDING; break;
     case 2: md = EVP_sha512(); pad = RSA_PKCS1_PADDING; break;

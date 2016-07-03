@@ -1,7 +1,6 @@
 /* vim: set tabstop=8 shiftwidth=4 softtabstop=4 expandtab smarttab colorcolumn=80: */
 
 #include <cmd/jose.h>
-#include <core/core.h>
 
 #include <openssl/rand.h>
 
@@ -153,6 +152,19 @@ egress:
 int
 main(int argc, char *argv[])
 {
+    static const struct {
+        const char *cmd;
+        int (*func)(int argc, char *argv[]);
+    } table[] = {
+        { "gen", jcmd_gen },
+        { "pub", jcmd_pub },
+        { "sig", jcmd_sig },
+        { "ver", jcmd_ver },
+        { "enc", jcmd_enc },
+        { "dec", jcmd_dec },
+        {}
+    };
+
     const char *cmd = NULL;
 
     RAND_poll();
@@ -165,14 +177,9 @@ main(int argc, char *argv[])
         cmd = argv[1];
         argv[1] = argv0;
 
-        switch(core_str2enum(cmd, "gen", "pub", "sig",
-                             "ver", "enc", "dec", NULL)) {
-        case 0: return jcmd_gen(argc - 1, argv + 1);
-        case 1: return jcmd_pub(argc - 1, argv + 1);
-        case 2: return jcmd_sig(argc - 1, argv + 1);
-        case 3: return jcmd_ver(argc - 1, argv + 1);
-        case 4: return jcmd_enc(argc - 1, argv + 1);
-        case 5: return jcmd_dec(argc - 1, argv + 1);
+        for (size_t i = 0; table[i].cmd; i++) {
+            if (strcmp(cmd, table[i].cmd) == 0)
+                return table[i].func(argc - 1, argv + 1);
         }
     }
 

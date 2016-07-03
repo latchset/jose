@@ -1,8 +1,7 @@
 /* vim: set tabstop=8 shiftwidth=4 softtabstop=4 expandtab smarttab colorcolumn=80: */
 
-#include <core/core.h>
-#include <jose/jwk.h>
 #include "misc.h"
+#include <jose/jwk.h>
 
 static bool
 generate(json_t *jwk)
@@ -15,7 +14,7 @@ generate(json_t *jwk)
     if (json_unpack(jwk, "{s:s}", "crv", &crv) == -1)
         return false;
 
-    switch (core_str2enum(crv, "P-256", "P-384", "P-521", NULL)) {
+    switch (str2enum(crv, "P-256", "P-384", "P-521", NULL)) {
     case 0: nid = NID_X9_62_prime256v1; break;
     case 1: nid = NID_secp384r1; break;
     case 2: nid = NID_secp521r1; break;

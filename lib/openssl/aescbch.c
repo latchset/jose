@@ -1,6 +1,6 @@
 /* vim: set tabstop=8 shiftwidth=4 softtabstop=4 expandtab smarttab colorcolumn=80: */
 
-#include <core/core.h>
+#include "misc.h"
 #include <jose/b64.h>
 #include <jose/jwk.h>
 #include <jose/jwe.h>
@@ -78,7 +78,7 @@ resolve(json_t *jwk)
                     "kty", &kty, "alg", &alg, "bytes", &bytes) == -1)
         return false;
 
-    switch (core_str2enum(alg, NAMES, NULL)) {
+    switch (str2enum(alg, NAMES, NULL)) {
     case 0: len = 32; break;
     case 1: len = 48; break;
     case 2: len = 64; break;
@@ -153,7 +153,7 @@ encrypt(json_t *jwe, const json_t *cek, const char *enc,
     size_t kyl = 0;
     int len;
 
-    switch (core_str2enum(enc, NAMES, NULL)) {
+    switch (str2enum(enc, NAMES, NULL)) {
     case 0: cph = EVP_aes_128_cbc(); md = EVP_sha256(); break;
     case 1: cph = EVP_aes_192_cbc(); md = EVP_sha384(); break;
     case 2: cph = EVP_aes_256_cbc(); md = EVP_sha512(); break;
@@ -235,7 +235,7 @@ decrypt(const json_t *jwe, const json_t *cek, const char *enc,
     size_t tgl = 0;
     int len = 0;
 
-    switch (core_str2enum(enc, NAMES, NULL)) {
+    switch (str2enum(enc, NAMES, NULL)) {
     case 0: cph = EVP_aes_128_cbc(); md = EVP_sha256(); break;
     case 1: cph = EVP_aes_192_cbc(); md = EVP_sha384(); break;
     case 2: cph = EVP_aes_256_cbc(); md = EVP_sha512(); break;

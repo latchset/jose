@@ -3,7 +3,6 @@
 #include "misc.h"
 #include <jose/openssl.h>
 #include <jose/b64.h>
-#include <core/core.h>
 
 #include <openssl/ec.h>
 #include <openssl/rand.h>
@@ -119,7 +118,7 @@ to_ec(const json_t *jwk)
     if (strcmp(kty, "EC") != 0)
         return NULL;
 
-    switch (core_str2enum(crv, "P-256", "P-384", "P-521", NULL)) {
+    switch (str2enum(crv, "P-256", "P-384", "P-521", NULL)) {
     case 0: nid = NID_X9_62_prime256v1; break;
     case 1: nid = NID_secp384r1; break;
     case 2: nid = NID_secp521r1; break;
@@ -267,7 +266,7 @@ jose_openssl_jwk_to_key(const json_t *jwk, jose_jwk_type_t type)
     if (json_unpack((json_t *) jwk, "{s:s}", "kty", &kty) == -1)
         return NULL;
 
-    switch (core_str2enum(kty, "oct", "RSA", "EC", NULL)) {
+    switch (str2enum(kty, "oct", "RSA", "EC", NULL)) {
     case 0: return type & JOSE_JWK_TYPE_OCT ? to_hmac(jwk) : NULL;
     case 1: return type & JOSE_JWK_TYPE_RSA ? to_rsa(jwk) : NULL;
     case 2: return type & JOSE_JWK_TYPE_EC ? to_ec(jwk) : NULL;

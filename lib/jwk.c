@@ -1,6 +1,5 @@
 /* vim: set tabstop=8 shiftwidth=4 softtabstop=4 expandtab smarttab colorcolumn=80: */
 
-#include <core/core.h>
 #include <jose/b64.h>
 #include <jose/jwk.h>
 
@@ -28,17 +27,26 @@ jose_jwk_register_generator(jose_jwk_generator_t *generator)
 jose_jwk_type_t
 jose_jwk_type(const json_t *jwk)
 {
+    static const struct {
+        const char *kty;
+        jose_jwk_type_t type;
+    } table[] = {
+        { "oct", JOSE_JWK_TYPE_OCT },
+        { "RSA", JOSE_JWK_TYPE_RSA },
+        { "EC", JOSE_JWK_TYPE_EC },
+        {}
+    };
+
     const char *kty = NULL;
 
     if (json_unpack((json_t *) jwk, "{s:s}", "kty", &kty) == -1)
         return JOSE_JWK_TYPE_NONE;
 
-    switch (core_str2enum(kty, "oct", "RSA", "EC", NULL)) {
-    case 0: return JOSE_JWK_TYPE_OCT;
-    case 1: return JOSE_JWK_TYPE_RSA;
-    case 2: return JOSE_JWK_TYPE_EC;
-    default: return JOSE_JWK_TYPE_NONE;
-    }
+    for (size_t i = 0; table[i].kty; i++)
+        if (strcmp(table[i].kty, kty) == 0)
+            return table[i].type;
+
+    return JOSE_JWK_TYPE_NONE;
 }
 
 bool
@@ -159,19 +167,22 @@ oallowed(const json_t *jwk, const char *op)
 bool
 jose_jwk_allowed(const json_t *jwk, const char *use, const char *op)
 {
-    if (!use) {
-        switch (core_str2enum(op, "sign", "verify", "encrypt", "decrypt",
-                              "wrapKey", "unwrapKey", "deriveKey",
-                              "deriveBits", NULL)) {
-        case 0: use = "sig"; break;
-        case 1: use = "sig"; break;
-        case 2: use = "enc"; break;
-        case 3: use = "enc"; break;
-        case 4: use = "enc"; break;
-        case 5: use = "enc"; break;
-        default: break;
-        }
-    }
+    static const struct {
+        const char *use;
+        const char *op;
+    } table[] = {
+        { "sig", "sign" },
+        { "sig", "verify" },
+        { "enc", "encrypt" },
+        { "enc", "decrypt" },
+        { "enc", "wrapKey" },
+        { "enc", "unwrapKey" },
+        {}
+    };
+
+    for (size_t i = 0; !use && op && table[i].use; i++)
+        if (strcmp(table[i].op, op) == 0)
+            use = table[i].use;
 
     return use ? uallowed(jwk, use) : true && op ? oallowed(jwk, op) : true;
 }

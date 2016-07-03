@@ -1,7 +1,6 @@
 /* vim: set tabstop=8 shiftwidth=4 softtabstop=4 expandtab smarttab colorcolumn=80: */
 
 #include "misc.h"
-#include <core/core.h>
 #include <jose/b64.h>
 #include <jose/jwk.h>
 #include <jose/jws.h>
@@ -78,7 +77,7 @@ resolve(json_t *jwk)
                     "kty", &kty, "alg", &alg, "crv", &crv) == -1)
         return false;
 
-    switch (core_str2enum(alg, NAMES, NULL)) {
+    switch (str2enum(alg, NAMES, NULL)) {
     case 0: grp = "P-256"; break;
     case 1: grp = "P-384"; break;
     case 2: grp = "P-521"; break;
@@ -124,7 +123,7 @@ suggest(const json_t *jwk)
     if (strcmp(kty, "EC") != 0)
         return NULL;
 
-    switch (core_str2enum(crv, "P-256", "P-384", "P-521", NULL)) {
+    switch (str2enum(crv, "P-256", "P-384", "P-521", NULL)) {
     case 0: return "HS256";
     case 1: return "HS384";
     case 2: return "HS512";

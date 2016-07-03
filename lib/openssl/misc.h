@@ -8,6 +8,9 @@
 #include <jansson.h>
 #include <stdbool.h>
 
+size_t
+str2enum(const char *str, ...);
+
 BIGNUM *
 bn_decode(const uint8_t buf[], size_t len);
 
