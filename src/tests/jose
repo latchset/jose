@@ -21,7 +21,7 @@ echo hi > $tmpdir/msg.txt
 ##
 
 for alg in $ASIGN $SSIGN $AWRAP $SWRAP $SENCR; do
-    echo "{ \"alg\": \"$alg\" }" | ./jose gen -o $tmpdir/$alg.jwk
+    echo "{ \"alg\": \"$alg\" }" | ../jose/jose gen -o $tmpdir/$alg.jwk
     cat $tmpdir/$alg.jwk
     echo ""
 done
@@ -30,26 +30,26 @@ done
 ### Generate a key for each parameter
 ##
 
-./jose gen -t '{ "kty": "EC", "crv": "P-256" }'
-./jose gen -t '{ "kty": "EC", "crv": "P-384" }'
-./jose gen -t '{ "kty": "EC", "crv": "P-521" }'
+../jose/jose gen -t '{ "kty": "EC", "crv": "P-256" }'
+../jose/jose gen -t '{ "kty": "EC", "crv": "P-384" }'
+../jose/jose gen -t '{ "kty": "EC", "crv": "P-521" }'
 
-./jose gen -t '{ "kty": "RSA", "bits": 3072 }'
-./jose gen -t '{ "kty": "RSA", "bits": 3072, "e": 257 }'
-./jose gen -t '{ "kty": "RSA", "bits": 3072, "e": "AQE" }'
+../jose/jose gen -t '{ "kty": "RSA", "bits": 3072 }'
+../jose/jose gen -t '{ "kty": "RSA", "bits": 3072, "e": 257 }'
+../jose/jose gen -t '{ "kty": "RSA", "bits": 3072, "e": "AQE" }'
 
-./jose gen -t '{ "kty": "oct", "bytes": 32 }'
+../jose/jose gen -t '{ "kty": "oct", "bytes": 32 }'
 
 ##
 ### Test publicize on each generated key
 ##
 
 for alg in $ASIGN $SSIGN $AWRAP $SWRAP $SENCR; do
-    ./jose pub -i $tmpdir/$alg.jwk -o $tmpdir/$alg.jwk.pub
+    ../jose/jose pub -i $tmpdir/$alg.jwk -o $tmpdir/$alg.jwk.pub
     cat $tmpdir/$alg.jwk.pub
     echo ""
 
-    cat $tmpdir/$alg.jwk | ./jose pub
+    cat $tmpdir/$alg.jwk | ../jose/jose pub
 done
 
 ##
@@ -57,7 +57,7 @@ done
 ##
 
 for alg in $ASIGN $SSIGN; do
-    ./jose sig -i $tmpdir/msg.txt -o $tmpdir/$alg.jws $tmpdir/$alg.jwk
+    ../jose/jose sig -i $tmpdir/msg.txt -o $tmpdir/$alg.jws $tmpdir/$alg.jwk
     cat $tmpdir/$alg.jws
     echo ""
 done
@@ -67,7 +67,7 @@ done
 ##
 
 for alg in $ASIGN $SSIGN; do
-    ./jose ver -i $tmpdir/$alg.jws $tmpdir/$alg.jwk
+    ../jose/jose ver -i $tmpdir/$alg.jws $tmpdir/$alg.jwk
 done
 
 ##
@@ -76,7 +76,7 @@ done
 
 for alg in $AWRAP $SWRAP; do
     for enc in $SENCR; do
-        ./jose enc \
+        ../jose/jose enc \
             -t "{\"protected\":{\"enc\":\"$enc\"}}" \
             -i $tmpdir/msg.txt \
             -o $tmpdir/$enc.$alg.jwe \
@@ -90,6 +90,6 @@ done
 
 for alg in $AWRAP $SWRAP; do
     for enc in $SENCR; do
-        ./jose dec -i $tmpdir/$enc.$alg.jwe $tmpdir/$alg.jwk
+        ../jose/jose dec -i $tmpdir/$enc.$alg.jwe $tmpdir/$alg.jwk
     done
 done
