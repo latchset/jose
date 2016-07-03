@@ -13,6 +13,11 @@
 
 #define NAMES "A128CBC-HS256", "A192CBC-HS384", "A256CBC-HS512"
 
+#ifdef __APPLE__
+#include <libkern/OSByteOrder.h>
+#define htobe64(x) OSSwapHostToBigInt64(x)
+#endif
+
 static bool
 mktag(const EVP_MD *md, const char *prot, const char *aad,
       const uint8_t ky[], size_t kyl,
