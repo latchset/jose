@@ -183,10 +183,9 @@ $ echo hi | jose enc rsa.jwk
 { "ciphertext": "...", "encrypted_key": "...", ... }
 ```
 
-Alternatively, if you ensure that no shared or unprotected headers would be
-generated, JWE compact format may be used:
+Alternatively, JWE compact format may be used:
 ```sh
-$ echo hi | jose enc -c -t '{"protected":{"alg":"RSA1_5"}}' rsa.jwk
+$ echo hi | jose enc -c rsa.jwk
 eyJhbGciOiJSU0ExXzUiLCJlbmMiOiJBMTI4Q0JDLUhTMjU2In0.ZBRtX0Z0vaCMMg...
 ```
 

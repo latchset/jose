@@ -125,10 +125,9 @@ static const struct argp argp = {
   "\n    $ echo hi | jose enc rsa.jwk"
   "\n    { \"ciphertext\": \"...\", \"encrypted_key\": \"...\", ... }"
   "\n"
-  "\nAlternatively, if you ensure that no shared or unprotected headers "
-  "would be generated, JWE compact format may be used:"
+  "\nAlternatively, JWE compact format may be used:"
   "\n"
-  "\n    $ echo hi | jose enc -c -t '{\"protected\":{\"alg\":\"RSA1_5\"}}' rsa.jwk"
+  "\n    $ echo hi | jose enc -c rsa.jwk"
   "\n    eyJhbGciOiJSU0ExXzUiLCJlbmMiOiJBMTI4Q0JDLUhTMjU2In0.ZBRtX0Z0vaCMMg..."
   "\n"
   "\nBy tweaking the JWE template, you can choose alternate crypto parameters:"
@@ -207,17 +206,41 @@ jcmd_enc(int argc, char *argv[])
         goto egress;
     }
 
-    if (!jose_jwe_encrypt(opts.tmpl, cek, buf, len)) {
-        fprintf(stderr, "Error encrypting input!\n");
-        goto egress;
-    }
-
     for (size_t i = 0; i < json_array_size(opts.jwks); i++) {
         if (!jose_jwe_seal(opts.tmpl, cek, json_array_get(opts.jwks, i),
                            json_incref(json_array_get(opts.rcps, i)))) {
             fprintf(stderr, "Error creating seal!\n");
             goto egress;
         }
+    }
+
+    if (opts.compact) {
+        json_t *jh = NULL;
+
+        if (json_object_get(opts.tmpl, "recipients")) {
+            fprintf(stderr, "Requested compact format with >1 recipient!\n");
+            goto egress;
+        }
+
+        jh = jose_jwe_merge_header(opts.tmpl, opts.tmpl);
+        if (!jh)
+            goto egress;
+
+        if (json_object_set_new(opts.tmpl, "protected", jh) == -1)
+            goto egress;
+
+        if (json_object_get(opts.tmpl, "unprotected") &&
+            json_object_del(opts.tmpl, "unprotected") == -1)
+            goto egress;
+
+        if (json_object_get(opts.tmpl, "header") &&
+            json_object_del(opts.tmpl, "header") == -1)
+            goto egress;
+    }
+
+    if (!jose_jwe_encrypt(opts.tmpl, cek, buf, len)) {
+        fprintf(stderr, "Error encrypting input!\n");
+        goto egress;
     }
 
     if (!jcmd_dump(opts.tmpl, opts.out,
