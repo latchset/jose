@@ -71,17 +71,21 @@ static bool
 seal(const json_t *jwe, json_t *rcp, const json_t *jwk,
      const char *alg, const json_t *cek)
 {
+    EVP_PKEY_CTX *ctx = NULL;
+    const EVP_MD *md = NULL;
     EVP_PKEY *key = NULL;
     uint8_t *pt = NULL;
     uint8_t *ct = NULL;
     bool ret = false;
     size_t ptl = 0;
+    size_t ctl = 0;
     int tmp = 0;
     int pad = 0;
 
-    switch (str2enum(alg, "RSA1_5", "RSA-OAEP", "RSA-OAEP-256", NULL)) {
-    case 0: pad = RSA_PKCS1_PADDING; tmp = 11; break;
-    case 1: pad = RSA_PKCS1_OAEP_PADDING; tmp = 41; break;
+    switch (str2enum(alg, NAMES, NULL)) {
+    case 0: pad = RSA_PKCS1_PADDING;      tmp = 11; md = EVP_sha1(); break;
+    case 1: pad = RSA_PKCS1_OAEP_PADDING; tmp = 41; md = EVP_sha1(); break;
+    case 2: pad = RSA_PKCS1_OAEP_PADDING; tmp = 41; md = EVP_sha256(); break;
     default: return false;
     }
 
@@ -96,18 +100,39 @@ seal(const json_t *jwe, json_t *rcp, const json_t *jwk,
     if ((int) ptl >= RSA_size(key->pkey.rsa) - tmp)
         goto egress;
 
-    ct = malloc(RSA_size(key->pkey.rsa));
+    ctx = EVP_PKEY_CTX_new(key, NULL);
+    if (!ctx)
+        goto egress;
+
+    if (EVP_PKEY_encrypt_init(ctx) <= 0)
+        goto egress;
+
+    if (EVP_PKEY_CTX_set_rsa_padding(ctx, pad) <= 0)
+        goto egress;
+
+    if (pad == RSA_PKCS1_OAEP_PADDING) {
+        if (EVP_PKEY_CTX_set_rsa_oaep_md(ctx, md) <= 0)
+            goto egress;
+
+        if (EVP_PKEY_CTX_set_rsa_mgf1_md(ctx, md) <= 0)
+            goto egress;
+    }
+
+    if (EVP_PKEY_encrypt(ctx, NULL, &ctl, pt, ptl) <= 0)
+        goto egress;
+
+    ct = malloc(ctl);
     if (!ct)
         goto egress;
 
-    tmp = RSA_public_encrypt(ptl, pt, ct, key->pkey.rsa, pad);
-    if (tmp < 0)
+    if (EVP_PKEY_encrypt(ctx, ct, &ctl, pt, ptl) <= 0)
         goto egress;
 
     ret = json_object_set_new(rcp, "encrypted_key",
-                              jose_b64_encode_json(ct, tmp)) == 0;
+                              jose_b64_encode_json(ct, ctl)) == 0;
 
 egress:
+    EVP_PKEY_CTX_free(ctx);
     EVP_PKEY_free(key);
     free(pt);
     free(ct);
@@ -118,16 +143,20 @@ static bool
 unseal(const json_t *jwe, const json_t *rcp, const json_t *jwk,
        const char *alg, json_t *cek)
 {
+    EVP_PKEY_CTX *ctx = NULL;
+    const EVP_MD *md = NULL;
     EVP_PKEY *key = NULL;
     uint8_t *pt = NULL;
     uint8_t *ct = NULL;
     bool ret = false;
+    size_t ptl = 0;
     size_t ctl = 0;
-    int tmp = 0;
+    int pad = 0;
 
     switch (str2enum(alg, NAMES, NULL)) {
-    case 0: tmp = RSA_PKCS1_PADDING; break;
-    case 1: tmp = RSA_PKCS1_OAEP_PADDING; break;
+    case 0: pad = RSA_PKCS1_PADDING;      md = EVP_sha1(); break;
+    case 1: pad = RSA_PKCS1_OAEP_PADDING; md = EVP_sha1(); break;
+    case 2: pad = RSA_PKCS1_OAEP_PADDING; md = EVP_sha256(); break;
     default: return false;
     }
 
@@ -139,17 +168,36 @@ unseal(const json_t *jwe, const json_t *rcp, const json_t *jwk,
     if (!ct)
         goto egress;
 
+    ptl = ctl;
     pt = malloc(ctl);
     if (!pt)
         goto egress;
 
-    tmp = RSA_private_decrypt(ctl, ct, pt, key->pkey.rsa, tmp);
-    if (tmp <= 0)
+    ctx = EVP_PKEY_CTX_new(key, NULL);
+    if (!ctx)
         goto egress;
 
-    ret = json_object_set_new(cek, "k", jose_b64_encode_json(pt, tmp)) == 0;
+    if (EVP_PKEY_decrypt_init(ctx) <= 0)
+        goto egress;
+
+    if (EVP_PKEY_CTX_set_rsa_padding(ctx, pad) <= 0)
+        goto egress;
+
+    if (pad == RSA_PKCS1_OAEP_PADDING) {
+        if (EVP_PKEY_CTX_set_rsa_oaep_md(ctx, md) <= 0)
+            goto egress;
+
+        if (EVP_PKEY_CTX_set_rsa_mgf1_md(ctx, md) <= 0)
+            goto egress;
+    }
+
+    if (EVP_PKEY_decrypt(ctx, pt, &ptl, ct, ctl) <= 0)
+        goto egress;
+
+    ret = json_object_set_new(cek, "k", jose_b64_encode_json(pt, ptl)) == 0;
 
 egress:
+    EVP_PKEY_CTX_free(ctx);
     EVP_PKEY_free(key);
     free(pt);
     free(ct);
