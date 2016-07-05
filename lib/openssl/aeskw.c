@@ -213,22 +213,21 @@ egress:
     return ret;
 }
 
+/* This is purposefully not static so that it can be reused for ECDH-ES. */
+jose_jwe_sealer_t aeskw_sealer = {
+    .algs = (const char *[]) { NAMES, NULL },
+    .suggest = suggest,
+    .seal = seal,
+    .unseal = unseal,
+};
+
 static void __attribute__((constructor))
 constructor(void)
 {
-    static const char *algs[] = { NAMES, NULL };
-
     static jose_jwk_resolver_t resolver = {
         .resolve = resolve
     };
 
-    static jose_jwe_sealer_t sealer = {
-        .algs = algs,
-        .suggest = suggest,
-        .seal = seal,
-        .unseal = unseal,
-    };
-
     jose_jwk_register_resolver(&resolver);
-    jose_jwe_register_sealer(&sealer);
+    jose_jwe_register_sealer(&aeskw_sealer);
 }

@@ -29,6 +29,9 @@ static const struct {
     { "rfc7520_5.2", "jwec" },
     { "rfc7520_5.2", "jwef" },
     { "rfc7520_5.2", "jweg" },
+    { "rfc7520_5.4", "jwec" },
+    { "rfc7520_5.4", "jwef" },
+    { "rfc7520_5.4", "jweg" },
     { "rfc7520_5.6", "jwec", true },
     { "rfc7520_5.6", "jweg", true },
     { "rfc7520_5.7", "jwec" },
@@ -131,6 +134,7 @@ main(int argc, char *argv[])
         json_object_del(jwe, "header");
         json_object_del(jwe, "tag");
         json_object_del(prt, "tag");
+        json_object_del(prt, "epk");
         json_object_del(jwe, "iv");
         json_object_del(prt, "iv");
 

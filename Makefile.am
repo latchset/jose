@@ -17,6 +17,7 @@ lib_openssl_libjose_openssl_la_SOURCES = \
     lib/openssl/jwk.c \
     lib/openssl/hmac.c \
     lib/openssl/ecdsa.c \
+    lib/openssl/ecdhes.c \
     lib/openssl/rsassa.c \
     lib/openssl/aescbch.c \
     lib/openssl/aesgcm.c \
