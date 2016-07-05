@@ -22,6 +22,7 @@ lib_openssl_libjose_openssl_la_SOURCES = \
     lib/openssl/aescbch.c \
     lib/openssl/aesgcm.c \
     lib/openssl/rsaes.c \
+    lib/openssl/pbes2.c \
     lib/openssl/aeskw.c \
     lib/openssl/oct.c \
     lib/openssl/rsa.c \

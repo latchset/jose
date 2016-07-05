@@ -244,8 +244,7 @@ jose_jwe_seal(json_t *jwe, const json_t *cek, const json_t *jwk, json_t *rcp)
     if (!jose_jwk_allowed(jwk, "enc", "wrapKey"))
         goto egress;
 
-    if (json_unpack((json_t *) jwk, "{s?s}", "alg", &kalg) == -1)
-        goto egress;
+    kalg = json_string_value(json_object_get(jwk, "alg"));
 
     if (!rcp)
         rcp = json_object();
@@ -269,6 +268,9 @@ jose_jwe_seal(json_t *jwe, const json_t *cek, const json_t *jwk, json_t *rcp)
         if (json_object_set_new(h, "alg", json_string(halg)) == -1)
             goto egress;
     }
+
+    if (halg && kalg && strcmp(halg, kalg) != 0)
+        goto egress;
 
     sealer = find_sealer(halg);
     if (!sealer)
@@ -309,9 +311,7 @@ unseal_rcp(const json_t *jwe, const json_t *rcp, const json_t *jwk)
     if (!jose_jwk_allowed(jwk, "enc", "unwrapKey"))
         goto egress;
 
-    if (json_unpack((json_t *) jwk, "{s?s}", "alg", &kalg) == -1)
-        goto egress;
-
+    kalg = json_string_value(json_object_get(jwk, "alg"));
     if (halg && kalg && strcmp(halg, kalg) != 0)
         goto egress;
 

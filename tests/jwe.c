@@ -11,13 +11,6 @@
 #include <string.h>
 #include <ctype.h>
 
-static const char plaintext[] =
-    "You can trust us to stick with you through thick and "
-    "thin–to the bitter end. And you can trust us to "
-    "keep any secret of yours–closer than you keep it "
-    "yourself. But you cannot trust us to let you face trouble "
-    "alone, and go off without a word. We are your friends, Frodo.";
-
 static const struct {
     const char *name;
     const char *type;
@@ -29,6 +22,9 @@ static const struct {
     { "rfc7520_5.2", "jwec" },
     { "rfc7520_5.2", "jwef" },
     { "rfc7520_5.2", "jweg" },
+    { "rfc7520_5.3", "jwec" },
+    { "rfc7520_5.3", "jwef" },
+    { "rfc7520_5.3", "jweg" },
     { "rfc7520_5.4", "jwec" },
     { "rfc7520_5.4", "jwef" },
     { "rfc7520_5.4", "jweg" },
@@ -53,7 +49,7 @@ static const struct {
 };
 
 static void
-test_decrypt(const json_t *jwe, const json_t *cek)
+test_decrypt(const json_t *jwe, const json_t *cek, const char *plaintext)
 {
     uint8_t *pt = NULL;
     json_t *ct = NULL;
@@ -85,6 +81,7 @@ main(int argc, char *argv[])
         json_t *jwe = NULL;
         json_t *jwk = NULL;
         json_t *prt = NULL;
+        char *pt = NULL;
 
         fprintf(stderr, "==================== %s (%s) ====================\n",
                 vectors[i].name, vectors[i].type);
@@ -110,9 +107,9 @@ main(int argc, char *argv[])
         }
 
         /* First, ensure that decrypt works with the hard-coded CEK. */
-        cek = vect_json(vectors[i].name, "cek");
-        assert(cek);
-        test_decrypt(jwe, cek);
+        assert(cek = vect_json(vectors[i].name, "cek"));
+        assert(pt = vect_str(vectors[i].name, "pt"));
+        test_decrypt(jwe, cek, pt);
 
         /* Next, ensure that unseal produces the hard-coded CEK. */
         if (vectors[i].dir)
@@ -135,21 +132,22 @@ main(int argc, char *argv[])
         json_object_del(jwe, "tag");
         json_object_del(prt, "tag");
         json_object_del(prt, "epk");
+        json_object_del(prt, "p2s");
         json_object_del(jwe, "iv");
         json_object_del(prt, "iv");
 
         /* Encrypt and seal. */
-        assert(jose_jwe_encrypt(jwe, cek, (uint8_t *) plaintext,
-                                strlen(plaintext)));
+        assert(jose_jwe_encrypt(jwe, cek, (uint8_t *) pt, strlen(pt)));
         assert(jose_jwe_seal(jwe, cek, jwk, NULL));
 
         /* Test the results of our process. */
         test_unseal(jwe, cek, jwk);
-        test_decrypt(jwe, cek);
+        test_decrypt(jwe, cek, pt);
 
         json_decref(cek);
         json_decref(jwe);
         json_decref(jwk);
+        free(pt);
     }
 
     return 0;

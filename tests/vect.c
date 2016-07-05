@@ -28,7 +28,7 @@ vect_json(const char *name, const char *ext)
     if (!file)
         return NULL;
 
-    out = json_loadf(file, 0, NULL);
+    out = json_loadf(file, JSON_DECODE_ANY, NULL);
     fclose(file);
     return out;
 }
@@ -59,11 +59,6 @@ vect_str(const char *name, const char *ext)
     if (len == 0) {
         free(buf);
         return NULL;
-    }
-
-    for (size_t i = 1; i <= len; i++) {
-        if (isspace(buf[len - i]))
-            buf[len - i] = 0;
     }
 
     return buf;
