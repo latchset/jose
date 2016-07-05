@@ -207,3 +207,33 @@ jose_jws_verify(const json_t *jws, const json_t *jwk)
     /* Verify the signature in flattened format. */
     return verify_sig(payl, jws, jwk);
 }
+
+json_t *
+jose_jws_merge_header(const json_t *sig)
+{
+    json_t *p = NULL;
+    json_t *h = NULL;
+
+    p = json_object_get(sig, "protected");
+    if (!p)
+        p = json_object();
+    else if (json_is_object(p))
+        p = json_deep_copy(p);
+    else if (json_is_string(p))
+        p = jose_b64_decode_json_load(p);
+
+    if (!json_is_object(p)) {
+        json_decref(p);
+        return NULL;
+    }
+
+    h = json_object_get(sig, "header");
+    if (h) {
+        if (json_object_update_missing(p, h) == -1) {
+            json_decref(p);
+            return NULL;
+        }
+    }
+
+    return p;
+}

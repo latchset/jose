@@ -50,70 +50,6 @@ find_zipper(const char *zip)
     return NULL;
 }
 
-static json_t *
-head_merge(const json_t *prot, const json_t *shrd, const json_t *head)
-{
-    json_t *p = NULL;
-    json_t *s = NULL;
-    json_t *h = NULL;
-    json_t *d = NULL;
-    json_t *a = NULL;
-
-    if (json_is_string(prot)) {
-        prot = d = jose_b64_decode_json_load(prot);
-        if (!d)
-            goto error;
-    }
-
-    if (prot && !json_is_object(prot))
-        goto error;
-
-    if (shrd && !json_is_object(shrd))
-        goto error;
-
-    if (head && !json_is_object(head))
-        goto error;
-
-    p = json_deep_copy(prot);
-    if (prot && !p)
-        goto error;
-
-    s = json_deep_copy(shrd);
-    if (shrd && !s)
-        goto error;
-
-    h = json_deep_copy(head);
-    if (head && !h)
-        goto error;
-
-    a = json_object();
-    if (!a)
-        goto error;
-
-    if (p && json_object_update_missing(a, p) == -1)
-        goto error;
-
-    if (s && json_object_update_missing(a, s) == -1)
-        goto error;
-
-    if (h && json_object_update_missing(a, h) == -1)
-        goto error;
-
-    json_decref(p);
-    json_decref(s);
-    json_decref(h);
-    json_decref(d);
-    return a;
-
-error:
-    json_decref(p);
-    json_decref(s);
-    json_decref(h);
-    json_decref(d);
-    json_decref(a);
-    return NULL;
-}
-
 void
 jose_jwe_register_crypter(jose_jwe_crypter_t *crypter)
 {
@@ -285,22 +221,20 @@ jose_jwe_seal(json_t *jwe, const json_t *cek, const json_t *jwk, json_t *rcp)
     const jose_jwe_sealer_t *sealer = NULL;
     const char *kalg = NULL;
     const char *halg = NULL;
-    json_t *hd = NULL;
+    json_t *jh = NULL;
     bool ret = false;
 
-    hd = head_merge(json_object_get(jwe, "protected"),
-                    json_object_get(jwe, "unprotected"),
-                    json_object_get(rcp, "header"));
-    if (!hd)
-        goto egress;
+    jh = jose_jwe_merge_header(jwe, rcp);
+    if (!jh)
+        return false;
 
-    if (json_unpack(hd, "{s?s}", "alg", &halg) == -1)
+    if (json_unpack(jh, "{s?s}", "alg", &halg) == -1)
         goto egress;
 
     if (halg && strcmp(halg, "dir") == 0) {
         ret = json_object_size(rcp) == 0;
         json_decref(rcp);
-        json_decref(hd);
+        json_decref(jh);
         return ret;
     }
 
@@ -347,7 +281,7 @@ jose_jwe_seal(json_t *jwe, const json_t *cek, const json_t *jwk, json_t *rcp)
 
 egress:
     json_decref(rcp);
-    json_decref(hd);
+    json_decref(jh);
     return ret;
 }
 
@@ -357,20 +291,18 @@ unseal_rcp(const json_t *jwe, const json_t *rcp, const json_t *jwk)
     const jose_jwe_sealer_t *sealer = NULL;
     const char *halg = NULL;
     const char *kalg = NULL;
-    json_t *head = NULL;
     json_t *cek = NULL;
+    json_t *jh = NULL;
 
-    head = head_merge(json_object_get(jwe, "protected"),
-                      json_object_get(jwe, "unprotected"),
-                      json_object_get(rcp, "header"));
-    if (!head)
+    jh = jose_jwe_merge_header(jwe, rcp);
+    if (!jh)
         goto egress;
 
-    if (json_unpack(head, "{s?s}", "alg", &halg) == -1)
+    if (json_unpack(jh, "{s?s}", "alg", &halg) == -1)
         goto egress;
 
     if (halg && strcmp(halg, "dir") == 0) {
-        json_decref(head);
+        json_decref(jh);
         return json_deep_copy(jwk);
     }
 
@@ -389,19 +321,19 @@ unseal_rcp(const json_t *jwe, const json_t *rcp, const json_t *jwk)
 
     cek = json_pack("{s:s,s:s,s:O,s:[ss]}",
                     "kty", "oct", "use", "enc",
-                    "enc", json_object_get(head, "enc"),
+                    "enc", json_object_get(jh, "enc"),
                     "key_ops", "encrypt", "decrypt");
     if (!cek)
         goto egress;
 
     if (!sealer->unseal(jwe, rcp, jwk, halg, cek)) {
-        json_decref(head);
+        json_decref(jh);
         json_decref(cek);
         return NULL;
     }
 
 egress:
-    json_decref(head);
+    json_decref(jh);
     return cek;
 }
 
@@ -431,12 +363,12 @@ jose_jwe_decrypt(const json_t *jwe, const json_t *cek, size_t *ptl)
     const jose_jwe_zipper_t *zipper = NULL;
     const char *prot = NULL;
     const char *kalg = NULL;
-    const char *senc = NULL;
-    const char *penc = NULL;
+    const char *szip = NULL;
+    const char *enc = NULL;
     const char *aad = NULL;
     const char *zip = NULL;
     uint8_t *pt = NULL;
-    json_t *p = NULL;
+    json_t *jh = NULL;
 
     if (!jose_jwk_allowed(cek, "enc", "decrypt"))
         return NULL;
@@ -444,42 +376,35 @@ jose_jwe_decrypt(const json_t *jwe, const json_t *cek, size_t *ptl)
     if (json_unpack((json_t *) cek, "{s?s}", "alg", &kalg) == -1)
         return NULL;
 
-    if (json_unpack((json_t *) jwe, "{s?s,s?s,s?o,s?{s?s}}",
-                    "aad", &aad, "protected", &prot, "protected", &p,
-                    "unprotected", "enc", &senc) == -1)
+    if (json_unpack((json_t *) jwe, "{s?s,s?s,s?{s?s}}",
+                    "aad", &aad, "protected", &prot,
+                    "unprotected", "zip", &szip) == -1)
         return NULL;
 
-    if (json_is_string(p))
-        p = jose_b64_decode_json_load(p);
-    else if (p)
-        return NULL;
-
-    if (p && json_unpack(p, "{s?s,s?s}", "enc", &penc, "zip", &zip) == -1)
+    jh = jose_jwe_merge_header(jwe, NULL);
+    if (!jh)
         goto egress;
 
-    if (!penc && !senc) {
-        if (!kalg)
-            goto egress;
-        senc = kalg;
-    }
+    if (json_unpack(jh, "{s?s,s?s}", "enc", &enc, "zip", &zip) == -1)
+        goto egress;
+
+    if (!enc)
+        enc = kalg;
 
     if (kalg) {
-        if (penc && strcmp(penc, kalg) != 0)
-            goto egress;
-        if (senc && strcmp(senc, kalg) != 0)
+        if (strcmp(enc, kalg) != 0)
             goto egress;
     }
 
     zipper = find_zipper(zip);
-    if (zip && !zipper)
+    if (zip && (!zipper || szip))
         goto egress;
 
-    crypter = find_crypter(penc ? penc : senc);
+    crypter = find_crypter(enc);
     if (!crypter)
         goto egress;
 
-    pt = crypter->decrypt(jwe, cek, penc ? penc : senc,
-                          prot ? prot : "", aad, ptl);
+    pt = crypter->decrypt(jwe, cek, enc, prot ? prot : "", aad, ptl);
 
     if (zipper) {
         uint8_t *tmp = NULL;
@@ -489,7 +414,7 @@ jose_jwe_decrypt(const json_t *jwe, const json_t *cek, size_t *ptl)
     }
 
 egress:
-    json_decref(p);
+    json_decref(jh);
     return pt;
 }
 
@@ -512,4 +437,43 @@ jose_jwe_decrypt_json(const json_t *jwe, const json_t *cek)
     }
 
     return json;
+}
+
+json_t *
+jose_jwe_merge_header(const json_t *jwe, const json_t *rcp)
+{
+    json_t *p = NULL;
+    json_t *s = NULL;
+    json_t *h = NULL;
+
+    p = json_object_get(jwe, "protected");
+    if (!p)
+        p = json_object();
+    else if (json_is_object(p))
+        p = json_deep_copy(p);
+    else if (json_is_string(p))
+        p = jose_b64_decode_json_load(p);
+
+    if (!json_is_object(p)) {
+        json_decref(p);
+        return NULL;
+    }
+
+    s = json_object_get(jwe, "unprotected");
+    if (s) {
+        if (json_object_update_missing(p, s) == -1) {
+            json_decref(p);
+            return NULL;
+        }
+    }
+
+    h = json_object_get(rcp, "header");
+    if (h) {
+        if (json_object_update_missing(p, h) == -1) {
+            json_decref(p);
+            return NULL;
+        }
+    }
+
+    return p;
 }

@@ -96,3 +96,6 @@ jose_jwe_decrypt(const json_t *jwe, const json_t *cek, size_t *ptl);
 
 json_t * __attribute__((warn_unused_result))
 jose_jwe_decrypt_json(const json_t *jwe, const json_t *cek);
+
+json_t *
+jose_jwe_merge_header(const json_t *jwe, const json_t *rcp);

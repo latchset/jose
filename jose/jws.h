@@ -42,3 +42,6 @@ jose_jws_sign(json_t *jws, const json_t *jwk, json_t *sig);
 
 bool __attribute__((warn_unused_result))
 jose_jws_verify(const json_t *jws, const json_t *jwk);
+
+json_t *
+jose_jws_merge_header(const json_t *sig);
