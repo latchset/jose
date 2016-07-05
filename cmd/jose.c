@@ -188,10 +188,10 @@ main(int argc, char *argv[])
 "\n"
 "jose gen           [-o FILE] [-t TMPL]\n"
 "jose pub [-i FILE] [-o FILE] [-t TYPE ...]\n"
-"jose sig [-i FILE] [-o FILE] [-t TMPL] [-s SIGT ...] [-c] JWK ...\n"
-"jose ver [-i FILE] [-o FILE]                         [-a] JWK ...\n"
-"jose enc [-i FILE] [-o FILE] [-t TMPL] [-r RCPT ...] [-c] JWK ...\n"
-"jose dec [-i FILE] [-o FILE]                              JWK ...\n"
+"jose sig [-i FILE] [-o FILE] [-t TMPL] [-s SIGT ...] [-c]       JWK ...\n"
+"jose ver [-i FILE] [-o FILE]                         [-a]       JWK ...\n"
+"jose enc [-i FILE] [-o FILE] [-t TMPL] [-r RCPT ...] [-c] [-p]  JWK ...\n"
+"jose dec [-i FILE] [-o FILE]                              [-n] [JWK ...]\n"
 "\n");
     return EXIT_FAILURE;
 }

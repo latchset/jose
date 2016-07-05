@@ -1,11 +1,14 @@
 /* vim: set tabstop=8 shiftwidth=4 softtabstop=4 expandtab smarttab colorcolumn=80: */
 
 #include <cmd/jose.h>
+#include <unistd.h>
+#include <string.h>
 
 struct options {
     const char *out;
     const char *in;
     json_t *jwks;
+    bool nonint;
 };
 
 static error_t
@@ -16,6 +19,7 @@ parser(int key, char *arg, struct argp_state *state)
     switch (key) {
     case 'i': opts->in = arg; return 0;
     case 'o': opts->out = arg; return 0;
+    case 'n': opts->nonint = true; return 0;
 
     case ARGP_KEY_ARG:
         if (!opts->jwks)
@@ -28,8 +32,8 @@ parser(int key, char *arg, struct argp_state *state)
         }
 
     case ARGP_KEY_FINI:
-        if (json_array_size(opts->jwks) == 0) {
-            fprintf(stderr, "MUST specify a JWK!\n\n");
+        if (json_array_size(opts->jwks) == 0 && opts->nonint) {
+            fprintf(stderr, "MUST specify a JWK in non-interactive mode!\n\n");
             argp_usage(state);
             return ARGP_ERR_UNKNOWN;
         }
@@ -45,6 +49,7 @@ static const struct argp argp = {
     .options = (const struct argp_option[]) {
         { "input", 'i', "filename", .doc = "JWE input file" },
         { "output", 'o', "filename", .doc = "JWE output file" },
+        { "no-prompt", 'n', .doc = "Do not prompt for a password" },
         {}
     },
     .parser = parser,
@@ -69,6 +74,60 @@ static const struct argp argp = {
   "\n\n"
 };
 
+static bool
+header_has_pbes2(const json_t *jwe, const json_t *rcp)
+{
+    const char *alg = NULL;
+    json_t *jh = NULL;
+    int cmp = 0;
+
+    jh = jose_jwe_merge_header(jwe, rcp);
+    if (!jh)
+        return false;
+
+    json_unpack(jh, "{s:s}", "alg", &alg);
+    cmp = strncmp(alg, "PBES2", strlen("PBES2"));
+    json_decref(jh);
+    return cmp == 0;
+}
+
+static bool
+jwe_has_pbes2(const json_t *jwe)
+{
+    json_t *rcps = NULL;
+
+    rcps = json_object_get(jwe, "recipients");
+    if (!json_is_array(rcps))
+        return header_has_pbes2(jwe, jwe);
+
+    for (size_t i = 0; i < json_array_size(rcps); i++) {
+        if (header_has_pbes2(jwe, json_array_get(rcps, i)))
+            return true;
+    }
+
+    return false;
+}
+
+static int
+decrypt(const json_t *jwe, const json_t *cek, const char *to)
+{
+    uint8_t *out = NULL;
+    size_t len = 0;
+
+    out = jose_jwe_decrypt(jwe, cek, &len);
+    if (!out) {
+        fprintf(stderr, "Error during decryption!\n");
+        return EXIT_FAILURE;
+    }
+
+    if (!jcmd_dump_file(to, out, len)) {
+        fprintf(stderr, "Error dumping JWE!\n");
+        return EXIT_FAILURE;
+    }
+
+    return EXIT_SUCCESS;
+}
+
 int
 jcmd_dec(int argc, char *argv[])
 {
@@ -84,28 +143,33 @@ jcmd_dec(int argc, char *argv[])
         goto egress;
 
     for (size_t i = 0; i < json_array_size(opts.jwks); i++) {
-        uint8_t *out = NULL;
         json_t *cek = NULL;
-        size_t len = 0;
 
         cek = jose_jwe_unseal(jwe, json_array_get(opts.jwks, i));
         if (!cek)
             continue;
 
-        out = jose_jwe_decrypt(jwe, cek, &len);
+        ret = decrypt(jwe, cek, opts.out);
         json_decref(cek);
-        if (!out) {
-            fprintf(stderr, "Error during decryption!\n");
-            goto egress;
-        }
-
-        if (!jcmd_dump_file(opts.out, out, len)) {
-            fprintf(stderr, "Error dumping JWE!\n");
-            goto egress;
-        }
-
-        ret = EXIT_SUCCESS;
         goto egress;
+    }
+
+    if (jwe_has_pbes2(jwe) && !opts.nonint) {
+        const char *pwd = NULL;
+
+        pwd = getpass("Please enter password: ");
+        if (pwd) {
+            json_t *jwk = json_string(pwd);
+            json_t *cek = NULL;
+
+            cek = jose_jwe_unseal(jwe, jwk);
+            json_decref(jwk);
+            if (cek) {
+                ret = decrypt(jwe, cek, opts.out);
+                json_decref(cek);
+                goto egress;
+            }
+        }
     }
 
     fprintf(stderr, "Decryption failed!\n");

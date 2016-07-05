@@ -1,6 +1,8 @@
 /* vim: set tabstop=8 shiftwidth=4 softtabstop=4 expandtab smarttab colorcolumn=80: */
 
 #include <cmd/jose.h>
+#include <string.h>
+#include <unistd.h>
 
 struct options {
     const char *in;
@@ -15,6 +17,8 @@ static error_t
 parser(int key, char *arg, struct argp_state *state)
 {
     struct options *opts = state->input;
+    char *password = NULL;
+    char *confirm = NULL;
 
     switch (key) {
     case 'i': opts->in = arg; return 0;
@@ -43,6 +47,32 @@ parser(int key, char *arg, struct argp_state *state)
 
         return 0;
 
+    case 'p':
+        if (!opts->jwks)
+            opts->jwks = json_array();
+
+        do {
+            free(password);
+            password = strdup(getpass("Please enter a password: "));
+            if (!password)
+                continue;
+
+            if (strlen(password) < 8) {
+                fprintf(stderr, "Password too short!\n");
+                continue;
+            }
+
+            confirm = getpass("Please re-enter the previous password: ");
+        } while (!password || !confirm || strcmp(password, confirm) != 0);
+
+        free(password);
+        if (json_array_append_new(opts->jwks, json_string(confirm)) == -1) {
+            fprintf(stderr, "Error adding password!\n");
+            return ARGP_ERR_UNKNOWN;
+        }
+
+        return 0;
+
     case ARGP_KEY_ARG:
         if (!opts->jwks)
             opts->jwks = json_array();
@@ -55,7 +85,7 @@ parser(int key, char *arg, struct argp_state *state)
 
     case ARGP_KEY_FINI:
         if (json_array_size(opts->jwks) == 0) {
-            fprintf(stderr, "MUST specify a JWK!\n\n");
+            fprintf(stderr, "MUST specify a JWK or password!\n\n");
             argp_usage(state);
             return ARGP_ERR_UNKNOWN;
         }
@@ -76,6 +106,7 @@ static const struct argp argp = {
         { "output", 'o', "filename", .doc = "JWE output file" },
         { "compact", 'c', .doc = "Output JWE in compact form" },
         { "template", 't', "jwe", .doc = "JWE template (JSON or file)" },
+        { "password", 'p', .doc = "Prompt for a password (repeatable)" },
         { "recipient", 'r', "rcp",
             .doc = "JWE recipient template (JSON or file)" },
         {}
