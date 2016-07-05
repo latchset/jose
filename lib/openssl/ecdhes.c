@@ -358,22 +358,22 @@ unseal(const json_t *jwe, const json_t *rcp, const json_t *jwk,
         goto egress;
 
     /* Load "apu" header parameter (optional). */
-    if (json_unpack(p, "{s?o}", "apu", &apu) == -1)
+    if (json_unpack(p, "{s?s}", "apu", &apu) == -1)
         goto egress;
-    if (!apu && json_unpack((json_t *) jwe, "{s?{s?o}}",
+    if (!apu && json_unpack((json_t *) jwe, "{s?{s?s}}",
                             "unprotected", "apu", &apu) == -1)
         goto egress;
-    if (!apu && json_unpack((json_t *) rcp, "{s?{s?o}}",
+    if (!apu && json_unpack((json_t *) rcp, "{s?{s?s}}",
                             "header", "apu", &apu) == -1)
         goto egress;
 
     /* Load "apv" header parameter (optional). */
-    if (json_unpack(p, "{s?o}", "apv", &apv) == -1)
+    if (json_unpack(p, "{s?s}", "apv", &apv) == -1)
         goto egress;
-    if (!apv && json_unpack((json_t *) jwe, "{s?{s?o}}",
+    if (!apv && json_unpack((json_t *) jwe, "{s?{s?s}}",
                             "unprotected", "apv", &apv) == -1)
         goto egress;
-    if (!apv && json_unpack((json_t *) rcp, "{s?{s?o}}",
+    if (!apv && json_unpack((json_t *) rcp, "{s?{s?s}}",
                             "header", "apv", &apv) == -1)
         goto egress;
 
