@@ -160,7 +160,7 @@ test_key(const json_t *jwk, const struct vector *v)
     if (v->excld)
         assert(!jose_jwk_allowed(jwk, v->excld, NULL));
 
-    key = jose_openssl_jwk_to_key(jwk, JOSE_JWK_TYPE_ALL);
+    key = jose_openssl_jwk_to_EVP_PKEY(jwk, JOSE_JWK_TYPE_ALL);
     assert(key);
     assert(EVP_PKEY_base_id(key) == v->type);
 
@@ -180,7 +180,7 @@ test_key(const json_t *jwk, const struct vector *v)
     assert(cpy);
     assert(jose_jwk_clean(cpy, JOSE_JWK_TYPE_NONE));
 
-    key = jose_openssl_jwk_to_key(cpy, JOSE_JWK_TYPE_ALL);
+    key = jose_openssl_jwk_to_EVP_PKEY(cpy, JOSE_JWK_TYPE_ALL);
     json_decref(cpy);
     assert(key);
     assert(EVP_PKEY_base_id(key) == v->type);
@@ -201,7 +201,7 @@ test_key(const json_t *jwk, const struct vector *v)
     assert(cpy);
     assert(jose_jwk_clean(cpy, JOSE_JWK_TYPE_ALL));
 
-    key = jose_openssl_jwk_to_key(cpy, JOSE_JWK_TYPE_ALL);
+    key = jose_openssl_jwk_to_EVP_PKEY(cpy, JOSE_JWK_TYPE_ALL);
     json_decref(cpy);
 
     if (v->type != EVP_PKEY_HMAC) {

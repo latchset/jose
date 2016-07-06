@@ -1,7 +1,7 @@
 /* vim: set tabstop=8 shiftwidth=4 softtabstop=4 expandtab smarttab colorcolumn=80: */
 
 #include "misc.h"
-#include <jose/jwk.h>
+#include <jose/openssl.h>
 
 static bool
 generate(json_t *jwk)
@@ -30,7 +30,7 @@ generate(json_t *jwk)
         return false;
     }
 
-    tmp = from_ec(key);
+    tmp = jose_openssl_jwk_from_EC_KEY(key);
     EC_KEY_free(key);
 
     if (json_object_update(jwk, tmp) == -1) {

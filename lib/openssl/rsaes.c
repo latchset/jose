@@ -89,7 +89,7 @@ seal(const json_t *jwe, json_t *rcp, const json_t *jwk,
     default: return false;
     }
 
-    key = jose_openssl_jwk_to_key(jwk, JOSE_JWK_TYPE_RSA);
+    key = jose_openssl_jwk_to_EVP_PKEY(jwk, JOSE_JWK_TYPE_RSA);
     if (!key)
         return false;
 
@@ -160,7 +160,7 @@ unseal(const json_t *jwe, const json_t *rcp, const json_t *jwk,
     default: return false;
     }
 
-    key = jose_openssl_jwk_to_key(jwk, JOSE_JWK_TYPE_RSA);
+    key = jose_openssl_jwk_to_EVP_PKEY(jwk, JOSE_JWK_TYPE_RSA);
     if (!key)
         goto egress;
 

@@ -22,9 +22,3 @@ bn_encode(const BIGNUM *bn, uint8_t buf[], size_t len);
 
 json_t *
 bn_encode_json(const BIGNUM *bn, size_t len);
-
-json_t *
-from_ec(EC_KEY *key);
-
-json_t *
-from_rsa(RSA *key);

@@ -67,7 +67,7 @@ generate(json_t *jwk)
     if (!rsa)
         return false;
 
-    tmp = from_rsa(rsa);
+    tmp = jose_openssl_jwk_from_RSA(rsa);
     RSA_free(rsa);
     if (!tmp)
         return false;

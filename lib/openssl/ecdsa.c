@@ -12,7 +12,7 @@
 
 #define NAMES "ES256", "ES384", "ES512"
 
-static EVP_PKEY *
+static EC_KEY *
 setup(const json_t *jwk, const char *alg, const char *prot, const char *payl,
       uint8_t hsh[], size_t *hl)
 {
@@ -20,15 +20,15 @@ setup(const json_t *jwk, const char *alg, const char *prot, const char *payl,
     EVP_MD_CTX *ctx = NULL;
     const char *req = NULL;
     unsigned int ign = 0;
-    EVP_PKEY *key = NULL;
+    EC_KEY *key = NULL;
 
     *hl = 0;
 
-    key = jose_openssl_jwk_to_key(jwk, JOSE_JWK_TYPE_EC);
+    key = jose_openssl_jwk_to_EC_KEY(jwk);
     if (!key)
         return NULL;
 
-    switch (EC_GROUP_get_curve_name(EC_KEY_get0_group(key->pkey.ec))) {
+    switch (EC_GROUP_get_curve_name(EC_KEY_get0_group(key))) {
     case NID_X9_62_prime256v1: req = "ES256"; md = EVP_sha256(); break;
     case NID_secp384r1:        req = "ES384"; md = EVP_sha384(); break;
     case NID_secp521r1:        req = "ES512"; md = EVP_sha512(); break;
@@ -60,7 +60,7 @@ setup(const json_t *jwk, const char *alg, const char *prot, const char *payl,
 error:
     EVP_MD_CTX_destroy(ctx);
     if (*hl == 0)
-        EVP_PKEY_free(key);
+        EC_KEY_free(key);
     return *hl != 0 ? key : NULL;
 }
 
@@ -136,9 +136,8 @@ sign(json_t *sig, const json_t *jwk,
      const char *alg, const char *prot, const char *payl)
 {
     uint8_t hsh[EVP_MAX_MD_SIZE];
-    const EC_GROUP *grp = NULL;
     ECDSA_SIG *ecdsa = NULL;
-    EVP_PKEY *key = NULL;
+    EC_KEY *key = NULL;
     bool ret = false;
     size_t hl = 0;
 
@@ -146,10 +145,9 @@ sign(json_t *sig, const json_t *jwk,
     if (!key)
         return false;
 
-    grp = EC_KEY_get0_group(key->pkey.ec);
-    uint8_t s[(EC_GROUP_get_degree(grp) + 7) / 8 * 2];
+    uint8_t s[(EC_GROUP_get_degree(EC_KEY_get0_group(key)) + 7) / 8 * 2];
 
-    ecdsa = ECDSA_do_sign(hsh, hl, key->pkey.ec);
+    ecdsa = ECDSA_do_sign(hsh, hl, key);
     if (!ecdsa)
         goto egress;
 
@@ -164,7 +162,7 @@ sign(json_t *sig, const json_t *jwk,
 
 egress:
     ECDSA_SIG_free(ecdsa);
-    EVP_PKEY_free(key);
+    EC_KEY_free(key);
     return ret;
 }
 
@@ -174,7 +172,7 @@ verify(const json_t *sig, const json_t *jwk,
 {
     uint8_t hsh[EVP_MAX_MD_SIZE];
     ECDSA_SIG ecdsa = {};
-    EVP_PKEY *key = NULL;
+    EC_KEY *key = NULL;
     uint8_t *sg = NULL;
     bool ret = false;
     size_t hshl = 0;
@@ -189,10 +187,10 @@ verify(const json_t *sig, const json_t *jwk,
         ecdsa.r = bn_decode(sg, sgl / 2);
         ecdsa.s = bn_decode(&sg[sgl / 2], sgl / 2);
         if (ecdsa.r && ecdsa.s)
-            ret = ECDSA_do_verify(hsh, hshl, &ecdsa, key->pkey.ec) == 1;
+            ret = ECDSA_do_verify(hsh, hshl, &ecdsa, key) == 1;
     }
 
-    EVP_PKEY_free(key);
+    EC_KEY_free(key);
     BN_free(ecdsa.r);
     BN_free(ecdsa.s);
     free(sg);

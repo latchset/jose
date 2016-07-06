@@ -100,7 +100,7 @@ sign(json_t *sig, const json_t *jwk,
     default: return false;
     }
 
-    key = jose_openssl_jwk_to_key(jwk, JOSE_JWK_TYPE_RSA);
+    key = jose_openssl_jwk_to_EVP_PKEY(jwk, JOSE_JWK_TYPE_RSA);
     if (!key)
         goto egress;
 
@@ -160,7 +160,7 @@ verify(const json_t *sig, const json_t *jwk,
     size_t sgl = 0;
     int pad = 0;
 
-    key = jose_openssl_jwk_to_key(jwk, JOSE_JWK_TYPE_RSA);
+    key = jose_openssl_jwk_to_EVP_PKEY(jwk, JOSE_JWK_TYPE_RSA);
     if (!key)
         return false;
 
