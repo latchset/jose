@@ -14,7 +14,8 @@ static const char *
 filename(const char *name, const char *ext)
 {
     static char tmp[PATH_MAX] = {};
-    snprintf(tmp, sizeof(tmp) - 1, "tests/vectors/%s.%s", name, ext);
+    snprintf(tmp, sizeof(tmp) - 1, "%s/tests/vectors/%s.%s",
+             getenv("srcdir"), name, ext);
     return tmp;
 }
 

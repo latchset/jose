@@ -44,8 +44,10 @@ cmd_jose_SOURCES = \
     cmd/jose.h
 
 
-TESTS = $(check_PROGRAMS) tests/jose
+EXTRA_DIST = tests/vectors
+TESTS = $(check_PROGRAMS) $(dist_check_SCRIPTS)
 check_HEADERS = tests/vect.h tests/jtbl.h
+dist_check_SCRIPTS = tests/jose
 check_PROGRAMS = tests/b64 tests/jwk tests/jws tests/jwe
 check_LTLIBRARIES = tests/libtest.la
 tests_libtest_la_SOURCES = tests/vect.c tests/jtbl.c
