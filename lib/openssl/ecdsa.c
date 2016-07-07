@@ -124,9 +124,9 @@ suggest(const json_t *jwk)
         return NULL;
 
     switch (str2enum(crv, "P-256", "P-384", "P-521", NULL)) {
-    case 0: return "HS256";
-    case 1: return "HS384";
-    case 2: return "HS512";
+    case 0: return "ES256";
+    case 1: return "ES384";
+    case 2: return "ES512";
     default: return NULL;
     }
 }
