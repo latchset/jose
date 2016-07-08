@@ -273,7 +273,7 @@ jose_openssl_jwk_to_EVP_PKEY(const json_t *jwk, jose_jwk_type_t type)
             return NULL;
 
         key = EVP_PKEY_new_mac_key(EVP_PKEY_HMAC, NULL, buf, len);
-        free(buf);
+        clear_free(buf, len);
         return key;
 
     default: return NULL;

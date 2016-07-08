@@ -30,13 +30,14 @@ concatkdf(const EVP_MD *md, uint8_t dk[], size_t dkl,
     reps = dkl / size;
     left = dkl % size;
 
+    uint8_t hsh[size];
+
     ctx = EVP_MD_CTX_create();
     if (!ctx)
         return false;
 
     for (uint32_t c = 0; c <= reps; c++) {
         uint32_t cnt = htobe32(c + 1);
-        uint8_t hsh[size];
 
         if (EVP_DigestInit_ex(ctx, md, NULL) <= 0)
             goto egress;
@@ -78,6 +79,7 @@ concatkdf(const EVP_MD *md, uint8_t dk[], size_t dkl,
     ret = true;
 
 egress:
+    memset(hsh, 0, sizeof(hsh));
     EVP_MD_CTX_destroy(ctx);
     return ret;
 }
@@ -151,7 +153,7 @@ ecdh(EVP_PKEY *lcl, EVP_PKEY *rem, size_t *len)
         goto egress;
 
     if (EVP_PKEY_derive(ctx, key, len) <= 0) {
-        free(key);
+        clear_free(key, *len);
         key = NULL;
     }
 
@@ -301,10 +303,11 @@ seal(const json_t *jwe, json_t *rcp, const json_t *jwk,
     ret = jose_jwk_clean(epk, JOSE_JWK_TYPE_EC);
 
 egress:
+    memset(dk, 0, sizeof(dk));
+    clear_free(ky, kyl);
     EVP_PKEY_free(lcl);
     EVP_PKEY_free(rem);
     json_decref(tmp);
-    free(ky);
     free(pu);
     free(pv);
     return ret;
@@ -398,11 +401,12 @@ unseal(const json_t *jwe, const json_t *rcp, const json_t *jwk,
     ret = aeskw_sealer.unseal(jwe, rcp, tmp, aes, cek);
 
 egress:
+    memset(dk, 0, sizeof(dk));
+    clear_free(ky, kyl);
     EVP_PKEY_free(lcl);
     EVP_PKEY_free(rem);
     json_decref(tmp);
     json_decref(p);
-    free(ky);
     free(pu);
     free(pv);
     return ret;

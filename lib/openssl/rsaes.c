@@ -133,8 +133,8 @@ seal(const json_t *jwe, json_t *rcp, const json_t *jwk,
 
 egress:
     EVP_PKEY_CTX_free(ctx);
+    clear_free(pt, ptl);
     EVP_PKEY_free(key);
-    free(pt);
     free(ct);
     return ret;
 }
@@ -199,7 +199,7 @@ unseal(const json_t *jwe, const json_t *rcp, const json_t *jwk,
 egress:
     EVP_PKEY_CTX_free(ctx);
     EVP_PKEY_free(key);
-    free(pt);
+    clear_free(pt, ptl);
     free(ct);
     return ret;
 }

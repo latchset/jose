@@ -24,6 +24,8 @@ jcmd_load_stdin(size_t *len)
 
         tmp = realloc(buf, *len + 512);
         if (!tmp) {
+            if (buf)
+                memset(buf, 0, *len);
             free(buf);
             return NULL;
         }
@@ -40,8 +42,8 @@ void *
 jcmd_load_file(const char *filename, size_t *len)
 {
     struct stat st = {};
-    FILE *file = NULL;
     uint8_t *buf = NULL;
+    FILE *file = NULL;
 
     if (!filename || !len)
         return NULL;
@@ -60,6 +62,8 @@ jcmd_load_file(const char *filename, size_t *len)
     }
 
     if (fread(buf, st.st_size, 1, file) != 1) {
+        if (buf)
+            memset(buf, 0, st.st_size);
         fclose(file);
         free(buf);
         return NULL;
@@ -90,6 +94,8 @@ jcmd_load(const char *file, const char *raw,
     if (!out && conv)
         out = conv(raw);
 
+    if (buf)
+        memset(buf, 0, len);
     free(buf);
     return out;
 }

@@ -211,8 +211,8 @@ encrypt(json_t *jwe, const json_t *cek, const char *enc,
 
 egress:
     EVP_CIPHER_CTX_free(ctx);
+    clear_free(ky, kyl);
     free(ct);
-    free(ky);
     return ret;
 }
 
@@ -285,12 +285,12 @@ decrypt(const json_t *jwe, const json_t *cek, const char *enc,
 
 egress:
     EVP_CIPHER_CTX_free(ctx);
-    free(ky);
+    clear_free(ky, kyl);
     free(iv);
     free(ct);
     free(tg);
     if (!vfy)
-        free(pt);
+        clear_free(pt, *ptl);
     return vfy ? pt : NULL;
 }
 

@@ -1,5 +1,6 @@
 /* vim: set tabstop=8 shiftwidth=4 softtabstop=4 expandtab smarttab colorcolumn=80: */
 
+#include "misc.h"
 #include <jose/b64.h>
 #include <jose/jwk.h>
 #include <openssl/rand.h>
@@ -18,15 +19,15 @@ generate(json_t *jwk)
         return false;
 
     if (RAND_bytes(buf, len) <= 0) {
-        free(buf);
+        clear_free(buf, len);
         return false;
     }
 
     if (json_object_set_new(jwk, "k", jose_b64_encode_json(buf, len)) == -1) {
-        free(buf);
+        clear_free(buf, len);
         return false;
     }
-    free(buf);
+    clear_free(buf, len);
 
     return json_object_del(jwk, "bytes") == 0;
 }

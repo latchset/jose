@@ -2,6 +2,7 @@
 
 #include <jose/jwe.h>
 #include <zlib.h>
+#include <string.h>
 
 static uint8_t *
 comp_deflate(const uint8_t *buf, size_t len, size_t *out)
@@ -38,6 +39,8 @@ comp_deflate(const uint8_t *buf, size_t len, size_t *out)
 
 error:
     deflateEnd(&strm);
+    if (o)
+        memset(o, 0, *out);
     free(o);
     return NULL;
 }
@@ -76,6 +79,8 @@ comp_inflate(const uint8_t *buf, size_t len, size_t *out)
 
 error:
     inflateEnd(&strm);
+    if (o)
+        memset(o, 0, *out);
     free(o);
     return NULL;
 }

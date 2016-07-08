@@ -21,6 +21,16 @@ str2enum(const char *str, ...)
     return i;
 }
 
+void
+clear_free(void *mem, size_t len)
+{
+    if (!mem)
+        return;
+
+    memset(mem, 0, len);
+    free(mem);
+}
+
 BIGNUM *
 bn_decode(const uint8_t buf[], size_t len)
 {
@@ -40,8 +50,7 @@ bn_decode_json(const json_t *json)
 
     bn = bn_decode(buf, len);
 
-    memset(buf, 0, len);
-    free(buf);
+    clear_free(buf, len);
     return bn;
 }
 
@@ -84,7 +93,7 @@ bn_encode_json(const BIGNUM *bn, size_t len)
         if (bn_encode(bn, buf, len))
             out = jose_b64_encode_json(buf, len);
 
-        free(buf);
+        clear_free(buf, len);
     }
 
     return out;

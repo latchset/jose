@@ -52,7 +52,10 @@ parser(int key, char *arg, struct argp_state *state)
             opts->jwks = json_array();
 
         do {
+            if (password)
+                memset(password, 0, strlen(password));
             free(password);
+
             password = strdup(getpass("Please enter a password: "));
             if (!password)
                 continue;
@@ -65,6 +68,7 @@ parser(int key, char *arg, struct argp_state *state)
             confirm = getpass("Please re-enter the previous password: ");
         } while (!password || !confirm || strcmp(password, confirm) != 0);
 
+        memset(password, 0, strlen(password));
         free(password);
         if (json_array_append_new(opts->jwks, json_string(confirm)) == -1) {
             fprintf(stderr, "Error adding password!\n");
@@ -252,6 +256,8 @@ jcmd_enc(int argc, char *argv[])
     ret = EXIT_SUCCESS;
 
 egress:
+    if (buf)
+        memset(buf, 0, len);
     json_decref(opts.tmpl);
     json_decref(opts.rcps);
     json_decref(opts.jwks);

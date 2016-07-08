@@ -145,7 +145,7 @@ sign(json_t *sig, const json_t *jwk,
                               jose_b64_encode_json(hsh, sizeof(hsh))) == 0;
 
 egress:
-    free(ky);
+    clear_free(ky, kyl);
     return ret;
 }
 
@@ -185,7 +185,7 @@ verify(const json_t *sig, const json_t *jwk,
     ret = CRYPTO_memcmp(hsh, sg, sizeof(hsh)) == 0;
 
 egress:
-    free(ky);
+    clear_free(ky, kyl);
     free(sg);
     return ret;
 }

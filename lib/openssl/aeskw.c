@@ -140,8 +140,8 @@ seal(const json_t *jwe, json_t *rcp, const json_t *jwk,
 
 egress:
     EVP_CIPHER_CTX_free(ctx);
-    free(ky);
-    free(pt);
+    clear_free(ky, kyl);
+    clear_free(pt, ptl);
     free(ct);
     return ret;
 }
@@ -207,9 +207,9 @@ unseal(const json_t *jwe, const json_t *rcp, const json_t *jwk,
 
 egress:
     EVP_CIPHER_CTX_free(ctx);
-    free(ky);
+    clear_free(ky, kyl);
+    clear_free(pt, ptl);
     free(ct);
-    free(pt);
     return ret;
 }
 

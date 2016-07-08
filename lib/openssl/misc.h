@@ -11,6 +11,9 @@
 size_t
 str2enum(const char *str, ...);
 
+void
+clear_free(void *mem, size_t len);
+
 BIGNUM *
 bn_decode(const uint8_t buf[], size_t len);
 

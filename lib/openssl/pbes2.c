@@ -59,9 +59,8 @@ pbkdf2(const json_t *jwk, const char *alg, int iter, uint8_t st[], size_t stl)
 
 egress:
     memset(dk, 0, sizeof(dk));
-    memset(salt, 0, saltl);
+    clear_free(salt, saltl);
     json_decref(p);
-    free(salt);
     return key;
 }
 

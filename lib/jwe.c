@@ -195,6 +195,8 @@ jose_jwe_encrypt(json_t *jwe, const json_t *cek,
     ret = crypter->encrypt(jwe, cek, penc ? penc : senc, prot, aad, pt, ptl);
 
 egress:
+    if (zpt)
+        memset(zpt, 0, ptl);
     json_decref(p);
     free(zpt);
     return ret;
@@ -211,6 +213,7 @@ jose_jwe_encrypt_json(json_t *jwe, const json_t *cek, json_t *pt)
         return NULL;
 
     ret = jose_jwe_encrypt(jwe, cek, (uint8_t *) ept, strlen(ept));
+    memset(ept, 0, strlen(ept));
     free(ept);
     return ret;
 }
@@ -406,9 +409,11 @@ jose_jwe_decrypt(const json_t *jwe, const json_t *cek, size_t *ptl)
 
     pt = crypter->decrypt(jwe, cek, enc, prot ? prot : "", aad, ptl);
 
-    if (zipper) {
+    if (pt && zipper) {
         uint8_t *tmp = NULL;
+        size_t len = *ptl;
         tmp = zipper->inflate(pt, *ptl, ptl);
+        memset(pt, 0, len);
         free(pt);
         pt = tmp;
     }
@@ -433,6 +438,7 @@ jose_jwe_decrypt_json(const json_t *jwe, const json_t *cek)
     pt = jose_jwe_decrypt(jwe, cek, &ptl);
     if (pt) {
         json = json_loadb((char *) pt, ptl, JSON_DECODE_ANY, NULL);
+        memset(pt, 0, ptl);
         free(pt);
     }
 

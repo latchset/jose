@@ -197,7 +197,7 @@ do_encrypt(const json_t *cek, const char *enc,
 
 egress:
     EVP_CIPHER_CTX_free(ctx);
-    free(ky);
+    clear_free(ky, kyl);
     free(ct);
     return ret;
 }
@@ -278,8 +278,9 @@ decrypt(const json_t *jwe, const json_t *cek, const char *enc,
         goto error;
     *ptl += len;
 
+    memset(ky, 0, kyl);
     EVP_CIPHER_CTX_free(ctx);
-    free(ky);
+    clear_free(ky, kyl);
     free(iv);
     free(ct);
     free(tg);
@@ -287,13 +288,11 @@ decrypt(const json_t *jwe, const json_t *cek, const char *enc,
 
 error:
     EVP_CIPHER_CTX_free(ctx);
-    memset(ky, 0, kyl);
-    memset(pt, 0, ctl);
-    free(ky);
+    clear_free(pt, *ptl);
+    clear_free(ky, kyl);
     free(iv);
     free(ct);
     free(tg);
-    free(pt);
     return NULL;
 }
 
@@ -328,7 +327,7 @@ seal(const json_t *jwe, json_t *rcp, const json_t *jwk,
     ret = do_encrypt(jwk, alg, "", NULL, pt, ptl, h, rcp, "encrypted_key");
 
 egress:
-    free(pt);
+    clear_free(pt, ptl);
     return ret;
 }
 
@@ -387,8 +386,8 @@ unseal(const json_t *jwe, const json_t *rcp, const json_t *jwk,
     ret = true;
 
 egress:
+    clear_free(pt, ptl);
     json_decref(p);
-    free(pt);
     return ret;
 }
 
