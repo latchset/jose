@@ -83,6 +83,9 @@ jose_b64_decode_buf(const char *enc, size_t *len)
         return NULL;
 
     *len = jose_b64_dlen(strlen(enc));
+    if (*len == 0)
+        return NULL;
+
     buf = malloc(*len);
     if (!buf)
         return NULL;

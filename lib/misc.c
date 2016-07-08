@@ -21,6 +21,9 @@ compact_to_obj(const char *compact, ...)
         count++;
     va_end(ap);
 
+    if (count == 0)
+        return NULL;
+
     size_t len[count];
 
     memset(len, 0, sizeof(len));

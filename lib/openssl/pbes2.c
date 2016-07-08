@@ -120,7 +120,6 @@ seal(const json_t *jwe, json_t *rcp, const json_t *jwk,
     json_decref(key);
 
 egress:
-    memset(st, 0, stl);
     json_decref(jh);
     return ret;
 }
@@ -162,7 +161,6 @@ unseal(const json_t *jwe, const json_t *rcp, const json_t *jwk,
     json_decref(key);
 
 egress:
-    memset(st, 0, stl);
     json_decref(jh);
     free(st);
     return ret;
