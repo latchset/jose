@@ -11,7 +11,7 @@
 
 #include <string.h>
 
-#define NAMES "ECDH-ES+A128KW", "ECDH-ES+A192KW", "ECDH-ES+A256KW"
+#define NAMES "ECDH-ES", "ECDH-ES+A128KW", "ECDH-ES+A192KW", "ECDH-ES+A256KW"
 
 extern jose_jwe_sealer_t aeskw_sealer;
 
@@ -177,8 +177,9 @@ resolve(json_t *jwk)
 
     switch (str2enum(alg, NAMES, NULL)) {
     case 0: grp = "P-256"; break;
-    case 1: grp = "P-384"; break;
-    case 2: grp = "P-521"; break;
+    case 1: grp = "P-256"; break;
+    case 2: grp = "P-384"; break;
+    case 3: grp = "P-521"; break;
     default: return true;
     }
 
@@ -231,12 +232,12 @@ suggest(const json_t *jwk)
 
 static bool
 seal(const json_t *jwe, json_t *rcp, const json_t *jwk,
-     const char *alg, const json_t *cek)
+     const char *alg, json_t *cek)
 {
-    const EVP_CIPHER *cph = NULL;
     const char *apu = NULL;
     const char *apv = NULL;
     const char *aes = NULL;
+    const char *enc = NULL;
     EVP_PKEY *rem = NULL;
     EVP_PKEY *lcl = NULL;
     uint8_t *ky = NULL;
@@ -244,27 +245,38 @@ seal(const json_t *jwe, json_t *rcp, const json_t *jwk,
     uint8_t *pv = NULL;
     json_t *tmp = NULL;
     json_t *epk = NULL;
+    json_t *hd = NULL;
     json_t *h = NULL;
     bool ret = false;
     size_t kyl = 0;
     size_t pul = 0;
     size_t pvl = 0;
 
-    h = json_object_get(rcp, "header");
-    if (!h && json_object_set_new(rcp, "header", h = json_object()) == -1)
-        return false;
-
-    if (json_unpack(h, "{s?s,s?s}", "apu", &apu, "apv", &apv) == -1)
-        return false;
-
     switch (str2enum(alg, NAMES, NULL)) {
-    case 0: cph = EVP_aes_128_wrap(); aes = "A128KW"; break;
-    case 1: cph = EVP_aes_192_wrap(); aes = "A192KW"; break;
-    case 2: cph = EVP_aes_256_wrap(); aes = "A256KW"; break;
+    case 0:
+        kyl = jose_b64_dlen(json_string_length(json_object_get(cek, "k")));
+        break;
+    case 1: kyl = 16; aes = "A128KW"; break;
+    case 2: kyl = 24; aes = "A192KW"; break;
+    case 3: kyl = 32; aes = "A256KW"; break;
     default: return false;
     }
 
-    uint8_t dk[EVP_CIPHER_key_length(cph)];
+    if (kyl == 0)
+        return false;
+
+    uint8_t dk[kyl];
+
+    hd = jose_jwe_merge_header(jwe, rcp);
+    if (!hd)
+        goto egress;
+
+    if (json_unpack(hd, "{s?s,s?s,s?s}", "apu", &apu,
+                    "apv", &apv, "enc", &enc) == -1)
+        goto egress;
+
+    if (!aes && !enc)
+        goto egress;
 
     rem = jose_openssl_jwk_to_EVP_PKEY(jwk, JOSE_JWK_TYPE_EC);
     if (!rem)
@@ -272,6 +284,17 @@ seal(const json_t *jwe, json_t *rcp, const json_t *jwk,
 
     lcl = generate(rem->pkey.ec);
     if (!lcl)
+        goto egress;
+
+    h = json_object_get(rcp, "header");
+    if (!h && json_object_set_new(rcp, "header", h = json_object()) == -1)
+        return false;
+
+    epk = jose_openssl_jwk_from_EVP_PKEY(lcl, JOSE_JWK_TYPE_EC);
+    if (json_object_set_new(h, "epk", epk) == -1)
+        goto egress;
+
+    if (!jose_jwk_clean(epk, JOSE_JWK_TYPE_EC))
         goto egress;
 
     ky = ecdh(lcl, rem, &kyl);
@@ -283,7 +306,8 @@ seal(const json_t *jwe, json_t *rcp, const json_t *jwk,
     if ((apu && !pu) || (apv && !pv))
         goto egress;
 
-    if (!concatkdf(EVP_sha256(), dk, sizeof(dk), ky, kyl, alg, strlen(alg),
+    if (!concatkdf(EVP_sha256(), dk, sizeof(dk), ky, kyl,
+                   aes ? alg : enc, strlen(aes ? alg : enc),
                    pu ? pu : (uint8_t *) "", pul,
                    pv ? pv : (uint8_t *) "", pvl, NULL))
         goto egress;
@@ -293,14 +317,10 @@ seal(const json_t *jwe, json_t *rcp, const json_t *jwk,
     if (!tmp)
         goto egress;
 
-    if (!aeskw_sealer.seal(jwe, rcp, tmp, aes, cek))
-        goto egress;
-
-    epk = jose_openssl_jwk_from_EVP_PKEY(lcl, JOSE_JWK_TYPE_EC);
-    if (json_object_set_new(h, "epk", epk) == -1)
-        goto egress;
-
-    ret = jose_jwk_clean(epk, JOSE_JWK_TYPE_EC);
+    if (aes)
+        ret = aeskw_sealer.seal(jwe, rcp, tmp, aes, cek);
+    else
+        ret = json_object_update(cek, tmp) == 0;
 
 egress:
     memset(dk, 0, sizeof(dk));
@@ -313,14 +333,47 @@ egress:
     return ret;
 }
 
+static size_t
+get_keyl(const json_t *jwe, const json_t *rcp)
+{
+    const char *enc = NULL;
+    json_t *head = NULL;
+    json_t *jwk = NULL;
+    size_t len = 0;
+
+    head = jose_jwe_merge_header(jwe, rcp);
+    if (!head)
+        goto egress;
+
+    if (json_unpack(head, "{s:s}", "enc", &enc) == -1)
+        goto egress;
+
+    jwk = json_pack("{s:s}", "alg", enc);
+    if (!jwk)
+        goto egress;
+
+    if (!jose_jwk_generate(jwk))
+        goto egress;
+
+    if (!json_is_string(json_object_get(jwk, "k")))
+        goto egress;
+
+    len = jose_b64_dlen(json_string_length(json_object_get(jwk, "k")));
+
+egress:
+    json_decref(head);
+    json_decref(jwk);
+    return len;
+}
+
 static bool
 unseal(const json_t *jwe, const json_t *rcp, const json_t *jwk,
        const char *alg, json_t *cek)
 {
-    const EVP_CIPHER *cph = NULL;
     const char *apu = NULL;
     const char *apv = NULL;
     const char *aes = NULL;
+    const char *enc = NULL;
     EVP_PKEY *rem = NULL;
     EVP_PKEY *lcl = NULL;
     uint8_t *ky = NULL;
@@ -328,53 +381,28 @@ unseal(const json_t *jwe, const json_t *rcp, const json_t *jwk,
     uint8_t *pv = NULL;
     json_t *tmp = NULL;
     json_t *epk = NULL;
-    json_t *p = NULL;
+    json_t *hd = NULL;
     bool ret = false;
     size_t kyl = 0;
     size_t pul = 0;
     size_t pvl = 0;
 
     switch (str2enum(alg, NAMES, NULL)) {
-    case 0: cph = EVP_aes_128_wrap(); aes = "A128KW"; break;
-    case 1: cph = EVP_aes_192_wrap(); aes = "A192KW"; break;
-    case 2: cph = EVP_aes_256_wrap(); aes = "A256KW"; break;
+    case 0: kyl = get_keyl(jwe, rcp); if (kyl == 0) return false; break;
+    case 1: kyl = 16; aes = "A128KW"; break;
+    case 2: kyl = 24; aes = "A192KW"; break;
+    case 3: kyl = 32; aes = "A256KW"; break;
     default: return false;
     }
 
-    uint8_t dk[EVP_CIPHER_key_length(cph)];
+    uint8_t dk[kyl];
 
-    p = json_object_get(jwe, "protected");
-    if (p) {
-        p = jose_b64_decode_json_load(p);
-        if (!p)
-            return NULL;
-    }
-
-    /* Load "epk" header parameter (required). */
-    if (json_unpack(p, "{s:o}", "epk", &epk) == -1 &&
-        json_unpack((json_t *) jwe, "{s:{s:o}}",
-                    "unprotected", "epk", &epk) == -1 &&
-        json_unpack((json_t *) rcp, "{s:{s:o}}", "header", "epk", &epk) == -1)
+    hd = jose_jwe_merge_header(jwe, rcp);
+    if (json_unpack(hd, "{s:o,s?s,s?s,s:s}", "epk", &epk, "apu", &apu,
+                    "apv", &apv, "enc", &enc) == -1)
         goto egress;
 
-    /* Load "apu" header parameter (optional). */
-    if (json_unpack(p, "{s?s}", "apu", &apu) == -1)
-        goto egress;
-    if (!apu && json_unpack((json_t *) jwe, "{s?{s?s}}",
-                            "unprotected", "apu", &apu) == -1)
-        goto egress;
-    if (!apu && json_unpack((json_t *) rcp, "{s?{s?s}}",
-                            "header", "apu", &apu) == -1)
-        goto egress;
-
-    /* Load "apv" header parameter (optional). */
-    if (json_unpack(p, "{s?s}", "apv", &apv) == -1)
-        goto egress;
-    if (!apv && json_unpack((json_t *) jwe, "{s?{s?s}}",
-                            "unprotected", "apv", &apv) == -1)
-        goto egress;
-    if (!apv && json_unpack((json_t *) rcp, "{s?{s?s}}",
-                            "header", "apv", &apv) == -1)
+    if (!aes && !enc)
         goto egress;
 
     lcl = jose_openssl_jwk_to_EVP_PKEY(jwk, JOSE_JWK_TYPE_EC);
@@ -388,7 +416,8 @@ unseal(const json_t *jwe, const json_t *rcp, const json_t *jwk,
     if (!ky)
         goto egress;
 
-    if (!concatkdf(EVP_sha256(), dk, sizeof(dk), ky, kyl, alg, strlen(alg),
+    if (!concatkdf(EVP_sha256(), dk, sizeof(dk), ky, kyl,
+                   aes ? alg : enc, strlen(aes ? alg : enc),
                    pu ? pu : (uint8_t *) "", pul,
                    pv ? pv : (uint8_t *) "", pvl, NULL))
         goto egress;
@@ -398,7 +427,10 @@ unseal(const json_t *jwe, const json_t *rcp, const json_t *jwk,
     if (!tmp)
         goto egress;
 
-    ret = aeskw_sealer.unseal(jwe, rcp, tmp, aes, cek);
+    if (aes)
+        ret = aeskw_sealer.unseal(jwe, rcp, tmp, aes, cek);
+    else
+        ret = json_object_update_missing(cek, tmp) == 0;
 
 egress:
     memset(dk, 0, sizeof(dk));
@@ -406,7 +438,7 @@ egress:
     EVP_PKEY_free(lcl);
     EVP_PKEY_free(rem);
     json_decref(tmp);
-    json_decref(p);
+    json_decref(hd);
     free(pu);
     free(pv);
     return ret;

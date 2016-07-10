@@ -219,7 +219,7 @@ jose_jwe_encrypt_json(json_t *jwe, const json_t *cek, json_t *pt)
 }
 
 bool
-jose_jwe_seal(json_t *jwe, const json_t *cek, const json_t *jwk, json_t *rcp)
+jose_jwe_seal(json_t *jwe, json_t *cek, const json_t *jwk, json_t *rcp)
 {
     const jose_jwe_sealer_t *sealer = NULL;
     const char *kalg = NULL;

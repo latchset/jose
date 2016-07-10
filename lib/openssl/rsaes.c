@@ -69,7 +69,7 @@ suggest(const json_t *jwk)
 
 static bool
 seal(const json_t *jwe, json_t *rcp, const json_t *jwk,
-     const char *alg, const json_t *cek)
+     const char *alg, json_t *cek)
 {
     EVP_PKEY_CTX *ctx = NULL;
     const EVP_MD *md = NULL;

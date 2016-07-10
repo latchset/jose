@@ -32,7 +32,7 @@ typedef struct jose_jwe_sealer {
 
     bool
     (*seal)(const json_t *jwe, json_t *rcp, const json_t *jwk,
-            const char *alg, const json_t *cek);
+            const char *alg, json_t *cek);
     bool
     (*unseal)(const json_t *jwe, const json_t *rcp, const json_t *jwk,
               const char *alg, json_t *cek);
@@ -85,7 +85,7 @@ jose_jwe_encrypt_json(json_t *jwe, const json_t *cek, json_t *pt);
 
 
 bool __attribute__((warn_unused_result))
-jose_jwe_seal(json_t *jwe, const json_t *cek, const json_t *jwk, json_t *rcp);
+jose_jwe_seal(json_t *jwe, json_t *cek, const json_t *jwk, json_t *rcp);
 
 json_t * __attribute__((warn_unused_result))
 jose_jwe_unseal(const json_t *jwe, const json_t *jwk);

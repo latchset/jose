@@ -80,7 +80,7 @@ suggest(const json_t *jwk)
 
 static bool
 seal(const json_t *jwe, json_t *rcp, const json_t *jwk,
-     const char *alg, const json_t *cek)
+     const char *alg, json_t *cek)
 {
     const EVP_CIPHER *cph = NULL;
     EVP_CIPHER_CTX *ctx = NULL;

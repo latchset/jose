@@ -298,7 +298,7 @@ error:
 
 static bool
 seal(const json_t *jwe, json_t *rcp, const json_t *jwk,
-     const char *alg, const json_t *cek)
+     const char *alg, json_t *cek)
 {
     uint8_t *pt = NULL;
     json_t *h = NULL;

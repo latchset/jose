@@ -55,7 +55,7 @@ jcmd_load_file(const char *filename, size_t *len)
     if (!file)
         return NULL;
 
-    buf = malloc(st.st_size);
+    buf = malloc(st.st_size + 1);
     if (!buf) {
         fclose(file);
         return NULL;
@@ -71,6 +71,7 @@ jcmd_load_file(const char *filename, size_t *len)
     fclose(file);
 
     *len = st.st_size;
+    buf[*len] = 0;
     return buf;
 }
 
@@ -90,7 +91,7 @@ jcmd_load(const char *file, const char *raw,
     else
         raw = buf = jcmd_load_stdin(&len);
 
-    out = json_loadb(raw, len, 0, NULL);
+    out = json_loadb(raw, len, JSON_DECODE_ANY, NULL);
     if (!out && conv)
         out = conv(raw);
 

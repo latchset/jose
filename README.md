@@ -37,7 +37,7 @@ José is extensively tested against the RFC test vectors.
 | A192KW             |    YES    |   Key Wrap     |    oct   |
 | A256KW             |    YES    |   Key Wrap     |    oct   |
 | dir                |    YES    |   Key Wrap     |    oct   |
-| ECDH-ES            |     NO    |   Key Wrap     |     EC   |
+| ECDH-ES            |    YES    |   Key Wrap     |     EC   |
 | ECDH-ES+A128KW     |    YES    |   Key Wrap     |     EC   |
 | ECDH-ES+A192KW     |    YES    |   Key Wrap     |     EC   |
 | ECDH-ES+A256KW     |    YES    |   Key Wrap     |     EC   |
