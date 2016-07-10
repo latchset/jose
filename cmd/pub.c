@@ -7,96 +7,91 @@
 #define PUB "\"x\": \"...\", \"y\": \"...\""
 #define END " }"
 
-struct options {
-    const char *in;
-    const char *out;
-    jose_jwk_type_t types;
+static const struct option opts[] = {
+    { "type",      required_argument, .val = 't' },
+    { "input",     required_argument, .val = 'i' },
+    { "output",    required_argument, .val = 'o' },
+    {}
 };
 
-static error_t
-parser(int key, char *arg, struct argp_state *state)
-{
-    static const struct {
-        const char *kty;
-        const char type;
-    } table[] = {
-        { "oct", JOSE_JWK_TYPE_OCT },
-        { "RSA", JOSE_JWK_TYPE_RSA },
-        { "EC", JOSE_JWK_TYPE_EC },
-        { "sym", JOSE_JWK_TYPE_SYM },
-        { "asym", JOSE_JWK_TYPE_ASYM },
-        { "all", JOSE_JWK_TYPE_ALL },
-        {}
-    };
-
-    struct options *opts = state->input;
-
-    switch (key) {
-    case 'i': opts->in = arg; return 0;
-    case 'o': opts->out = arg; return 0;
-
-    case 't':
-        for (size_t i = 0; table[i].kty; i++) {
-            if (strcmp(table[i].kty, arg) == 0)
-                opts->types |= table[i].type;
-        }
-
-    case ARGP_KEY_FINI:
-        if (opts->types == JOSE_JWK_TYPE_NONE)
-            opts->types = JOSE_JWK_TYPE_ALL;
-        return 0;
-
-    default: return ARGP_ERR_UNKNOWN;
-    }
-}
-
-static const struct argp argp = {
-    .options = (const struct argp_option[]) {
-        { "input", 'i', "filename", .doc = "JWK input file" },
-        { "output", 'o', "filename", .doc = "JWK output file" },
-        { "type", 't', "type", .doc = "JWK type to clean" },
-        {}
-    },
-    .parser = parser,
-    .args_doc = "[JWK]",
-    .doc = "\nCleans private keys from a JWK.\n"
-           "\vThis command simply takes a JWK as input and outputs a JWK:"
-           "\n"
-           "\n    $ jose pub -i ec.jwk"
-           "\n    " START PUB END
-           "\n"
-           "\n    $ cat ec.jwk | jose pub"
-           "\n    " START PUB END
-           "\n\n"
+static const struct {
+    const char *kty;
+    const char type;
+} type_table[] = {
+    { "oct", JOSE_JWK_TYPE_OCT },
+    { "RSA", JOSE_JWK_TYPE_RSA },
+    { "EC", JOSE_JWK_TYPE_EC },
+    { "sym", JOSE_JWK_TYPE_SYM },
+    { "asym", JOSE_JWK_TYPE_ASYM },
+    { "all", JOSE_JWK_TYPE_ALL },
+    {}
 };
 
 int
 jcmd_pub(int argc, char *argv[])
 {
-    struct options opts = {};
+    jose_jwk_type_t types = JOSE_JWK_TYPE_NONE;
+    int ret = EXIT_FAILURE;
+    const char *out = NULL;
+    const char *in = NULL;
     json_t *jwk = NULL;
 
-    if (argp_parse(&argp, argc, argv, 0, NULL, &opts) != 0)
-        return EXIT_FAILURE;
+    for (int c; (c = getopt_long(argc, argv, "i:o:t:", opts, NULL)) >= 0; ) {
+        switch (c) {
+        case 'i': in = optarg; break;
+        case 'o': out = optarg; break;
+        case 't':
+            for (size_t i = 0; type_table[i].kty; i++) {
+                if (strcmp(type_table[i].kty, optarg) == 0)
+                    types |= type_table[i].type;
+            }
+            break;
+        default: goto usage;
+        }
+    }
 
-    jwk = jcmd_load(opts.in, NULL, NULL);
+    if (types == JOSE_JWK_TYPE_NONE)
+        types = JOSE_JWK_TYPE_ALL;
+
+    jwk = jcmd_load(in, NULL, NULL);
     if (!jwk) {
         fprintf(stderr, "Invalid JWK!\n");
         return EXIT_FAILURE;
     }
 
-    if (!jose_jwk_clean(jwk, opts.types)) {
+    if (!jose_jwk_clean(jwk, types)) {
         fprintf(stderr, "Error removing public keys!\n");
-        json_decref(jwk);
-        return EXIT_FAILURE;
+        goto egress;
     }
 
-    if (!jcmd_dump(jwk, opts.out, NULL)) {
+    if (!jcmd_dump(jwk, out, NULL)) {
         fprintf(stderr, "Error dumping JWK!\n");
-        json_decref(jwk);
-        return EXIT_FAILURE;
+        goto egress;
     }
 
+    ret = EXIT_SUCCESS;
+
+egress:
     json_decref(jwk);
-    return EXIT_SUCCESS;
+    return ret;
+
+usage:
+    fprintf(stderr,
+    "Usage: %s [-i FILE] [-o FILE] [-t oct|EC|RSA|sym|asym|all ...]"
+    "\n"
+    "\nCleans private keys from a JWK."
+    "\n"
+    "\n    -i FILE, --input=FILE     JWK input file"
+    "\n    -o FILE, --output=FILE    JWK output file"
+    "\n    -t FILE, --type=TYPE      JWK type"
+    "\n"
+    "\nThis command simply takes a JWK as input and outputs a JWK:"
+    "\n"
+    "\n    $ jose pub -i ec.jwk"
+    "\n    " START PUB END
+    "\n"
+    "\n    $ cat ec.jwk | jose pub"
+    "\n    " START PUB END
+    "\n\n", argv[0]);
+    goto egress;
 }

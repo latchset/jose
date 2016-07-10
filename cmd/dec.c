@@ -4,84 +4,6 @@
 #include <unistd.h>
 #include <string.h>
 
-struct options {
-    const char *out;
-    const char *in;
-    json_t *jwks;
-    bool nonint;
-};
-
-static error_t
-parser(int key, char *arg, struct argp_state *state)
-{
-    struct options *opts = state->input;
-
-    switch (key) {
-    case 'i': opts->in = arg; return 0;
-    case 'o': opts->out = arg; return 0;
-    case 'n': opts->nonint = true; return 0;
-
-    case ARGP_KEY_ARG:
-        if (!opts->jwks)
-            opts->jwks = json_array();
-
-        if (json_array_append_new(opts->jwks,
-                                  jcmd_load(arg, arg, NULL)) == -1) {
-            fprintf(stderr, "Invalid JWK: %s!\n", arg);
-            return ARGP_ERR_UNKNOWN;
-        }
-
-    case ARGP_KEY_FINI:
-        if (json_array_size(opts->jwks) == 0 && opts->nonint) {
-            fprintf(stderr, "MUST specify a JWK in non-interactive mode!\n\n");
-            argp_usage(state);
-            return ARGP_ERR_UNKNOWN;
-        }
-
-        return 0;
-
-    default:
-        return ARGP_ERR_UNKNOWN;
-    }
-}
-
-static const struct argp argp = {
-    .options = (const struct argp_option[]) {
-        { "input", 'i', "filename", .doc = "JWE input file" },
-        { "output", 'o', "filename", .doc = "JWE output file" },
-        { "no-prompt", 'n', .doc = "Do not prompt for a password" },
-        {}
-    },
-    .parser = parser,
-    .args_doc = "JWK [JWK ...]",
-    .doc =
-  "\nDecrypts a JWE and outputs the plaintext.\n"
-  "\vHere are some examples. First, we encrypt a message with three keys:\n"
-  "\n    $ echo hi | jose enc -o /tmp/greeting.jws -p rsa.jwk oct.jwk"
-  "\n    Please enter a password:"
-  "\n    Please re-enter the previous password:"
-  "\n"
-  "\nWe can decrypt this message with any JWK using an input file or stdin:"
-  "\n"
-  "\n    $ jose dec -i /tmp/greeting.jws oct.jwk"
-  "\n    hi"
-  "\n"
-  "\n    $ cat /tmp/greeting.jws | jose dec rsa.jwk"
-  "\n    hi"
-  "\n"
-  "\nWe can also decrypt this message using the password:"
-  "\n"
-  "\n    $ jose dec -i /tmp/greeting.jws"
-  "\n    Please enter password:"
-  "\n    hi"
-  "\n"
-  "\nWhen we use a different key and suppress prompting, decryption fails:"
-  "\n"
-  "\n    $ jose dec -n -i /tmp/greeting.jws ec.jwk"
-  "\n    Decryption failed!"
-  "\n\n"
-};
-
 static bool
 header_has_pbes2(const json_t *jwe, const json_t *rcp)
 {
@@ -136,33 +58,64 @@ decrypt(const json_t *jwe, const json_t *cek, const char *to)
     return EXIT_SUCCESS;
 }
 
+static const struct option opts[] = {
+    { "input", required_argument, .val = 'i' },
+    { "output", required_argument, .val = 'o', },
+    { "no-prompt", no_argument, .val = 'n' },
+    {}
+};
+
 int
 jcmd_dec(int argc, char *argv[])
 {
-    struct options opts = {};
     int ret = EXIT_FAILURE;
+    const char *out = NULL;
+    const char *in = NULL;
+    json_t *jwks = NULL;
+    bool nonint = false;
     json_t *jwe = NULL;
 
-    if (argp_parse(&argp, argc, argv, 0, NULL, &opts) != 0)
-        return EXIT_FAILURE;
+    jwks = json_array();
 
-    jwe = jcmd_load(opts.in, NULL, jose_jwe_from_compact);
+    for (int c; (c = getopt_long(argc, argv, "i:o:n", opts, NULL)) >= 0; ) {
+        switch (c) {
+        case 'i': in = optarg; break;
+        case 'o': out = optarg; break;
+        case 'n': nonint = true; break;
+        default:  goto usage;
+        }
+    }
+
+    for (int i = optind; i < argc; i++) {
+        json_t *jwk = jcmd_load(argv[i], argv[i], NULL);
+        if (json_array_append_new(jwks, jwk) == -1) {
+            fprintf(stderr, "Invalid JWK: %s!\n", argv[i]);
+            goto usage;
+        }
+    }
+
+    if (json_array_size(jwks) == 0 && nonint) {
+        fprintf(stderr, "MUST specify a JWK in non-interactive mode!\n\n");
+        goto usage;
+    }
+
+    jwe = jcmd_load(in, NULL, jose_jwe_from_compact);
     if (!jwe)
         goto egress;
 
-    for (size_t i = 0; i < json_array_size(opts.jwks); i++) {
+    for (size_t i = 0; i < json_array_size(jwks); i++) {
         json_t *cek = NULL;
 
-        cek = jose_jwe_unseal(jwe, json_array_get(opts.jwks, i));
+        cek = jose_jwe_unseal(jwe, json_array_get(jwks, i));
         if (!cek)
             continue;
 
-        ret = decrypt(jwe, cek, opts.out);
+        ret = decrypt(jwe, cek, out);
         json_decref(cek);
         goto egress;
     }
 
-    if (jwe_has_pbes2(jwe) && !opts.nonint) {
+    if (jwe_has_pbes2(jwe) && !nonint) {
         const char *pwd = NULL;
 
         pwd = getpass("Please enter password: ");
@@ -173,7 +126,7 @@ jcmd_dec(int argc, char *argv[])
             cek = jose_jwe_unseal(jwe, jwk);
             json_decref(jwk);
             if (cek) {
-                ret = decrypt(jwe, cek, opts.out);
+                ret = decrypt(jwe, cek, out);
                 json_decref(cek);
                 goto egress;
             }
@@ -183,7 +136,44 @@ jcmd_dec(int argc, char *argv[])
     fprintf(stderr, "Decryption failed!\n");
 
 egress:
-    json_decref(opts.jwks);
+    json_decref(jwks);
     json_decref(jwe);
     return ret;
+
+usage:
+    fprintf(stderr,
+    "Usage: %s [-n] [-i FILE] [-o FILE] JWK [...]"
+    "\n"
+    "\nDecrypts a JWE and outputs the plaintext."
+    "\n"
+    "\n    -n,      --no-prompt      Do not prompt for password"
+    "\n    -i FILE, --input=FILE     JWE input file"
+    "\n    -o FILE, --output=FILE    JWE output file"
+    "\n"
+    "\nHere are some examples. First, we encrypt a message with three keys:"
+    "\n"
+    "\n    $ echo hi | jose enc -o /tmp/greeting.jws -p rsa.jwk oct.jwk"
+    "\n    Please enter a password:"
+    "\n    Please re-enter the previous password:"
+    "\n"
+    "\nWe can decrypt this message with any JWK using an input file or stdin:"
+    "\n"
+    "\n    $ jose dec -i /tmp/greeting.jws oct.jwk"
+    "\n    hi"
+    "\n"
+    "\n    $ cat /tmp/greeting.jws | jose dec rsa.jwk"
+    "\n    hi"
+    "\n"
+    "\nWe can also decrypt this message using the password:"
+    "\n"
+    "\n    $ jose dec -i /tmp/greeting.jws"
+    "\n    Please enter password:"
+    "\n    hi"
+    "\n"
+    "\nWhen we use a different key and suppress prompting, decryption fails:"
+    "\n"
+    "\n    $ jose dec -n -i /tmp/greeting.jws ec.jwk"
+    "\n    Decryption failed!"
+    "\n\n", argv[0]);
+    goto egress;
 }

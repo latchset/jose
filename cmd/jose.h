@@ -4,7 +4,7 @@
 #include <jose/jwk.h>
 #include <jose/jws.h>
 #include <jose/jwe.h>
-#include <argp.h>
+#include <getopt.h>
 
 void *
 jcmd_load_stdin(size_t *len);
