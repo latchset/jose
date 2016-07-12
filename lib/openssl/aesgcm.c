@@ -11,7 +11,7 @@
 #include <string.h>
 
 #define CRYPT_NAMES "A128GCM", "A192GCM", "A256GCM"
-#define SEAL_NAMES "A128GCMKW", "A192GCMKW", "A256GCMKW"
+#define WRAP_NAMES "A128GCMKW", "A192GCMKW", "A256GCMKW"
 
 static bool
 resolve(json_t *jwk)
@@ -28,7 +28,7 @@ resolve(json_t *jwk)
                     "kty", &kty, "alg", &alg, "bytes", &bytes) == -1)
         return false;
 
-    switch (str2enum(alg, CRYPT_NAMES, SEAL_NAMES, NULL)) {
+    switch (str2enum(alg, CRYPT_NAMES, WRAP_NAMES, NULL)) {
     case 0: len = 16; opa = "encrypt"; opb = "decrypt"; break;
     case 1: len = 24; opa = "encrypt"; opb = "decrypt"; break;
     case 2: len = 32; opa = "encrypt"; opb = "decrypt"; break;
@@ -84,7 +84,7 @@ suggest_crypt(const json_t *jwk)
 }
 
 static const char *
-suggest_seal(const json_t *jwk)
+suggest_wrap(const json_t *jwk)
 {
     const char *kty = NULL;
     const char *k = NULL;
@@ -297,7 +297,7 @@ error:
 }
 
 static bool
-seal(const json_t *jwe, json_t *rcp, const json_t *jwk,
+wrap(const json_t *jwe, json_t *rcp, const json_t *jwk,
      const char *alg, json_t *cek)
 {
     uint8_t *pt = NULL;
@@ -305,7 +305,7 @@ seal(const json_t *jwe, json_t *rcp, const json_t *jwk,
     bool ret = false;
     size_t ptl = 0;
 
-    switch (str2enum(alg, SEAL_NAMES, NULL)) {
+    switch (str2enum(alg, WRAP_NAMES, NULL)) {
     case 0: alg = "A128GCM"; break;
     case 1: alg = "A192GCM"; break;
     case 2: alg = "A256GCM"; break;
@@ -332,7 +332,7 @@ egress:
 }
 
 static bool
-unseal(const json_t *jwe, const json_t *rcp, const json_t *jwk,
+unwrap(const json_t *jwe, const json_t *rcp, const json_t *jwk,
        const char *alg, json_t *cek)
 {
     uint8_t *pt = NULL;
@@ -344,7 +344,7 @@ unseal(const json_t *jwe, const json_t *rcp, const json_t *jwk,
     bool ret = false;
     size_t ptl = 0;
 
-    switch (str2enum(alg, SEAL_NAMES, NULL)) {
+    switch (str2enum(alg, WRAP_NAMES, NULL)) {
     case 0: alg = "A128GCM"; break;
     case 1: alg = "A192GCM"; break;
     case 2: alg = "A256GCM"; break;
@@ -396,7 +396,7 @@ constructor(void)
 {
     static const char *encs[] = { CRYPT_NAMES, NULL };
 
-    static const char *algs[] = { SEAL_NAMES, NULL };
+    static const char *algs[] = { WRAP_NAMES, NULL };
 
     static jose_jwk_resolver_t resolver = {
         .resolve = resolve
@@ -409,14 +409,14 @@ constructor(void)
         .decrypt = decrypt,
     };
 
-    static jose_jwe_sealer_t sealer = {
+    static jose_jwe_wrapper_t wrapper = {
         .algs = algs,
-        .suggest = suggest_seal,
-        .seal = seal,
-        .unseal = unseal,
+        .suggest = suggest_wrap,
+        .wrap = wrap,
+        .unwrap = unwrap,
     };
 
     jose_jwk_register_resolver(&resolver);
     jose_jwe_register_crypter(&crypter);
-    jose_jwe_register_sealer(&sealer);
+    jose_jwe_register_wrapper(&wrapper);
 }

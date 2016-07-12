@@ -68,7 +68,7 @@ suggest(const json_t *jwk)
 }
 
 static bool
-seal(const json_t *jwe, json_t *rcp, const json_t *jwk,
+wrap(const json_t *jwe, json_t *rcp, const json_t *jwk,
      const char *alg, json_t *cek)
 {
     EVP_PKEY_CTX *ctx = NULL;
@@ -140,7 +140,7 @@ egress:
 }
 
 static bool
-unseal(const json_t *jwe, const json_t *rcp, const json_t *jwk,
+unwrap(const json_t *jwe, const json_t *rcp, const json_t *jwk,
        const char *alg, json_t *cek)
 {
     EVP_PKEY_CTX *ctx = NULL;
@@ -213,13 +213,13 @@ constructor(void)
         .resolve = resolve
     };
 
-    static jose_jwe_sealer_t sealer = {
+    static jose_jwe_wrapper_t wrapper = {
         .algs = algs,
         .suggest = suggest,
-        .seal = seal,
-        .unseal = unseal,
+        .wrap = wrap,
+        .unwrap = unwrap,
     };
 
     jose_jwk_register_resolver(&resolver);
-    jose_jwe_register_sealer(&sealer);
+    jose_jwe_register_wrapper(&wrapper);
 }

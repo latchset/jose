@@ -10,7 +10,7 @@
 
 #define NAMES "PBES2-HS256+A128KW", "PBES2-HS384+A192KW", "PBES2-HS512+A256KW"
 
-extern jose_jwe_sealer_t aeskw_sealer;
+extern jose_jwe_wrapper_t aeskw_wrapper;
 
 static const char *
 suggest(const json_t *jwk)
@@ -65,7 +65,7 @@ egress:
 }
 
 static bool
-seal(const json_t *jwe, json_t *rcp, const json_t *jwk,
+wrap(const json_t *jwe, json_t *rcp, const json_t *jwk,
      const char *alg, json_t *cek)
 {
     const char *aes = NULL;
@@ -116,7 +116,7 @@ seal(const json_t *jwe, json_t *rcp, const json_t *jwk,
 
     key = pbkdf2(jwk, alg, iter, st, stl);
     if (key)
-        ret = aeskw_sealer.seal(jwe, rcp, key, aes, cek);
+        ret = aeskw_wrapper.wrap(jwe, rcp, key, aes, cek);
     json_decref(key);
 
 egress:
@@ -125,7 +125,7 @@ egress:
 }
 
 static bool
-unseal(const json_t *jwe, const json_t *rcp, const json_t *jwk,
+unwrap(const json_t *jwe, const json_t *rcp, const json_t *jwk,
        const char *alg, json_t *cek)
 {
     const char *aes = NULL;
@@ -157,7 +157,7 @@ unseal(const json_t *jwe, const json_t *rcp, const json_t *jwk,
 
     key = pbkdf2(jwk, alg, p2c, st, stl);
     if (key)
-        ret = aeskw_sealer.unseal(jwe, rcp, key, aes, cek);
+        ret = aeskw_wrapper.unwrap(jwe, rcp, key, aes, cek);
     json_decref(key);
 
 egress:
@@ -171,12 +171,12 @@ constructor(void)
 {
     static const char *algs[] = { NAMES, NULL };
 
-    static jose_jwe_sealer_t sealer = {
+    static jose_jwe_wrapper_t wrapper = {
         .algs = algs,
         .suggest = suggest,
-        .seal = seal,
-        .unseal = unseal,
+        .wrap = wrap,
+        .unwrap = unwrap,
     };
 
-    jose_jwe_register_sealer(&sealer);
+    jose_jwe_register_wrapper(&wrapper);
 }

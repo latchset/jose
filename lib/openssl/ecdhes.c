@@ -13,7 +13,7 @@
 
 #define NAMES "ECDH-ES", "ECDH-ES+A128KW", "ECDH-ES+A192KW", "ECDH-ES+A256KW"
 
-extern jose_jwe_sealer_t aeskw_sealer;
+extern jose_jwe_wrapper_t aeskw_wrapper;
 
 static bool
 concatkdf(const EVP_MD *md, uint8_t dk[], size_t dkl,
@@ -231,7 +231,7 @@ suggest(const json_t *jwk)
 }
 
 static bool
-seal(const json_t *jwe, json_t *rcp, const json_t *jwk,
+wrap(const json_t *jwe, json_t *rcp, const json_t *jwk,
      const char *alg, json_t *cek)
 {
     const char *apu = NULL;
@@ -318,7 +318,7 @@ seal(const json_t *jwe, json_t *rcp, const json_t *jwk,
         goto egress;
 
     if (aes)
-        ret = aeskw_sealer.seal(jwe, rcp, tmp, aes, cek);
+        ret = aeskw_wrapper.wrap(jwe, rcp, tmp, aes, cek);
     else
         ret = json_object_update(cek, tmp) == 0;
 
@@ -367,7 +367,7 @@ egress:
 }
 
 static bool
-unseal(const json_t *jwe, const json_t *rcp, const json_t *jwk,
+unwrap(const json_t *jwe, const json_t *rcp, const json_t *jwk,
        const char *alg, json_t *cek)
 {
     const char *apu = NULL;
@@ -430,7 +430,7 @@ unseal(const json_t *jwe, const json_t *rcp, const json_t *jwk,
         goto egress;
 
     if (aes)
-        ret = aeskw_sealer.unseal(jwe, rcp, tmp, aes, cek);
+        ret = aeskw_wrapper.unwrap(jwe, rcp, tmp, aes, cek);
     else
         ret = json_object_update_missing(cek, tmp) == 0;
 
@@ -455,13 +455,13 @@ constructor(void)
         .resolve = resolve
     };
 
-    static jose_jwe_sealer_t sealer = {
+    static jose_jwe_wrapper_t wrapper = {
         .algs = algs,
         .suggest = suggest,
-        .seal = seal,
-        .unseal = unseal,
+        .wrap = wrap,
+        .unwrap = unwrap,
     };
 
     jose_jwk_register_resolver(&resolver);
-    jose_jwe_register_sealer(&sealer);
+    jose_jwe_register_wrapper(&wrapper);
 }

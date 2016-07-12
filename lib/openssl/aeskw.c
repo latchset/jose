@@ -79,7 +79,7 @@ suggest(const json_t *jwk)
 }
 
 static bool
-seal(const json_t *jwe, json_t *rcp, const json_t *jwk,
+wrap(const json_t *jwe, json_t *rcp, const json_t *jwk,
      const char *alg, json_t *cek)
 {
     const EVP_CIPHER *cph = NULL;
@@ -147,7 +147,7 @@ egress:
 }
 
 static bool
-unseal(const json_t *jwe, const json_t *rcp, const json_t *jwk,
+unwrap(const json_t *jwe, const json_t *rcp, const json_t *jwk,
        const char *alg, json_t *cek)
 {
     const EVP_CIPHER *cph = NULL;
@@ -214,11 +214,11 @@ egress:
 }
 
 /* This is purposefully not static so that it can be reused for ECDH-ES. */
-jose_jwe_sealer_t aeskw_sealer = {
+jose_jwe_wrapper_t aeskw_wrapper = {
     .algs = (const char *[]) { NAMES, NULL },
     .suggest = suggest,
-    .seal = seal,
-    .unseal = unseal,
+    .wrap = wrap,
+    .unwrap = unwrap,
 };
 
 static void __attribute__((constructor))
@@ -229,5 +229,5 @@ constructor(void)
     };
 
     jose_jwk_register_resolver(&resolver);
-    jose_jwe_register_sealer(&aeskw_sealer);
+    jose_jwe_register_wrapper(&aeskw_wrapper);
 }

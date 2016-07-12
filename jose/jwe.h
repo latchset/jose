@@ -23,20 +23,20 @@ typedef struct jose_jwe_crypter {
                const char *prot, const char *aad, size_t *ptl);
 } jose_jwe_crypter_t;
 
-typedef struct jose_jwe_sealer {
-    struct jose_jwe_sealer *next;
+typedef struct jose_jwe_wrapper {
+    struct jose_jwe_wrapper *next;
     const char **algs;
 
     const char *
     (*suggest)(const json_t *jwk);
 
     bool
-    (*seal)(const json_t *jwe, json_t *rcp, const json_t *jwk,
+    (*wrap)(const json_t *jwe, json_t *rcp, const json_t *jwk,
             const char *alg, json_t *cek);
     bool
-    (*unseal)(const json_t *jwe, const json_t *rcp, const json_t *jwk,
+    (*unwrap)(const json_t *jwe, const json_t *rcp, const json_t *jwk,
               const char *alg, json_t *cek);
-} jose_jwe_sealer_t;
+} jose_jwe_wrapper_t;
 
 typedef struct jose_jwe_zipper {
     struct jose_jwe_zipper *next;
@@ -53,7 +53,7 @@ void
 jose_jwe_register_crypter(jose_jwe_crypter_t *crypter);
 
 void
-jose_jwe_register_sealer(jose_jwe_sealer_t *sealer);
+jose_jwe_register_wrapper(jose_jwe_wrapper_t *wrapper);
 
 void
 jose_jwe_register_zipper(jose_jwe_zipper_t *zipper);
@@ -85,10 +85,10 @@ jose_jwe_encrypt_json(json_t *jwe, const json_t *cek, json_t *pt);
 
 
 bool __attribute__((warn_unused_result))
-jose_jwe_seal(json_t *jwe, json_t *cek, const json_t *jwk, json_t *rcp);
+jose_jwe_wrap(json_t *jwe, json_t *cek, const json_t *jwk, json_t *rcp);
 
 json_t * __attribute__((warn_unused_result))
-jose_jwe_unseal(const json_t *jwe, const json_t *jwk);
+jose_jwe_unwrap(const json_t *jwe, const json_t *jwk);
 
 
 uint8_t * __attribute__((warn_unused_result))

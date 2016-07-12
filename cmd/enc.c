@@ -154,9 +154,9 @@ jcmd_enc(int argc, char *argv[])
     }
 
     for (size_t i = 0; i < json_array_size(jwks); i++) {
-        if (!jose_jwe_seal(tmpl, cek, json_array_get(jwks, i),
+        if (!jose_jwe_wrap(tmpl, cek, json_array_get(jwks, i),
                            json_incref(json_array_get(rcps, i)))) {
-            fprintf(stderr, "Error creating seal!\n");
+            fprintf(stderr, "Wrapping failed!\n");
             goto egress;
         }
     }

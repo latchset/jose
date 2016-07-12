@@ -10,7 +10,7 @@
 #include <string.h>
 
 static jose_jwe_crypter_t *crypters;
-static jose_jwe_sealer_t *sealers;
+static jose_jwe_wrapper_t *wrappers;
 static jose_jwe_zipper_t *zippers;
 
 static const jose_jwe_crypter_t *
@@ -26,10 +26,10 @@ find_crypter(const char *enc)
     return NULL;
 }
 
-static const jose_jwe_sealer_t *
-find_sealer(const char *alg)
+static const jose_jwe_wrapper_t *
+find_wrapper(const char *alg)
 {
-    for (const jose_jwe_sealer_t *s = sealers; s && alg; s = s->next) {
+    for (const jose_jwe_wrapper_t *s = wrappers; s && alg; s = s->next) {
         for (size_t i = 0; s->algs[i]; i++) {
             if (strcmp(alg, s->algs[i]) == 0)
                 return s;
@@ -58,10 +58,10 @@ jose_jwe_register_crypter(jose_jwe_crypter_t *crypter)
 }
 
 void
-jose_jwe_register_sealer(jose_jwe_sealer_t *sealer)
+jose_jwe_register_wrapper(jose_jwe_wrapper_t *wrapper)
 {
-    sealer->next = sealers;
-    sealers = sealer;
+    wrapper->next = wrappers;
+    wrappers = wrapper;
 }
 
 void
@@ -219,9 +219,9 @@ jose_jwe_encrypt_json(json_t *jwe, const json_t *cek, json_t *pt)
 }
 
 bool
-jose_jwe_seal(json_t *jwe, json_t *cek, const json_t *jwk, json_t *rcp)
+jose_jwe_wrap(json_t *jwe, json_t *cek, const json_t *jwk, json_t *rcp)
 {
-    const jose_jwe_sealer_t *sealer = NULL;
+    const jose_jwe_wrapper_t *wrapper = NULL;
     const char *kalg = NULL;
     const char *halg = NULL;
     json_t *jh = NULL;
@@ -258,7 +258,7 @@ jose_jwe_seal(json_t *jwe, json_t *cek, const json_t *jwk, json_t *rcp)
         json_t *h = NULL;
 
         halg = kalg;
-        for (const jose_jwe_sealer_t *s = sealers; s && !halg; s = s->next)
+        for (const jose_jwe_wrapper_t *s = wrappers; s && !halg; s = s->next)
             halg = s->suggest(jwk);
 
         if (!halg)
@@ -275,11 +275,11 @@ jose_jwe_seal(json_t *jwe, json_t *cek, const json_t *jwk, json_t *rcp)
     if (halg && kalg && strcmp(halg, kalg) != 0)
         goto egress;
 
-    sealer = find_sealer(halg);
-    if (!sealer)
+    wrapper = find_wrapper(halg);
+    if (!wrapper)
         goto egress;
 
-    if (!sealer->seal(jwe, rcp, jwk, halg, cek))
+    if (!wrapper->wrap(jwe, rcp, jwk, halg, cek))
         goto egress;
 
     ret = add_entity(jwe, rcp, "recipients", "header", "encrypted_key", NULL);
@@ -291,9 +291,9 @@ egress:
 }
 
 static json_t *
-unseal_rcp(const json_t *jwe, const json_t *rcp, const json_t *jwk)
+unwrap_rcp(const json_t *jwe, const json_t *rcp, const json_t *jwk)
 {
-    const jose_jwe_sealer_t *sealer = NULL;
+    const jose_jwe_wrapper_t *wrapper = NULL;
     const char *halg = NULL;
     const char *kalg = NULL;
     json_t *cek = NULL;
@@ -318,8 +318,8 @@ unseal_rcp(const json_t *jwe, const json_t *rcp, const json_t *jwk)
     if (halg && kalg && strcmp(halg, kalg) != 0)
         goto egress;
 
-    sealer = find_sealer(halg);
-    if (!sealer)
+    wrapper = find_wrapper(halg);
+    if (!wrapper)
         goto egress;
 
     cek = json_pack("{s:s,s:s,s:O,s:[ss]}",
@@ -329,7 +329,7 @@ unseal_rcp(const json_t *jwe, const json_t *rcp, const json_t *jwk)
     if (!cek)
         goto egress;
 
-    if (!sealer->unseal(jwe, rcp, jwk, halg, cek)) {
+    if (!wrapper->unwrap(jwe, rcp, jwk, halg, cek)) {
         json_decref(jh);
         json_decref(cek);
         return NULL;
@@ -341,7 +341,7 @@ egress:
 }
 
 json_t *
-jose_jwe_unseal(const json_t *jwe, const json_t *jwk)
+jose_jwe_unwrap(const json_t *jwe, const json_t *jwk)
 {
     const json_t *rcps = NULL;
     json_t *cek = NULL;
@@ -350,10 +350,10 @@ jose_jwe_unseal(const json_t *jwe, const json_t *jwk)
     if (json_is_array(rcps)) {
         for (size_t i = 0; i < json_array_size(rcps) && !cek; i++) {
             const json_t *rcp = json_array_get(rcps, i);
-            cek = unseal_rcp(jwe, rcp, jwk);
+            cek = unwrap_rcp(jwe, rcp, jwk);
         }
     } else if (!rcps) {
-        cek = unseal_rcp(jwe, jwe, jwk);
+        cek = unwrap_rcp(jwe, jwe, jwk);
     }
 
     return cek;
