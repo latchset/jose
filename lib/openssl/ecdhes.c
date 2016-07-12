@@ -231,8 +231,8 @@ suggest(const json_t *jwk)
 }
 
 static bool
-wrap(const json_t *jwe, json_t *rcp, const json_t *jwk,
-     const char *alg, json_t *cek)
+wrap(json_t *jwe, json_t *cek, const json_t *jwk, json_t *rcp,
+     const char *alg)
 {
     const char *apu = NULL;
     const char *apv = NULL;
@@ -318,7 +318,7 @@ wrap(const json_t *jwe, json_t *rcp, const json_t *jwk,
         goto egress;
 
     if (aes)
-        ret = aeskw_wrapper.wrap(jwe, rcp, tmp, aes, cek);
+        ret = aeskw_wrapper.wrap(jwe, cek, tmp, rcp, aes);
     else
         ret = json_object_update(cek, tmp) == 0;
 
@@ -367,7 +367,7 @@ egress:
 }
 
 static bool
-unwrap(const json_t *jwe, const json_t *rcp, const json_t *jwk,
+unwrap(const json_t *jwe, const json_t *jwk, const json_t *rcp,
        const char *alg, json_t *cek)
 {
     const char *apu = NULL;
@@ -430,7 +430,7 @@ unwrap(const json_t *jwe, const json_t *rcp, const json_t *jwk,
         goto egress;
 
     if (aes)
-        ret = aeskw_wrapper.unwrap(jwe, rcp, tmp, aes, cek);
+        ret = aeskw_wrapper.unwrap(jwe, tmp, rcp, aes, cek);
     else
         ret = json_object_update_missing(cek, tmp) == 0;
 

@@ -65,8 +65,8 @@ egress:
 }
 
 static bool
-wrap(const json_t *jwe, json_t *rcp, const json_t *jwk,
-     const char *alg, json_t *cek)
+wrap(json_t *jwe, json_t *cek, const json_t *jwk, json_t *rcp,
+     const char *alg)
 {
     const char *aes = NULL;
     json_t *p2c = NULL;
@@ -116,7 +116,7 @@ wrap(const json_t *jwe, json_t *rcp, const json_t *jwk,
 
     key = pbkdf2(jwk, alg, iter, st, stl);
     if (key)
-        ret = aeskw_wrapper.wrap(jwe, rcp, key, aes, cek);
+        ret = aeskw_wrapper.wrap(jwe, cek, key, rcp, aes);
     json_decref(key);
 
 egress:
@@ -125,7 +125,7 @@ egress:
 }
 
 static bool
-unwrap(const json_t *jwe, const json_t *rcp, const json_t *jwk,
+unwrap(const json_t *jwe, const json_t *jwk, const json_t *rcp,
        const char *alg, json_t *cek)
 {
     const char *aes = NULL;
@@ -157,7 +157,7 @@ unwrap(const json_t *jwe, const json_t *rcp, const json_t *jwk,
 
     key = pbkdf2(jwk, alg, p2c, st, stl);
     if (key)
-        ret = aeskw_wrapper.unwrap(jwe, rcp, key, aes, cek);
+        ret = aeskw_wrapper.unwrap(jwe, key, rcp, aes, cek);
     json_decref(key);
 
 egress:

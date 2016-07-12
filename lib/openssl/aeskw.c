@@ -79,8 +79,8 @@ suggest(const json_t *jwk)
 }
 
 static bool
-wrap(const json_t *jwe, json_t *rcp, const json_t *jwk,
-     const char *alg, json_t *cek)
+wrap(json_t *jwe, json_t *cek, const json_t *jwk, json_t *rcp,
+     const char *alg)
 {
     const EVP_CIPHER *cph = NULL;
     EVP_CIPHER_CTX *ctx = NULL;
@@ -147,7 +147,7 @@ egress:
 }
 
 static bool
-unwrap(const json_t *jwe, const json_t *rcp, const json_t *jwk,
+unwrap(const json_t *jwe, const json_t *jwk, const json_t *rcp,
        const char *alg, json_t *cek)
 {
     const EVP_CIPHER *cph = NULL;

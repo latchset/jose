@@ -104,9 +104,8 @@ suggest_wrap(const json_t *jwk)
 }
 
 static bool
-do_encrypt(const json_t *cek, const char *enc,
-           const char *prot, const char *aad,
-           const uint8_t pt[], size_t ptl,
+do_encrypt(const json_t *cek, const uint8_t pt[], size_t ptl,
+           const char *enc, const char *prot, const char *aad,
            json_t *ivtgobj, json_t *ctobj, const char *ctn)
 {
     const EVP_CIPHER *cph = NULL;
@@ -203,11 +202,10 @@ egress:
 }
 
 static bool
-encrypt(json_t *jwe, const json_t *cek, const char *enc,
-        const char *prot, const char *aad,
-        const uint8_t pt[], size_t ptl)
+encrypt(json_t *jwe, const json_t *cek, const uint8_t pt[], size_t ptl,
+        const char *enc, const char *prot, const char *aad)
 {
-    return do_encrypt(cek, enc, prot, aad, pt, ptl, jwe, jwe, "ciphertext");
+    return do_encrypt(cek, pt, ptl, enc, prot, aad, jwe, jwe, "ciphertext");
 }
 
 static uint8_t *
@@ -297,8 +295,8 @@ error:
 }
 
 static bool
-wrap(const json_t *jwe, json_t *rcp, const json_t *jwk,
-     const char *alg, json_t *cek)
+wrap(json_t *jwe, json_t *cek, const json_t *jwk, json_t *rcp,
+     const char *alg)
 {
     uint8_t *pt = NULL;
     json_t *h = NULL;
@@ -324,7 +322,7 @@ wrap(const json_t *jwe, json_t *rcp, const json_t *jwk,
     if (!json_is_object(h))
         goto egress;
 
-    ret = do_encrypt(jwk, alg, "", NULL, pt, ptl, h, rcp, "encrypted_key");
+    ret = do_encrypt(jwk, pt, ptl, alg, "", NULL, h, rcp, "encrypted_key");
 
 egress:
     clear_free(pt, ptl);
@@ -332,7 +330,7 @@ egress:
 }
 
 static bool
-unwrap(const json_t *jwe, const json_t *rcp, const json_t *jwk,
+unwrap(const json_t *jwe, const json_t *jwk, const json_t *rcp,
        const char *alg, json_t *cek)
 {
     uint8_t *pt = NULL;

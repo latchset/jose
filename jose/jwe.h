@@ -14,9 +14,8 @@ typedef struct jose_jwe_crypter {
     (*suggest)(const json_t *jwk);
 
     bool
-    (*encrypt)(json_t *jwe, const json_t *cek, const char *enc,
-               const char *prot, const char *aad,
-               const uint8_t pt[], size_t ptl);
+    (*encrypt)(json_t *jwe, const json_t *cek, const uint8_t pt[], size_t ptl,
+               const char *enc, const char *prot, const char *aad);
 
     uint8_t *
     (*decrypt)(const json_t *jwe, const json_t *cek, const char *enc,
@@ -31,10 +30,10 @@ typedef struct jose_jwe_wrapper {
     (*suggest)(const json_t *jwk);
 
     bool
-    (*wrap)(const json_t *jwe, json_t *rcp, const json_t *jwk,
-            const char *alg, json_t *cek);
+    (*wrap)(json_t *jwe, json_t *cek, const json_t *jwk, json_t *rcp,
+            const char *alg);
     bool
-    (*unwrap)(const json_t *jwe, const json_t *rcp, const json_t *jwk,
+    (*unwrap)(const json_t *jwe, const json_t *jwk, const json_t *rcp,
               const char *alg, json_t *cek);
 } jose_jwe_wrapper_t;
 

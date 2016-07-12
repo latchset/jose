@@ -192,7 +192,7 @@ jose_jwe_encrypt(json_t *jwe, const json_t *cek,
     if (!prot)
         goto egress;
 
-    ret = crypter->encrypt(jwe, cek, penc ? penc : senc, prot, aad, pt, ptl);
+    ret = crypter->encrypt(jwe, cek, pt, ptl, penc ? penc : senc, prot, aad);
 
 egress:
     if (zpt)
@@ -279,7 +279,7 @@ jose_jwe_wrap(json_t *jwe, json_t *cek, const json_t *jwk, json_t *rcp)
     if (!wrapper)
         goto egress;
 
-    if (!wrapper->wrap(jwe, rcp, jwk, halg, cek))
+    if (!wrapper->wrap(jwe, cek, jwk, rcp, halg))
         goto egress;
 
     ret = add_entity(jwe, rcp, "recipients", "header", "encrypted_key", NULL);
@@ -329,7 +329,7 @@ unwrap_rcp(const json_t *jwe, const json_t *rcp, const json_t *jwk)
     if (!cek)
         goto egress;
 
-    if (!wrapper->unwrap(jwe, rcp, jwk, halg, cek)) {
+    if (!wrapper->unwrap(jwe, jwk, rcp, halg, cek)) {
         json_decref(jh);
         json_decref(cek);
         return NULL;

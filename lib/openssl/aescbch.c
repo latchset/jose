@@ -134,9 +134,8 @@ suggest(const json_t *jwk)
 }
 
 static bool
-encrypt(json_t *jwe, const json_t *cek, const char *enc,
-        const char *prot, const char *aad,
-        const uint8_t pt[], size_t ptl)
+encrypt(json_t *jwe, const json_t *cek, const uint8_t pt[], size_t ptl,
+        const char *enc, const char *prot, const char *aad)
 {
     const EVP_CIPHER *cph = NULL;
     EVP_CIPHER_CTX *ctx = NULL;
