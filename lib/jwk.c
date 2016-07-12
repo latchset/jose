@@ -24,31 +24,6 @@ jose_jwk_register_generator(jose_jwk_generator_t *generator)
     generators = generator;
 }
 
-jose_jwk_type_t
-jose_jwk_type(const json_t *jwk)
-{
-    static const struct {
-        const char *kty;
-        jose_jwk_type_t type;
-    } table[] = {
-        { "oct", JOSE_JWK_TYPE_OCT },
-        { "RSA", JOSE_JWK_TYPE_RSA },
-        { "EC", JOSE_JWK_TYPE_EC },
-        {}
-    };
-
-    const char *kty = NULL;
-
-    if (json_unpack((json_t *) jwk, "{s:s}", "kty", &kty) == -1)
-        return JOSE_JWK_TYPE_NONE;
-
-    for (size_t i = 0; table[i].kty; i++)
-        if (strcmp(table[i].kty, kty) == 0)
-            return table[i].type;
-
-    return JOSE_JWK_TYPE_NONE;
-}
-
 bool
 jose_jwk_generate(json_t *jwk)
 {
@@ -71,37 +46,15 @@ jose_jwk_generate(json_t *jwk)
 }
 
 static bool
-jwk_clean(json_t *jwk, jose_jwk_type_t types)
+jwk_clean(json_t *jwk)
 {
-    static const struct {
-        jose_jwk_type_t type;
-        const char *key;
-    } table[] = {
-        { JOSE_JWK_TYPE_OCT, "k" },
+    const char *prv[] = { "k", "p", "d", "q", "dp", "dq", "qi", "oth", NULL };
 
-        { JOSE_JWK_TYPE_RSA, "p" },
-        { JOSE_JWK_TYPE_RSA, "d" },
-        { JOSE_JWK_TYPE_RSA, "q" },
-        { JOSE_JWK_TYPE_RSA, "dp" },
-        { JOSE_JWK_TYPE_RSA, "dq" },
-        { JOSE_JWK_TYPE_RSA, "qi" },
-        { JOSE_JWK_TYPE_RSA, "oth" },
-
-        { JOSE_JWK_TYPE_EC, "d" },
-
-        {}
-    };
-
-    const jose_jwk_type_t type = jose_jwk_type(jwk);
-
-    for (size_t i = 0; table[i].key; i++) {
-        if ((table[i].type & types & type) == 0)
+    for (size_t i = 0; prv[i]; i++) {
+        if (!json_object_get(jwk, prv[i]))
             continue;
 
-        if (!json_object_get(jwk, table[i].key))
-            continue;
-
-        if (json_object_del(jwk, table[i].key) == -1)
+        if (json_object_del(jwk, prv[i]) == -1)
             return false;
     }
 
@@ -109,7 +62,7 @@ jwk_clean(json_t *jwk, jose_jwk_type_t types)
 }
 
 bool
-jose_jwk_clean(json_t *jwk, jose_jwk_type_t types)
+jose_jwk_clean(json_t *jwk)
 {
     json_t *keys = NULL;
 
@@ -119,10 +72,10 @@ jose_jwk_clean(json_t *jwk, jose_jwk_type_t types)
         keys = json_object_get(jwk, "keys");
 
     if (!keys)
-        return jwk_clean(jwk, types);
+        return jwk_clean(jwk);
 
     for (size_t i = 0; i < json_array_size(keys); i++) {
-        if (!jwk_clean(json_array_get(keys, i), types))
+        if (!jwk_clean(json_array_get(keys, i)))
             return false;
     }
 

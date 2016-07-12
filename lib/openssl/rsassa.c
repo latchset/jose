@@ -100,8 +100,8 @@ sign(json_t *sig, const json_t *jwk,
     default: return false;
     }
 
-    key = jose_openssl_jwk_to_EVP_PKEY(jwk, JOSE_JWK_TYPE_RSA);
-    if (!key)
+    key = jose_openssl_jwk_to_EVP_PKEY(jwk);
+    if (!key || EVP_PKEY_base_id(key) != EVP_PKEY_RSA)
         goto egress;
 
     /* Don't use small keys. RFC 7518 3.3 */
@@ -160,14 +160,6 @@ verify(const json_t *sig, const json_t *jwk,
     size_t sgl = 0;
     int pad = 0;
 
-    key = jose_openssl_jwk_to_EVP_PKEY(jwk, JOSE_JWK_TYPE_RSA);
-    if (!key)
-        return false;
-
-    /* Don't use small keys. RFC 7518 3.3 */
-    if (RSA_size(key->pkey.rsa) < 2048 / 8)
-        return false;
-
     switch (str2enum(alg, NAMES, NULL)) {
     case 0: md = EVP_sha256(); pad = RSA_PKCS1_PADDING; break;
     case 1: md = EVP_sha384(); pad = RSA_PKCS1_PADDING; break;
@@ -177,6 +169,14 @@ verify(const json_t *sig, const json_t *jwk,
     case 5: md = EVP_sha512(); pad = RSA_PKCS1_PSS_PADDING; break;
     default: return false;
     }
+
+    key = jose_openssl_jwk_to_EVP_PKEY(jwk);
+    if (!key || EVP_PKEY_base_id(key) != EVP_PKEY_RSA)
+        goto egress;
+
+    /* Don't use small keys. RFC 7518 3.3 */
+    if (RSA_size(key->pkey.rsa) < 2048 / 8)
+        goto egress;
 
     sg = jose_b64_decode_buf_json(json_object_get(sig, "signature"), &sgl);
     if (!sg)

@@ -9,8 +9,8 @@
 #include <string.h>
 #include <unistd.h>
 
-void *
-jcmd_load_stdin(size_t *len)
+static void *
+load_stdin(size_t *len)
 {
     uint8_t *buf = NULL;
 
@@ -22,7 +22,7 @@ jcmd_load_stdin(size_t *len)
     for (size_t r = 512; r == 512; ) {
         uint8_t *tmp = NULL;
 
-        tmp = realloc(buf, *len + 512);
+        tmp = realloc(buf, *len + 512 + 1);
         if (!tmp) {
             if (buf)
                 memset(buf, 0, *len);
@@ -33,13 +33,14 @@ jcmd_load_stdin(size_t *len)
         buf = tmp;
         r = fread(&buf[*len], 1, 512, stdin);
         *len += r;
+        buf[*len] = 0;
     }
 
     return buf;
 }
 
-void *
-jcmd_load_file(const char *filename, size_t *len)
+static void *
+load_file(const char *filename, size_t *len)
 {
     struct stat st = {};
     uint8_t *buf = NULL;
@@ -75,21 +76,33 @@ jcmd_load_file(const char *filename, size_t *len)
     return buf;
 }
 
+void *
+jcmd_load_data(const char *file, size_t *len)
+{
+    if (!file)
+        return NULL;
+
+    if (strcmp(file, "-") == 0)
+        return load_stdin(len);
+
+    return load_file(file, len);
+}
+
 json_t *
-jcmd_load(const char *file, const char *raw,
-          json_t *(*conv)(const char *))
+jcmd_load_json(const char *file, const char *raw,
+               json_t *(*conv)(const char *))
 {
     json_t *out = NULL;
     char *buf = NULL;
     size_t len = 0;
 
-    buf = jcmd_load_file(file, &len);
-    if (buf)
-        raw = buf;
-    else if (raw)
+    if (raw)
         len = strlen(raw);
-    else
-        raw = buf = jcmd_load_stdin(&len);
+
+    if (file) {
+        buf = jcmd_load_data(file, &len);
+        raw = buf ? buf : raw;
+    }
 
     out = json_loadb(raw, len, JSON_DECODE_ANY, NULL);
     if (!out && conv)
@@ -102,12 +115,15 @@ jcmd_load(const char *file, const char *raw,
 }
 
 bool
-jcmd_dump_file(const char *filename, const uint8_t buf[], size_t len)
+jcmd_dump_data(const char *filename, const uint8_t buf[], size_t len)
 {
     FILE *file = NULL;
     bool ret = false;
 
-    if (filename)
+    if (!filename)
+        return false;
+
+    if (strcmp(filename, "-") != 0)
         file = fopen(filename, "w");
 
     ret = fwrite(buf, 1, len, file ? file : stdout) == len;
@@ -119,14 +135,14 @@ jcmd_dump_file(const char *filename, const uint8_t buf[], size_t len)
 }
 
 bool
-jcmd_dump(const json_t *json, const char *filename,
-          char *(*conv)(const json_t *))
+jcmd_dump_json(const json_t *json, const char *filename,
+               char *(*conv)(const json_t *))
 {
     FILE *file = NULL;
     char *comp = NULL;
     bool ret = false;
 
-    if (filename) {
+    if (filename && strcmp(filename, "-") != 0) {
         file = fopen(filename, "w");
         if (!file)
             return false;
@@ -140,7 +156,8 @@ jcmd_dump(const json_t *json, const char *filename,
         if (fwrite(comp, strlen(comp), 1, file ? file : stdout) != 1)
             goto egress;
     } else {
-        if (json_dumpf(json, file ? file : stdout, JSON_SORT_KEYS) == -1)
+        if (json_dumpf(json, file ? file : stdout,
+                       JSON_SORT_KEYS | JSON_COMPACT) == -1)
             goto egress;
     }
 
@@ -154,6 +171,26 @@ egress:
         fclose(file);
     free(comp);
     return ret;
+}
+
+bool
+jcmd_jwks_extend(json_t *jwks, json_t *jwk_or_jwkset)
+{
+    json_t *keys = json_object_get(jwk_or_jwkset, "keys");
+    size_t size = json_array_size(keys);
+
+    if (!json_is_array(keys))
+        return json_array_append_new(jwks, jwk_or_jwkset) == 0;
+
+    for (size_t i = 0; i < size; i++) {
+        if (json_array_append(jwks, json_array_get(keys, i)) == -1) {
+            json_decref(jwk_or_jwkset);
+            return false;
+        }
+    }
+
+    json_decref(jwk_or_jwkset);
+    return size > 0;
 }
 
 int
@@ -193,12 +230,12 @@ main(int argc, char *argv[])
     fprintf(stderr,
 "Usage: jose COMMAND [OPTIONS] [ARGUMENTS]\n"
 "\n"
-"jose gen           [-o FILE] [-t TMPL]\n"
-"jose pub [-i FILE] [-o FILE] [-t TYPE ...]\n"
-"jose sig [-i FILE] [-o FILE] [-t TMPL] [-s SIGT ...]          [-c]  JWK ...\n"
-"jose ver [-i FILE] [-o FILE]                                  [-a]  JWK ...\n"
-"jose enc [-i FILE] [-o FILE] [-t TMPL] [-r RCPT ...] [-p ...] [-c]  JWK ...\n"
-"jose dec [-i FILE] [-o FILE]                                  [-n] [JWK ...]\n"
+"\njose " GEN_USE
+"\njose " PUB_USE
+"\njose " SIG_USE
+"\njose " VER_USE
+"\njose " ENC_USE
+"\njose " DEC_USE
 "\n");
     return EXIT_FAILURE;
 }

@@ -89,9 +89,9 @@ seal(const json_t *jwe, json_t *rcp, const json_t *jwk,
     default: return false;
     }
 
-    key = jose_openssl_jwk_to_EVP_PKEY(jwk, JOSE_JWK_TYPE_RSA);
-    if (!key)
-        return false;
+    key = jose_openssl_jwk_to_EVP_PKEY(jwk);
+    if (!key || EVP_PKEY_base_id(key) != EVP_PKEY_RSA)
+        goto egress;
 
     pt = jose_b64_decode_buf_json(json_object_get(cek, "k"), &ptl);
     if (!pt)
@@ -160,8 +160,8 @@ unseal(const json_t *jwe, const json_t *rcp, const json_t *jwk,
     default: return false;
     }
 
-    key = jose_openssl_jwk_to_EVP_PKEY(jwk, JOSE_JWK_TYPE_RSA);
-    if (!key)
+    key = jose_openssl_jwk_to_EVP_PKEY(jwk);
+    if (!key || EVP_PKEY_base_id(key) != EVP_PKEY_RSA)
         goto egress;
 
     ct = jose_b64_decode_buf_json(json_object_get(rcp, "encrypted_key"), &ctl);

@@ -75,21 +75,10 @@ error:
 }
 
 json_t *
-jose_openssl_jwk_from_EVP_PKEY(EVP_PKEY *key, jose_jwk_type_t type)
+jose_openssl_jwk_from_EVP_PKEY(EVP_PKEY *key)
 {
-    jose_jwk_type_t t = JOSE_JWK_TYPE_NONE;
     const uint8_t *buf = NULL;
     size_t len = 0;
-
-    switch (EVP_PKEY_base_id(key)) {
-    case EVP_PKEY_HMAC: t = JOSE_JWK_TYPE_OCT; break;
-    case EVP_PKEY_RSA: t = JOSE_JWK_TYPE_RSA; break;
-    case EVP_PKEY_EC: t = JOSE_JWK_TYPE_EC; break;
-    default: return NULL;
-    }
-
-    if ((t & type) == 0)
-        return NULL;
 
     switch (EVP_PKEY_base_id(key)) {
     case EVP_PKEY_HMAC:
@@ -107,7 +96,6 @@ jose_openssl_jwk_from_EVP_PKEY(EVP_PKEY *key, jose_jwk_type_t type)
         return jose_openssl_jwk_from_EC_KEY(key->pkey.ec);
     default: return NULL;
     }
-
 }
 
 json_t *
@@ -220,20 +208,20 @@ egress:
 }
 
 EVP_PKEY *
-jose_openssl_jwk_to_EVP_PKEY(const json_t *jwk, jose_jwk_type_t type)
+jose_openssl_jwk_to_EVP_PKEY(const json_t *jwk)
 {
+    const char *kty = NULL;
     EVP_PKEY *key = NULL;
     uint8_t *buf = NULL;
     EC_KEY *ec = NULL;
     RSA *rsa = NULL;
     size_t len = 0;
 
-    if ((jose_jwk_type(jwk) & type) == 0)
+    if (json_unpack((json_t *) jwk, "{s:s}", "kty", &kty) == -1)
         return NULL;
-    type = jose_jwk_type(jwk);
 
-    switch (type) {
-    case JOSE_JWK_TYPE_EC:
+    switch (str2enum(kty, "EC", "RSA", "oct", NULL)) {
+    case 0:
         ec = jose_openssl_jwk_to_EC_KEY(jwk);
         if (!ec)
             return NULL;
@@ -250,7 +238,7 @@ jose_openssl_jwk_to_EVP_PKEY(const json_t *jwk, jose_jwk_type_t type)
         EC_KEY_free(ec);
         return key;
 
-    case JOSE_JWK_TYPE_RSA:
+    case 1:
         rsa = jose_openssl_jwk_to_RSA(jwk);
         if (!rsa)
             return NULL;
@@ -267,7 +255,7 @@ jose_openssl_jwk_to_EVP_PKEY(const json_t *jwk, jose_jwk_type_t type)
         RSA_free(rsa);
         return key;
 
-    case JOSE_JWK_TYPE_OCT:
+    case 2:
         buf = jose_b64_decode_buf_json(json_object_get(jwk, "k"), &len);
         if (!buf)
             return NULL;

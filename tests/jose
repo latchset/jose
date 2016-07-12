@@ -1,4 +1,4 @@
-#!/bin/sh -ex
+#!/bin/sh -x
 
 ASIGN="RS256 RS384 RS512 ES256 ES384 ES512 PS256 PS384 PS512"
 SSIGN="HS256 HS384 HS512"
@@ -12,6 +12,7 @@ function onexit() {
     rm -rf $tmpdir
 }
 
+trap exit ERR
 trap onexit EXIT
 
 echo hi > $tmpdir/msg.txt
@@ -21,7 +22,7 @@ echo hi > $tmpdir/msg.txt
 ##
 
 for alg in $ASIGN $SSIGN $AWRAP $SWRAP $SENCR; do
-    echo "{ \"alg\": \"$alg\" }" | cmd/jose gen -o $tmpdir/$alg.jwk
+    echo "{ \"alg\": \"$alg\" }" | cmd/jose gen -t- -o $tmpdir/$alg.jwk
     cat $tmpdir/$alg.jwk
     echo ""
 done
@@ -41,15 +42,26 @@ cmd/jose gen -t '{ "kty": "RSA", "bits": 3072, "e": "AQE" }'
 cmd/jose gen -t '{ "kty": "oct", "bytes": 32 }'
 
 ##
-### Test publicize on each generated key
+### Test publicize...
 ##
 
+# ... on some synthetic keys ...
+oct='{"k":"","a":"foo"}'
+rsa='{"p":"","d":"","q":"","dp":"","dq":"","qi":"","oth":"","a":"bar"}'
+ec='{"d":"","a":"baz"}'
+jwkset="{\"keys\":[$oct,$rsa,$ec]}"
+test "`echo $oct    | cmd/jose pub -i-`" == '{"a":"foo"}'
+test "`echo $rsa    | cmd/jose pub -i-`" == '{"a":"bar"}'
+test "`echo $ec     | cmd/jose pub -i-`" == '{"a":"baz"}'
+test "`echo $jwkset | cmd/jose pub -i-`" == '{"keys":[{"a":"foo"},{"a":"bar"},{"a":"baz"}]}'
+
+# ... and all generated keys.
 for alg in $ASIGN $SSIGN $AWRAP $SWRAP $SENCR; do
     cmd/jose pub -i $tmpdir/$alg.jwk -o $tmpdir/$alg.jwk.pub
     cat $tmpdir/$alg.jwk.pub
     echo ""
 
-    cat $tmpdir/$alg.jwk | cmd/jose pub
+    cat $tmpdir/$alg.jwk | cmd/jose pub -i-
 done
 
 ##
@@ -57,7 +69,7 @@ done
 ##
 
 for alg in $ASIGN $SSIGN; do
-    cmd/jose sig -i $tmpdir/msg.txt -o $tmpdir/$alg.jws $tmpdir/$alg.jwk
+    cmd/jose sig -i $tmpdir/msg.txt -o $tmpdir/$alg.jws -k $tmpdir/$alg.jwk
     cat $tmpdir/$alg.jws
     echo ""
 done
@@ -67,7 +79,7 @@ done
 ##
 
 for alg in $ASIGN $SSIGN; do
-    cmd/jose ver -i $tmpdir/$alg.jws $tmpdir/$alg.jwk
+    cmd/jose ver -i $tmpdir/$alg.jws -k $tmpdir/$alg.jwk
 done
 
 ##
@@ -80,7 +92,7 @@ for alg in $AWRAP $SWRAP; do
             -t "{\"protected\":{\"enc\":\"$enc\"}}" \
             -i $tmpdir/msg.txt \
             -o $tmpdir/$enc.$alg.jwe \
-            $tmpdir/$alg.jwk
+            -k $tmpdir/$alg.jwk
     done
 done
 
@@ -90,6 +102,6 @@ done
 
 for alg in $AWRAP $SWRAP; do
     for enc in $SENCR; do
-        cmd/jose dec -i $tmpdir/$enc.$alg.jwe $tmpdir/$alg.jwk
+        cmd/jose dec -i $tmpdir/$enc.$alg.jwe -k $tmpdir/$alg.jwk
     done
 done

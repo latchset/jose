@@ -278,8 +278,8 @@ seal(const json_t *jwe, json_t *rcp, const json_t *jwk,
     if (!aes && !enc)
         goto egress;
 
-    rem = jose_openssl_jwk_to_EVP_PKEY(jwk, JOSE_JWK_TYPE_EC);
-    if (!rem)
+    rem = jose_openssl_jwk_to_EVP_PKEY(jwk);
+    if (!rem || EVP_PKEY_base_id(rem) != EVP_PKEY_EC)
         goto egress;
 
     lcl = generate(rem->pkey.ec);
@@ -290,11 +290,11 @@ seal(const json_t *jwe, json_t *rcp, const json_t *jwk,
     if (!h && json_object_set_new(rcp, "header", h = json_object()) == -1)
         return false;
 
-    epk = jose_openssl_jwk_from_EVP_PKEY(lcl, JOSE_JWK_TYPE_EC);
+    epk = jose_openssl_jwk_from_EVP_PKEY(lcl);
     if (json_object_set_new(h, "epk", epk) == -1)
         goto egress;
 
-    if (!jose_jwk_clean(epk, JOSE_JWK_TYPE_EC))
+    if (!jose_jwk_clean(epk))
         goto egress;
 
     ky = ecdh(lcl, rem, &kyl);
@@ -405,11 +405,13 @@ unseal(const json_t *jwe, const json_t *rcp, const json_t *jwk,
     if (!aes && !enc)
         goto egress;
 
-    lcl = jose_openssl_jwk_to_EVP_PKEY(jwk, JOSE_JWK_TYPE_EC);
-    rem = jose_openssl_jwk_to_EVP_PKEY(epk, JOSE_JWK_TYPE_EC);
+    lcl = jose_openssl_jwk_to_EVP_PKEY(jwk);
+    rem = jose_openssl_jwk_to_EVP_PKEY(epk);
     pu = jose_b64_decode_buf(apu, &pul);
     pv = jose_b64_decode_buf(apv, &pvl);
-    if (!lcl || !rem || (apu && !pu) || (apv && !pv))
+    if (!lcl || !rem || (apu && !pu) || (apv && !pv) ||
+        EVP_PKEY_base_id(lcl) != EVP_PKEY_EC ||
+        EVP_PKEY_base_id(rem) != EVP_PKEY_EC)
         goto egress;
 
     ky = ecdh(lcl, rem, &kyl);

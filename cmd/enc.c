@@ -55,6 +55,9 @@ prompt(void)
 }
 
 static const struct option opts[] = {
+    { "help",      no_argument,       .val = 'h' },
+
+    { "jwk",       required_argument, .val = 'k' },
     { "input",     required_argument, .val = 'i' },
     { "output",    required_argument, .val = 'o' },
     { "compact",   no_argument,       .val = 'c' },
@@ -68,14 +71,12 @@ int
 jcmd_enc(int argc, char *argv[])
 {
     int ret = EXIT_FAILURE;
-    const char *out = NULL;
-    const char *in = NULL;
+    const char *out = "-";
     bool compact = false;
     json_t *tmpl = NULL;
     json_t *rcps = NULL;
     json_t *jwks = NULL;
     uint8_t *buf = NULL;
-    json_t *tmp = NULL;
     json_t *cek = NULL;
     size_t len = 0;
 
@@ -83,15 +84,29 @@ jcmd_enc(int argc, char *argv[])
     rcps = json_array();
     jwks = json_array();
 
-    for (int c; (c = getopt_long(argc, argv, "i:o:ct:pr:", opts, NULL)) >= 0; ) {
+    for (int c; (c = getopt_long(argc, argv, "hk:i:o:ct:pr:", opts, NULL)) >= 0; ) {
         switch (c) {
-        case 'i': in = optarg; break;
+        case 'h': goto usage;
         case 'o': out = optarg; break;
         case 'c': compact = true; break;
 
+        case 'i':
+            if (buf)
+                memset(buf, 0, len);
+            free(buf);
+            buf = jcmd_load_data(optarg, &len);
+            break;
+
+        case 'k':
+            if (!jcmd_jwks_extend(jwks, jcmd_load_json(optarg, NULL, NULL))) {
+                fprintf(stderr, "Invalid JWK(Set): %s!\n", optarg);
+                goto usage;
+            }
+            break;
+
         case 't':
             json_decref(tmpl);
-            tmpl = jcmd_load(optarg, optarg, jose_jwe_from_compact);
+            tmpl = jcmd_load_json(optarg, optarg, jose_jwe_from_compact);
             if (!tmpl) {
                 fprintf(stderr, "Invalid JWE template: %s!\n", optarg);
                 goto usage;
@@ -100,8 +115,8 @@ jcmd_enc(int argc, char *argv[])
             break;
 
         case 'r':
-            tmp = jcmd_load(optarg, optarg, NULL);
-            if (json_array_append_new(rcps, tmp) == -1) {
+            if (json_array_append_new(rcps,
+                        jcmd_load_json(optarg, optarg, NULL)) == -1) {
                 fprintf(stderr, "Invalid JWE recipient template: %s!\n", optarg);
                 goto usage;
             }
@@ -117,14 +132,7 @@ jcmd_enc(int argc, char *argv[])
             break;
 
         default:
-            goto usage;
-        }
-    }
-
-    for (int i = optind; i < argc; i++) {
-        tmp = jcmd_load(argv[i], argv[i], NULL);
-        if (json_array_append_new(jwks, tmp) == -1) {
-            fprintf(stderr, "Invalid JWK: %s!\n", argv[i]);
+            fprintf(stderr, "Invalid option: %c!\n", c);
             goto usage;
         }
     }
@@ -134,7 +142,6 @@ jcmd_enc(int argc, char *argv[])
         goto usage;
     }
 
-    buf = in ? jcmd_load_file(in, &len) : jcmd_load_stdin(&len);
     if (!buf) {
         fprintf(stderr, "Error loading the plaintext!\n");
         goto egress;
@@ -183,7 +190,7 @@ jcmd_enc(int argc, char *argv[])
         goto egress;
     }
 
-    if (!jcmd_dump(tmpl, out, compact ? jose_jwe_to_compact : NULL)) {
+    if (!jcmd_dump_json(tmpl, out, compact ? jose_jwe_to_compact : NULL)) {
         fprintf(stderr, "Error dumping JWS!\n");
         goto egress;
     }
@@ -202,56 +209,70 @@ egress:
 
 usage:
     fprintf(stderr,
-    "Usage: %s [-c] [-p ...] [-i FILE] [-o FILE] [-t TMPL] [-r RCP ...] JWK [...]"
-    "\n"
-    "\nEncrypts plaintext using one or more JWKs and outputs a JWE."
-    "\n"
-    "\n    -c,      --compact          Output JWE in compact format"
-    "\n    -p,      --password         Use a password for encryption (repeatable)"
-    "\n    -i FILE, --input=FILE       Plaintext input file"
-    "\n    -o FILE, --output=FILE      Ciphertext output file"
-    "\n    -t TMPL, --template=TMPL    JWE template (JSON or file)"
-    "\n    -r RCP,  --template=RCP     JWE recipient template (JSON or file)"
-    "\n"
-    "\nWhen encrypting to multiple recipients, JWE general format is used:"
-    "\n"
-    "\n    $ echo hi | jose enc rsa.jwk oct.jwk"
-    "\n    { \"ciphertext\": \"...\", \"recipients\": [{...}, {...}], ...}"
-    "\n"
-    "\nWith a single recipient, JWE flattened format is used:"
-    "\n"
-    "\n    $ echo hi | jose enc rsa.jwk"
-    "\n    { \"ciphertext\": \"...\", \"encrypted_key\": \"...\", ... }"
-    "\n"
-    "\nAlternatively, JWE compact format may be used:"
-    "\n"
-    "\n    $ echo hi | jose enc -c rsa.jwk"
-    "\n    eyJhbGciOiJSU0ExXzUiLCJlbmMiOiJBMTI4Q0JDLUhTMjU2In0.ZBRtX0Z0vaCMMg..."
-    "\n"
-    "\nBy tweaking the JWE template, you can choose alternate crypto parameters:"
-    "\n"
-    "\n    $ echo hi | jose enc -t '{\"unprotected\":{\"enc\":\"A128GCM\"}}' rsa.jwk"
-    "\n    { \"ciphertext\": \"...\", \"unprotected\": { \"enc\": \"A128GCM\" }, ... }"
-    "\n"
-    "\nTransparent plaintext compression is also supported:"
-    "\n"
-    "\n    $ echo hi | jose enc -t '{\"protected\":{\"zip\":\"DEF\"}}' rsa.jwk"
-    "\n    { \"ciphertext\": \"...\", ... }"
-    "\n"
-    "\nYou can encrypt to one or more passwords by using the '-p' option. This "
-    "can even be mixed with JWKs:"
-    "\n"
-    "\n    $ echo hi | jose enc -p"
-    "\n    Please enter a password:"
-    "\n    Please re-enter the previous password:"
-    "\n    { \"ciphertext\": \"...\", ... }"
-    "\n"
-    "\n    $ echo hi | jose enc -p rsa.jwk -p oct.jwk"
-    "\n    Please enter a password:"
-    "\n    Please re-enter the previous password:"
-    "\n    Please enter a password:"
-    "\n    Please re-enter the previous password:"
-    "\n    { \"ciphertext\": \"...\", ... }"
-    "\n\n", argv[0]);
+"jose " ENC_USE
+"\n"
+"\nEncrypts plaintext using one or more JWKs and outputs a JWE."
+"\n"
+"\n    -i FILE, --input=FILE       Plaintext payload (file)"
+"\n    -i -,    --input=-          Plaintext payload (stdin)"
+"\n"
+"\n    -t FILE, --template=FILE    JWE template (file)"
+"\n    -t JSON, --template=JSON    JWE template (JSON)"
+"\n    -t -,    --template=-       JWE template (stdin)"
+"\n"
+"\n    -r FILE, --template=FILE    JWE recipient template (file)"
+"\n    -r JSON, --template=JSON    JWE recipient template (JSON)"
+"\n    -r -,    --template=-       JWE recipient template (stdin)"
+"\n"
+"\n    -p,      --password         Use a password for encryption"
+"\n"
+"\n    -k FILE, --jwk=FILE         JWK or JWKSet (file)"
+"\n    -k -,    --jwk=-            JWK or JWKSet (stdin)"
+"\n"
+"\n    -o FILE, --output=FILE      JWE output (file)"
+"\n    -o -,    --output=-         JWE output (stdout; default)"
+"\n"
+"\n    -c,      --compact          Output JWE in compact format"
+"\n"
+"\nWhen encrypting to multiple recipients, JWE general format is used:"
+"\n"
+"\n    $ jose enc -i msg.txt -k rsa.jwk -k oct.jwk"
+"\n    { \"ciphertext\": \"...\", \"recipients\": [{...}, {...}], ...}"
+"\n"
+"\nWith a single recipient, JWE flattened format is used:"
+"\n"
+"\n    $ jose enc -i msg.txt -k rsa.jwk"
+"\n    { \"ciphertext\": \"...\", \"encrypted_key\": \"...\", ... }"
+"\n"
+"\nAlternatively, JWE compact format may be used:"
+"\n"
+"\n    $ jose enc -c -i msg.txt -k rsa.jwk"
+"\n    eyJhbGciOiJSU0ExXzUiLCJlbmMiOiJBMTI4Q0JDLUhTMjU2In0.ZBRtX0Z0vaCMMg..."
+"\n"
+"\nBy tweaking the JWE template, you can choose alternate crypto parameters:"
+"\n"
+"\n    $ jose enc -i msg.txt -t '{\"unprotected\":{\"enc\":\"A128GCM\"}}' -k rsa.jwk"
+"\n    { \"ciphertext\": \"...\", \"unprotected\": { \"enc\": \"A128GCM\" }, ... }"
+"\n"
+"\nTransparent plaintext compression is also supported:"
+"\n"
+"\n    $ jose enc -i msg.txt -t '{\"protected\":{\"zip\":\"DEF\"}}' -k rsa.jwk"
+"\n    { \"ciphertext\": \"...\", ... }"
+"\n"
+"\nYou can encrypt to one or more passwords by using the '-p' option. This"
+"\ncan even be mixed with JWKs:"
+"\n"
+"\n    $ jose enc -i msg.txt -p"
+"\n    Please enter a password:"
+"\n    Please re-enter the previous password:"
+"\n    { \"ciphertext\": \"...\", ... }"
+"\n"
+"\n    $ jose enc -i msg.txt -p -k rsa.jwk -p -k oct.jwk"
+"\n    Please enter a password:"
+"\n    Please re-enter the previous password:"
+"\n    Please enter a password:"
+"\n    Please re-enter the previous password:"
+"\n    { \"ciphertext\": \"...\", ... }"
+"\n\n");
     goto egress;
 }
