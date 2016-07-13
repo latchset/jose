@@ -46,16 +46,12 @@ cmd_jose_SOURCES = \
 
 
 EXTRA_DIST = tests/vectors
-TESTS = $(check_PROGRAMS) $(dist_check_SCRIPTS)
-check_HEADERS = tests/vect.h tests/jtbl.h
-dist_check_SCRIPTS = tests/rfc7515_A tests/rfc7520_4 tests/rfc7520_5 tests/jose
-check_PROGRAMS = tests/b64 tests/jwk
-check_LTLIBRARIES = tests/libtest.la
-tests_libtest_la_SOURCES = tests/vect.c tests/jtbl.c
-tests_b64_LDADD = libjose.la tests/libtest.la
-tests_b64_SOURCES = tests/b64.c
-tests_jwk_LDADD = libjose.la tests/libtest.la
-tests_jwk_SOURCES = tests/jwk.c
+TESTS = $(dist_check_SCRIPTS)
+dist_check_SCRIPTS = \
+    tests/rfc7515_A \
+    tests/rfc7520_4 \
+    tests/rfc7520_5 \
+    tests/jose
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = jose.pc
