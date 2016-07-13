@@ -252,18 +252,24 @@ wrap(json_t *jwe, json_t *cek, const json_t *jwk, json_t *rcp,
     size_t pul = 0;
     size_t pvl = 0;
 
+    if (json_object_get(cek, "k")) {
+        if (strcmp(alg, "ECDH-ES") == 0)
+            return false;
+    } else if (!jose_jwk_generate(cek)) {
+        return false;
+    }
+
     switch (str2enum(alg, NAMES, NULL)) {
     case 0:
         kyl = jose_b64_dlen(json_string_length(json_object_get(cek, "k")));
+        if (kyl == 0)
+            return false;
         break;
     case 1: kyl = 16; aes = "A128KW"; break;
     case 2: kyl = 24; aes = "A192KW"; break;
     case 3: kyl = 32; aes = "A256KW"; break;
     default: return false;
     }
-
-    if (kyl == 0)
-        return false;
 
     uint8_t dk[kyl];
 

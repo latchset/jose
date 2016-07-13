@@ -93,6 +93,9 @@ wrap(json_t *jwe, json_t *cek, const json_t *jwk, json_t *rcp,
     size_t ctl = 0;
     int tmp;
 
+    if (!json_object_get(cek, "k") && !jose_jwk_generate(cek))
+        return false;
+
     switch (str2enum(alg, NAMES, NULL)) {
     case 0: cph = EVP_aes_128_wrap(); break;
     case 1: cph = EVP_aes_192_wrap(); break;

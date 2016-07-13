@@ -4,31 +4,6 @@
 #include <string.h>
 #include <unistd.h>
 
-static json_t *
-mkcek(json_t *tmpl)
-{
-    const char *penc = NULL;
-    const char *senc = NULL;
-    json_t *cek = NULL;
-
-    if (json_unpack(tmpl, "{s?{s?s},s?{s?s}}",
-                    "protected", "enc", &penc,
-                    "unprotected", "enc", &senc) == -1)
-        return NULL;
-
-    cek = json_pack("{s:s}", "alg",
-                    penc ? penc : senc ? senc : "A128CBC-HS256");
-    if (!cek)
-        return NULL;
-
-    if (!jose_jwk_generate(cek)) {
-        json_decref(cek);
-        return NULL;
-    }
-
-    return cek;
-}
-
 static const char *
 prompt(void)
 {
@@ -147,11 +122,9 @@ jcmd_enc(int argc, char *argv[])
         goto egress;
     }
 
-    cek = mkcek(tmpl);
-    if (!cek) {
-        fprintf(stderr, "Error building the CEK!\n");
+    cek = json_object();
+    if (!cek)
         goto egress;
-    }
 
     for (size_t i = 0; i < json_array_size(jwks); i++) {
         if (!jose_jwe_wrap(tmpl, cek, json_array_get(jwks, i),

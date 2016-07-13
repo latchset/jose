@@ -82,6 +82,9 @@ wrap(json_t *jwe, json_t *cek, const json_t *jwk, json_t *rcp,
     int tmp = 0;
     int pad = 0;
 
+    if (!json_object_get(cek, "k") && !jose_jwk_generate(cek))
+        return false;
+
     switch (str2enum(alg, NAMES, NULL)) {
     case 0: pad = RSA_PKCS1_PADDING;      tmp = 11; md = EVP_sha1(); break;
     case 1: pad = RSA_PKCS1_OAEP_PADDING; tmp = 41; md = EVP_sha1(); break;

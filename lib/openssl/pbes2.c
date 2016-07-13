@@ -2,6 +2,7 @@
 
 #include "misc.h"
 #include <jose/b64.h>
+#include <jose/jwk.h>
 #include <jose/jwe.h>
 
 #include <openssl/rand.h>
@@ -76,6 +77,9 @@ wrap(json_t *jwe, json_t *cek, const json_t *jwk, json_t *rcp,
     bool ret = false;
     size_t stl = 0;
     int iter;
+
+    if (!json_object_get(cek, "k") && !jose_jwk_generate(cek))
+        return false;
 
     switch (str2enum(alg, NAMES, NULL)) {
     case 0: aes = "A128KW"; stl = 16; break;

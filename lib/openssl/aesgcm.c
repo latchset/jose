@@ -303,6 +303,9 @@ wrap(json_t *jwe, json_t *cek, const json_t *jwk, json_t *rcp,
     bool ret = false;
     size_t ptl = 0;
 
+    if (!json_object_get(cek, "k") && !jose_jwk_generate(cek))
+        return false;
+
     switch (str2enum(alg, WRAP_NAMES, NULL)) {
     case 0: alg = "A128GCM"; break;
     case 1: alg = "A192GCM"; break;

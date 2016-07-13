@@ -224,18 +224,36 @@ jose_jwe_wrap(json_t *jwe, json_t *cek, const json_t *jwk, json_t *rcp)
     const jose_jwe_wrapper_t *wrapper = NULL;
     const char *kalg = NULL;
     const char *halg = NULL;
+    const char *henc = NULL;
     json_t *jh = NULL;
     bool ret = false;
+
+    if (!cek)
+        return false;
 
     jh = jose_jwe_merge_header(jwe, rcp);
     if (!jh)
         return false;
 
-    if (json_unpack(jh, "{s?s}", "alg", &halg) == -1)
+    if (json_unpack(jh, "{s?s,s?s}", "alg", &halg, "enc", &henc) == -1)
         goto egress;
 
+    if (!json_object_get(cek, "k")) {
+        const char *kenc = NULL;
+
+        if (json_unpack(cek, "{s?s}", "alg", &kenc) == -1)
+            goto egress;
+
+        if (!kenc) {
+            kenc = henc ? henc : "A128CBC-HS256";
+            if (json_object_set_new(cek, "alg", json_string(kenc)) == -1)
+                goto egress;
+        }
+    }
+
     if (halg && strcmp(halg, "dir") == 0) {
-        ret = json_object_size(rcp) == 0;
+        if (json_object_get(cek, "k") || jose_jwk_generate(cek))
+            ret = json_object_size(rcp) == 0;
         json_decref(rcp);
         json_decref(jh);
         return ret;
