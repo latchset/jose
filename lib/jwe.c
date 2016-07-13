@@ -251,14 +251,6 @@ jose_jwe_wrap(json_t *jwe, json_t *cek, const json_t *jwk, json_t *rcp)
         }
     }
 
-    if (halg && strcmp(halg, "dir") == 0) {
-        if (json_object_get(cek, "k") || jose_jwk_generate(cek))
-            ret = json_object_size(rcp) == 0;
-        json_decref(rcp);
-        json_decref(jh);
-        return ret;
-    }
-
     if (!jose_jwk_allowed(cek, "enc", "encrypt"))
         goto egress;
 
@@ -313,6 +305,7 @@ unwrap_rcp(const json_t *jwe, const json_t *rcp, const json_t *jwk)
 {
     const jose_jwe_wrapper_t *wrapper = NULL;
     const char *halg = NULL;
+    const char *henc = NULL;
     const char *kalg = NULL;
     json_t *cek = NULL;
     json_t *jh = NULL;
@@ -321,19 +314,17 @@ unwrap_rcp(const json_t *jwe, const json_t *rcp, const json_t *jwk)
     if (!jh)
         goto egress;
 
-    if (json_unpack(jh, "{s?s}", "alg", &halg) == -1)
+    if (json_unpack(jh, "{s?s,s?s}", "alg", &halg, "enc", &henc) == -1)
         goto egress;
-
-    if (halg && strcmp(halg, "dir") == 0) {
-        json_decref(jh);
-        return json_deep_copy(jwk);
-    }
 
     if (!jose_jwk_allowed(jwk, "enc", "unwrapKey"))
         goto egress;
 
     kalg = json_string_value(json_object_get(jwk, "alg"));
-    if (halg && kalg && strcmp(halg, kalg) != 0)
+    if (!halg)
+        halg = kalg;
+    else if (kalg && strcmp(halg, kalg) != 0 &&
+             (!henc || strcmp(henc, kalg) != 0))
         goto egress;
 
     wrapper = find_wrapper(halg);

@@ -14,6 +14,7 @@ libjose_la_SOURCES = \
     lib/jwk.c \
     lib/jws.c \
     lib/jwe.c \
+    lib/dir.c \
     lib/openssl/misc.c lib/openssl/misc.h \
     lib/openssl/jwk.c \
     lib/openssl/hmac.c \
