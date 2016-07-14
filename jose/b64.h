@@ -19,25 +19,25 @@ size_t
 jose_b64_elen(size_t dlen);
 
 /**
+ * Decodes the encoded C string to an allocated byte array.
+ */
+uint8_t *
+jose_b64_decode(const char *enc, size_t *len);
+
+/**
  * Decodes the encoded C string to a byte array.
  *
  * NOTE: The buffer MUST be at least as long as
  *       jose_b64_dlen(strlen(enc)).
  */
 bool
-jose_b64_decode(const char *enc, uint8_t dec[]);
+jose_b64_decode_buf(const char *enc, uint8_t dec[]);
 
 /**
- * Decodes the encoded C string to an allocated buffer.
+ * Decodes the encoded JSON string to an allocated byte array.
  */
 uint8_t *
-jose_b64_decode_buf(const char *enc, size_t *len);
-
-/**
- * Decodes the encoded JSON string to an allocated buffer.
- */
-uint8_t *
-jose_b64_decode_buf_json(const json_t *enc, size_t *len);
+jose_b64_decode_json(const json_t *enc, size_t *len);
 
 /**
  * Decodes the encoded JSON string to a byte array.
@@ -46,7 +46,7 @@ jose_b64_decode_buf_json(const json_t *enc, size_t *len);
  *       jose_b64_dlen(json_string_length(enc)).
  */
 bool
-jose_b64_decode_json(const json_t *enc, uint8_t dec[]);
+jose_b64_decode_json_buf(const json_t *enc, uint8_t dec[]);
 
 /**
  * Decodes the encoded JSON string containing a JSON serialization.
@@ -57,13 +57,19 @@ json_t *
 jose_b64_decode_json_load(const json_t *enc);
 
 /**
+ * Encodes the input byte array to an allocated C string.
+ */
+char *
+jose_b64_encode(const uint8_t dec[], size_t len);
+
+/**
  * Encodes the input byte array to a C string.
  *
  * NOTE: The enc parameter MUST be at least as long as
  *       jose_b64_elen(len) + 1.
  */
 void
-jose_b64_encode(const uint8_t dec[], size_t len, char enc[]);
+jose_b64_encode_buf(const uint8_t dec[], size_t len, char enc[]);
 
 /**
  * Encodes the input byte array to a JSON string.

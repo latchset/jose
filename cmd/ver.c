@@ -14,7 +14,7 @@ dump(const char *filename, const json_t *jws)
     if (json_unpack((json_t *) jws, "{s:s}", "payload", &payload) < 0)
         return false;
 
-    out = jose_b64_decode_buf(payload, &len);
+    out = jose_b64_decode(payload, &len);
     if (!out)
         goto egress;
 

@@ -96,7 +96,7 @@ wrap(json_t *jwe, json_t *cek, const json_t *jwk, json_t *rcp,
     if (!key || EVP_PKEY_base_id(key) != EVP_PKEY_RSA)
         goto egress;
 
-    pt = jose_b64_decode_buf_json(json_object_get(cek, "k"), &ptl);
+    pt = jose_b64_decode_json(json_object_get(cek, "k"), &ptl);
     if (!pt)
         goto egress;
 
@@ -167,7 +167,7 @@ unwrap(const json_t *jwe, const json_t *jwk, const json_t *rcp,
     if (!key || EVP_PKEY_base_id(key) != EVP_PKEY_RSA)
         goto egress;
 
-    ct = jose_b64_decode_buf_json(json_object_get(rcp, "encrypted_key"), &ctl);
+    ct = jose_b64_decode_json(json_object_get(rcp, "encrypted_key"), &ctl);
     if (!ct)
         goto egress;
 

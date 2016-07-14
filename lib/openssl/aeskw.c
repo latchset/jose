@@ -106,14 +106,14 @@ wrap(json_t *jwe, json_t *cek, const json_t *jwk, json_t *rcp,
     uint8_t iv[EVP_CIPHER_iv_length(cph)];
     memset(iv, 0xA6, EVP_CIPHER_iv_length(cph));
 
-    ky = jose_b64_decode_buf_json(json_object_get(jwk, "k"), &kyl);
+    ky = jose_b64_decode_json(json_object_get(jwk, "k"), &kyl);
     if (!ky)
         goto egress;
 
     if ((int) kyl != EVP_CIPHER_key_length(cph))
         goto egress;
 
-    pt = jose_b64_decode_buf_json(json_object_get(cek, "k"), &ptl);
+    pt = jose_b64_decode_json(json_object_get(cek, "k"), &ptl);
     if (!pt)
         goto egress;
 
@@ -174,14 +174,14 @@ unwrap(const json_t *jwe, const json_t *jwk, const json_t *rcp,
     uint8_t iv[EVP_CIPHER_iv_length(cph)];
     memset(iv, 0xA6, EVP_CIPHER_iv_length(cph));
 
-    ky = jose_b64_decode_buf_json(json_object_get(jwk, "k"), &kyl);
+    ky = jose_b64_decode_json(json_object_get(jwk, "k"), &kyl);
     if (!ky)
         goto egress;
 
     if ((int) kyl != EVP_CIPHER_key_length(cph))
         goto egress;
 
-    ct = jose_b64_decode_buf_json(json_object_get(rcp, "encrypted_key"), &ctl);
+    ct = jose_b64_decode_json(json_object_get(rcp, "encrypted_key"), &ctl);
     if (!ct)
         goto egress;
 

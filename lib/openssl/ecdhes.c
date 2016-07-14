@@ -307,8 +307,8 @@ wrap(json_t *jwe, json_t *cek, const json_t *jwk, json_t *rcp,
     if (!ky)
         goto egress;
 
-    pu = jose_b64_decode_buf(apu, &pul);
-    pv = jose_b64_decode_buf(apv, &pvl);
+    pu = jose_b64_decode(apu, &pul);
+    pv = jose_b64_decode(apv, &pvl);
     if ((apu && !pu) || (apv && !pv))
         goto egress;
 
@@ -413,8 +413,8 @@ unwrap(const json_t *jwe, const json_t *jwk, const json_t *rcp,
 
     lcl = jose_openssl_jwk_to_EVP_PKEY(jwk);
     rem = jose_openssl_jwk_to_EVP_PKEY(epk);
-    pu = jose_b64_decode_buf(apu, &pul);
-    pv = jose_b64_decode_buf(apv, &pvl);
+    pu = jose_b64_decode(apu, &pul);
+    pv = jose_b64_decode(apv, &pvl);
     if (!lcl || !rem || (apu && !pu) || (apv && !pv) ||
         EVP_PKEY_base_id(lcl) != EVP_PKEY_EC ||
         EVP_PKEY_base_id(rem) != EVP_PKEY_EC)

@@ -32,8 +32,32 @@ jose_b64_elen(size_t dlen)
     }
 }
 
+uint8_t *
+jose_b64_decode(const char *enc, size_t *len)
+{
+    uint8_t *buf = NULL;
+
+    if (!enc)
+        return NULL;
+
+    *len = jose_b64_dlen(strlen(enc));
+    if (*len == 0)
+        return NULL;
+
+    buf = malloc(*len);
+    if (!buf)
+        return NULL;
+
+    if (jose_b64_decode_buf(enc, buf))
+        return buf;
+
+    memset(buf, 0, *len);
+    free(buf);
+    return NULL;
+}
+
 bool
-jose_b64_decode(const char *enc, uint8_t dec[])
+jose_b64_decode_buf(const char *enc, uint8_t dec[])
 {
     uint8_t rem = 0;
     size_t len = 0;
@@ -75,45 +99,21 @@ jose_b64_decode(const char *enc, uint8_t dec[])
 }
 
 uint8_t *
-jose_b64_decode_buf(const char *enc, size_t *len)
-{
-    uint8_t *buf = NULL;
-
-    if (!enc)
-        return NULL;
-
-    *len = jose_b64_dlen(strlen(enc));
-    if (*len == 0)
-        return NULL;
-
-    buf = malloc(*len);
-    if (!buf)
-        return NULL;
-
-    if (jose_b64_decode(enc, buf))
-        return buf;
-
-    memset(buf, 0, *len);
-    free(buf);
-    return NULL;
-}
-
-uint8_t *
-jose_b64_decode_buf_json(const json_t *enc, size_t *len)
+jose_b64_decode_json(const json_t *enc, size_t *len)
 {
     if (!json_is_string(enc))
         return NULL;
 
-    return jose_b64_decode_buf(json_string_value(enc), len);
+    return jose_b64_decode(json_string_value(enc), len);
 }
 
 bool
-jose_b64_decode_json(const json_t *enc, uint8_t dec[])
+jose_b64_decode_json_buf(const json_t *enc, uint8_t dec[])
 {
     if (!json_is_string(enc))
         return false;
 
-    return jose_b64_decode(json_string_value(enc), dec);
+    return jose_b64_decode_buf(json_string_value(enc), dec);
 }
 
 json_t *
@@ -123,11 +123,11 @@ jose_b64_decode_json_load(const json_t *enc)
     json_t *out = NULL;
     size_t len = 0;
 
-    buf = jose_b64_decode_buf_json(enc, &len);
+    buf = jose_b64_decode_json(enc, &len);
     if (!buf)
         return NULL;
 
-    if (jose_b64_decode_json(enc, buf))
+    if (jose_b64_decode_json_buf(enc, buf))
         out = json_loadb((char *) buf, len, JSON_DECODE_ANY, NULL);
 
     memset(buf, 0, len);
@@ -135,8 +135,21 @@ jose_b64_decode_json_load(const json_t *enc)
     return out;
 }
 
+char *
+jose_b64_encode(const uint8_t dec[], size_t len)
+{
+    char *buf = NULL;
+
+    buf = malloc(jose_b64_elen(len) + 1);
+    if (!buf)
+        return NULL;
+
+    jose_b64_encode_buf(dec, len, buf);
+    return buf;
+}
+
 void
-jose_b64_encode(const uint8_t dec[], size_t len, char enc[])
+jose_b64_encode_buf(const uint8_t dec[], size_t len, char enc[])
 {
     uint8_t rem = 0;
 
@@ -170,11 +183,9 @@ jose_b64_encode_json(const uint8_t dec[], size_t len)
     json_t *json = NULL;
     char *buf = NULL;
 
-    buf = malloc(jose_b64_elen(len) + 1);
+    buf = jose_b64_encode(dec, len);
     if (!buf)
         return NULL;
-
-    jose_b64_encode(dec, len, buf);
 
     json = json_string(buf);
     memset(buf, 0, jose_b64_elen(len) + 1);

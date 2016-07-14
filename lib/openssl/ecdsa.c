@@ -182,7 +182,7 @@ verify(const json_t *sig, const json_t *jwk,
     if (!key)
         return false;
 
-    sg = jose_b64_decode_buf_json(json_object_get(sig, "signature"), &sgl);
+    sg = jose_b64_decode_json(json_object_get(sig, "signature"), &sgl);
     if (sig) {
         ecdsa.r = bn_decode(sg, sgl / 2);
         ecdsa.s = bn_decode(&sg[sgl / 2], sgl / 2);

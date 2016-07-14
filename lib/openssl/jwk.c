@@ -256,7 +256,7 @@ jose_openssl_jwk_to_EVP_PKEY(const json_t *jwk)
         return key;
 
     case 2:
-        buf = jose_b64_decode_buf_json(json_object_get(jwk, "k"), &len);
+        buf = jose_b64_decode_json(json_object_get(jwk, "k"), &len);
         if (!buf)
             return NULL;
 

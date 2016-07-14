@@ -44,7 +44,7 @@ bn_decode_json(const json_t *json)
     BIGNUM *bn = NULL;
     size_t len = 0;
 
-    buf = jose_b64_decode_buf_json(json, &len);
+    buf = jose_b64_decode_json(json, &len);
     if (!buf)
         return NULL;
 

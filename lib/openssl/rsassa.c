@@ -178,7 +178,7 @@ verify(const json_t *sig, const json_t *jwk,
     if (RSA_size(key->pkey.rsa) < 2048 / 8)
         goto egress;
 
-    sg = jose_b64_decode_buf_json(json_object_get(sig, "signature"), &sgl);
+    sg = jose_b64_decode_json(json_object_get(sig, "signature"), &sgl);
     if (!sg)
         goto egress;
 

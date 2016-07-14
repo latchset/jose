@@ -157,7 +157,7 @@ encrypt(json_t *jwe, const json_t *cek, const uint8_t pt[], size_t ptl,
     uint8_t iv[EVP_CIPHER_iv_length(cph)];
     uint8_t tg[EVP_MD_size(md) / 2];
 
-    ky = jose_b64_decode_buf_json(json_object_get(cek, "k"), &kyl);
+    ky = jose_b64_decode_json(json_object_get(cek, "k"), &kyl);
     if (!ky)
         return NULL;
 
@@ -238,10 +238,10 @@ decrypt(const json_t *jwe, const json_t *cek, const char *enc,
 
     uint8_t tag[EVP_MD_size(md) / 2];
 
-    ky = jose_b64_decode_buf_json(json_object_get(cek, "k"), &kyl);
-    iv = jose_b64_decode_buf_json(json_object_get(jwe, "iv"), &ivl);
-    ct = jose_b64_decode_buf_json(json_object_get(jwe, "ciphertext"), &ctl);
-    tg = jose_b64_decode_buf_json(json_object_get(jwe, "tag"), &tgl);
+    ky = jose_b64_decode_json(json_object_get(cek, "k"), &kyl);
+    iv = jose_b64_decode_json(json_object_get(jwe, "iv"), &ivl);
+    ct = jose_b64_decode_json(json_object_get(jwe, "ciphertext"), &ctl);
+    tg = jose_b64_decode_json(json_object_get(jwe, "tag"), &tgl);
     if (!ky || !iv || !ct || !tg)
         goto egress;
 

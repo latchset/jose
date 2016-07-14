@@ -132,7 +132,7 @@ sign(json_t *sig, const json_t *jwk,
 
     uint8_t hsh[EVP_MD_size(md)];
 
-    ky = jose_b64_decode_buf_json(json_object_get(jwk, "k"), &kyl);
+    ky = jose_b64_decode_json(json_object_get(jwk, "k"), &kyl);
     if (!ky || kyl < sizeof(hsh))
         goto egress;
 
@@ -169,11 +169,11 @@ verify(const json_t *sig, const json_t *jwk,
 
     uint8_t hsh[EVP_MD_size(md)];
 
-    sg = jose_b64_decode_buf_json(json_object_get(sig, "signature"), &sgl);
+    sg = jose_b64_decode_json(json_object_get(sig, "signature"), &sgl);
     if (!sg || sgl != sizeof(hsh))
         goto egress;
 
-    ky = jose_b64_decode_buf_json(json_object_get(jwk, "k"), &kyl);
+    ky = jose_b64_decode_json(json_object_get(jwk, "k"), &kyl);
     if (!ky || kyl < sizeof(hsh))
         goto egress;
 

@@ -131,7 +131,7 @@ do_encrypt(const json_t *cek, const uint8_t pt[], size_t ptl,
     if (!ct)
         goto egress;
 
-    ky = jose_b64_decode_buf_json(json_object_get(cek, "k"), &kyl);
+    ky = jose_b64_decode_json(json_object_get(cek, "k"), &kyl);
     if (!ky)
         goto egress;
 
@@ -233,10 +233,10 @@ decrypt(const json_t *jwe, const json_t *cek, const char *enc,
     }
 
     len = EVP_CIPHER_iv_length(cph);
-    ky = jose_b64_decode_buf_json(json_object_get(cek, "k"), &kyl);
-    iv = jose_b64_decode_buf_json(json_object_get(jwe, "iv"), &ivl);
-    ct = jose_b64_decode_buf_json(json_object_get(jwe, "ciphertext"), &ctl);
-    tg = jose_b64_decode_buf_json(json_object_get(jwe, "tag"), &tgl);
+    ky = jose_b64_decode_json(json_object_get(cek, "k"), &kyl);
+    iv = jose_b64_decode_json(json_object_get(jwe, "iv"), &ivl);
+    ct = jose_b64_decode_json(json_object_get(jwe, "ciphertext"), &ctl);
+    tg = jose_b64_decode_json(json_object_get(jwe, "tag"), &tgl);
     pt = malloc(ctl);
     if (!ky || kyl != (size_t) EVP_CIPHER_key_length(cph) ||
         !iv || ivl != (size_t) EVP_CIPHER_iv_length(cph) ||
@@ -313,7 +313,7 @@ wrap(json_t *jwe, json_t *cek, const json_t *jwk, json_t *rcp,
     default: return false;
     }
 
-    pt = jose_b64_decode_buf_json(json_object_get(cek, "k"), &ptl);
+    pt = jose_b64_decode_json(json_object_get(cek, "k"), &ptl);
     if (!pt)
         goto egress;
 

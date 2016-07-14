@@ -155,7 +155,7 @@ unwrap(const json_t *jwe, const json_t *jwk, const json_t *rcp,
     if (json_unpack(jh, "{s:s,s:I}", "p2s", &p2s, "p2c", &p2c) == -1)
         goto egress;
 
-    st = jose_b64_decode_buf(p2s, &stl);
+    st = jose_b64_decode(p2s, &stl);
     if (!st || stl < 8)
         goto egress;
 
