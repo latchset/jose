@@ -121,7 +121,7 @@ jcmd_ver(int argc, char *argv[])
 
     if (!all)
         fprintf(stderr, "No signatures validated!\n");
-    else if (out && !dump(out, jws))
+    else if ((out || !det) && !dump(out ? out : "-", jws))
         fprintf(stderr, "Error dumping payload!\n");
     else
         ret = EXIT_SUCCESS;
@@ -149,7 +149,7 @@ usage:
 "\n    -a,      --all              Require verification of all JWKs"
 "\n"
 "\n    -o FILE, --output=FILE      JWS output (file)"
-"\n    -o -,    --output=-         JWS output (stdout)"
+"\n    -o -,    --output=-         JWS output (stdout; default if -d not set)"
 "\n"
 "\nHere are some examples. First, we create a signature with two keys:"
 "\n"
@@ -157,25 +157,25 @@ usage:
 "\n"
 "\nWe can verify this signature using an input file or stdin:"
 "\n"
-"\n    $ jose ver -i /tmp/msg.jws -k ec.jwk -o-"
+"\n    $ jose ver -i /tmp/msg.jws -k ec.jwk"
 "\n    hi"
 "\n"
-"\n    $ cat /tmp/msg.jws | jose ver -i- -k rsa.jwk -o-"
+"\n    $ cat /tmp/msg.jws | jose ver -i- -k rsa.jwk"
 "\n    hi"
 "\n"
 "\nWhen we use a different key, validation fails:"
 "\n"
-"\n    $ jose ver -i /tmp/msg.jws -k oct.jwk -o-"
+"\n    $ jose ver -i /tmp/msg.jws -k oct.jwk"
 "\n    No signatures validated!"
 "\n"
 "\nNormally, we want validation to succeed if any key validates:"
 "\n"
-"\n    $ jose ver -i /tmp/msg.jws -k rsa.jwk -k oct.jwk -o-"
+"\n    $ jose ver -i /tmp/msg.jws -k rsa.jwk -k oct.jwk"
 "\n    hi"
 "\n"
 "\nHowever, we can also require validation of all specified keys:"
 "\n"
-"\n    $ jose ver -a -i /tmp/msg.jws -k rsa.jwk -k oct.jwk -o-"
+"\n    $ jose ver -a -i /tmp/msg.jws -k rsa.jwk -k oct.jwk"
 "\n    Signature validation failed!"
 "\n\n");
     goto egress;
