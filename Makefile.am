@@ -29,6 +29,7 @@ libjose_la_SOURCES = \
     lib/openssl/oct.c \
     lib/openssl/rsa.c \
     lib/openssl/ec.c \
+    lib/openssl/sha.c \
     lib/zlib/deflate.c
 
 
@@ -37,6 +38,7 @@ cmd_jose_LDADD = libjose.la
 cmd_jose_SOURCES = \
     cmd/gen.c \
     cmd/pub.c \
+    cmd/thp.c \
     cmd/sig.c \
     cmd/ver.c \
     cmd/enc.c \
@@ -51,6 +53,7 @@ dist_check_SCRIPTS = \
     tests/rfc7515_A \
     tests/rfc7520_4 \
     tests/rfc7520_5 \
+    tests/rfc7638 \
     tests/jose
 
 pkgconfigdir = $(libdir)/pkgconfig

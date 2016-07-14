@@ -202,6 +202,7 @@ main(int argc, char *argv[])
     } table[] = {
         { "gen", jcmd_gen },
         { "pub", jcmd_pub },
+        { "thp", jcmd_thp },
         { "sig", jcmd_sig },
         { "ver", jcmd_ver },
         { "enc", jcmd_enc },
@@ -232,6 +233,7 @@ main(int argc, char *argv[])
 "\n"
 "\njose " GEN_USE
 "\njose " PUB_USE
+"\njose " THP_USE
 "\njose " SIG_USE
 "\njose " VER_USE
 "\njose " ENC_USE

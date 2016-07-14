@@ -10,6 +10,7 @@ following standards:
   * RFC 7518 - JSON Web Algorithms (JWA)
   * RFC 7519 - JSON Web Token (JWT)
   * RFC 7520 - Examples of ... JOSE
+  * RFC 7638 - JSON Web Key (JWK) Thumbprint
 
 José is extensively tested against the RFC test vectors.
 
@@ -61,7 +62,7 @@ scripts. Below you will find examples of the common commands.
 
 ### Key Management
 
-José can generate keys and remove private keys. For example:
+José can generate keys, remove private keys and show thumbprints. For example:
 
 ```sh
 # Generate three different kinds of keys
@@ -73,6 +74,14 @@ $ jose gen -t '{"alg": "ES256"}' -o ec.jwk
 $ jose pub -i oct.jwk -o oct.pub.jwk
 $ jose pub -i rsa.jwk -o rsa.pub.jwk
 $ jose pub -i ec.jwk -o ec.pub.jwk
+
+# Calculate thumbprints
+$ jose thp -i oct.jwk
+9ipMcxQLsI56Mqr3yYS8hJguJ6Mc8Zh6fkufoiKokrM
+$ jose thp -i rsa.jwk
+rS6Yno3oQYRIztC6np62nthbmdydhrWmK2Zn_Izmerw
+$ jose thp -i ec.jwk
+To8yMD92X82zvGoERAcDzlPP6awMYGM2HYDc1G5xOtc
 ```
 
 ### Signatures

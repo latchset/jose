@@ -12,6 +12,9 @@
 #define PUB_USE \
     "pub -i JWK(Set) [-o JWK(Set)]"
 
+#define THP_USE \
+    "thp -i JWK(Set) [-H HASH] [-o THMB]"
+
 #define SIG_USE \
     "sig -i PLD [-t TMPL] [-s SIGT ...] -k JWK(Set) ... [-o JWS] [-c] [-d]"
 
@@ -46,6 +49,9 @@ jcmd_gen(int argc, char *argv[]);
 
 int
 jcmd_pub(int argc, char *argv[]);
+
+int
+jcmd_thp(int argc, char *argv[]);
 
 int
 jcmd_sig(int argc, char *argv[]);

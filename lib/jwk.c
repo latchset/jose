@@ -9,6 +9,7 @@
 
 static jose_jwk_resolver_t *resolvers;
 static jose_jwk_generator_t *generators;
+static jose_jwk_hasher_t *hashers;
 
 void
 jose_jwk_register_resolver(jose_jwk_resolver_t *resolver)
@@ -22,6 +23,13 @@ jose_jwk_register_generator(jose_jwk_generator_t *generator)
 {
     generator->next = generators;
     generators = generator;
+}
+
+void
+jose_jwk_register_hasher(jose_jwk_hasher_t *hasher)
+{
+    hasher->next = hashers;
+    hashers = hasher;
 }
 
 bool
@@ -138,4 +146,117 @@ jose_jwk_allowed(const json_t *jwk, const char *use, const char *op)
             use = table[i].use;
 
     return use ? uallowed(jwk, use) : true && op ? oallowed(jwk, op) : true;
+}
+
+char *
+jose_jwk_thumbprint(const json_t *jwk, const char *hash)
+{
+    char *out = NULL;
+    size_t len = 0;
+
+    len = jose_jwk_thumbprint_len(hash);
+    if (!len)
+        return NULL;
+
+    out = malloc(len + 1);
+    if (!out)
+        return NULL;
+
+    if (!jose_jwk_thumbprint_buf(jwk, hash, out)) {
+        free(out);
+        return NULL;
+    }
+
+    return out;
+}
+
+size_t
+jose_jwk_thumbprint_len(const char *hash)
+{
+    jose_jwk_hasher_t *hasher = NULL;
+
+    for (hasher = hashers; hasher; hasher = hasher->next) {
+        if (strcasecmp(hash, hasher->name) == 0)
+            break;
+    }
+
+    if (!hasher)
+        return 0;
+
+    return jose_b64_elen(hasher->size);
+}
+
+bool
+jose_jwk_thumbprint_buf(const json_t *jwk, const char *hash, char enc[])
+{
+    struct {
+        const char *kty;
+
+        union {
+            struct {
+                const char *crv;
+                const char *x;
+                const char *y;
+            };
+
+            struct {
+                const char *e;
+                const char *n;
+            };
+
+            const char *k;
+        };
+    } d = {};
+
+    jose_jwk_hasher_t *hasher = NULL;
+    json_t *key = NULL;
+    char *str = NULL;
+    bool ret = false;
+
+    for (hasher = hashers; hasher; hasher = hasher->next) {
+        if (strcasecmp(hash, hasher->name) == 0)
+            break;
+    }
+
+    if (!hasher)
+        return false;
+
+    uint8_t buf[hasher->size];
+
+    if (json_unpack((json_t *) jwk, "{s:s,s:s}",
+                    "kty", &d.kty, "k", &d.k) == 0) {
+        if (strcmp(d.kty, "oct") != 0)
+            return false;
+
+        key = json_pack("{s:s,s:s}", "kty", d.kty, "k", d.k);
+    } else if (json_unpack((json_t *) jwk, "{s:s,s:s,s:s}",
+                           "kty", &d.kty, "e", &d.e, "n", &d.n) == 0) {
+        if (strcmp(d.kty, "RSA") != 0)
+            return false;
+
+        key = json_pack("{s:s,s:s,s:s}", "kty", d.kty, "e", d.e, "n", d.n);
+    } else if (json_unpack((json_t *) jwk, "{s:s,s:s,s:s,s:s}", "kty", &d.kty,
+                           "crv", &d.crv, "x", &d.x, "y", &d.y) == 0) {
+        if (strcmp(d.kty, "EC") != 0)
+            return false;
+
+        key = json_pack("{s:s,s:s,s:s,s:s}",
+                        "kty", d.kty, "crv", d.crv, "x", d.x, "y", d.y);
+    }
+
+    if (!key)
+        return false;
+
+    str = json_dumps(key, JSON_SORT_KEYS | JSON_COMPACT);
+    json_decref(key);
+    if (!str)
+        return false;
+
+    ret = hasher->hash((uint8_t *) str, strlen(str), buf);
+    if (ret)
+        jose_b64_encode_buf(buf, sizeof(buf), enc);
+
+    memset(buf, 0, sizeof(buf));
+    free(str);
+    return ret;
 }

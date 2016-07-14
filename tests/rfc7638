@@ -1,0 +1,6 @@
+#!/bin/sh -x
+
+trap exit ERR
+
+test "`cmd/jose thp -i tests/vectors/rfc7638_3.1.jwk -H sha256`" \
+	== "`cat tests/vectors/rfc7638_3.1.thp`"
