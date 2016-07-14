@@ -29,7 +29,7 @@ José is extensively tested against the RFC test vectors.
 | PS256              |    YES    |   Signature    |    RSA   |
 | PS384              |    YES    |   Signature    |    RSA   |
 | PS512              |    YES    |   Signature    |    RSA   |
-| none               |    YES    |   Signature    |    N/A   |
+| none               |     NO    |   Signature    |    N/A   |
 | RSA1_5             |    YES    |   Key Wrap     |    RSA   |
 | RSA-OAEP           |    YES    |   Key Wrap     |    RSA   |
 | RSA-OAEP-256       |    YES    |   Key Wrap     |    RSA   |
