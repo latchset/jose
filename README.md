@@ -59,189 +59,40 @@ José provides a command-line utility which encompasses most of the JOSE
 features. This allows for easy integration into your project and one-off
 scripts. Below you will find examples of the common commands.
 
-### Generating Keys
+### Key Management
 
-The simplest way to create a new key is to specify the algorithm that will be
-used with the key. For example:
+José can generate keys and remove private keys. For example:
+
 ```sh
-$ echo '{"alg": "A128GCM"}' | jose gen
-{ "kty": "oct", "k": "...", "alg": "A128GCM",
-  "use": "enc", "key_ops": ["encrypt", "decrypt"] }
+# Generate three different kinds of keys
+$ jose gen -t '{"alg": "A128GCM"}' -o oct.jwk
+$ jose gen -t '{"alg": "RSA1_5"}' -o rsa.jwk
+$ jose gen -t '{"alg": "ES256"}' -o ec.jwk
 
-$ jose gen -t '{"alg": "RSA1_5"}'
-{ "kty": "RSA", "alg": "RSA1_5", "use": "enc",
-  "key_ops": ["wrapKey", "unwrapKey"], ... }
+# Remove the private keys
+$ jose pub -i oct.jwk -o oct.pub.jwk
+$ jose pub -i rsa.jwk -o rsa.pub.jwk
+$ jose pub -i ec.jwk -o ec.pub.jwk
 ```
 
-Note that when specifying an algorithm, default parameters such as "use" and
-"key_ops" will be created if not specified.
-
-Alternatively, key parameters can be specified directly:
-```sh
-$ jose gen -t '{ "kty": "EC", "crv": "P-256" }'
-{ "kty": "EC", "crv": "P-256", "x": "...", "y": "...", "d": "..." }
-
-$ jose gen -t '{"kty": "oct", "bytes": 32}'
-{ "kty": "oct", "k": "..." }
-
-$ jose gen -t '{"kty": "RSA", "bits": 4096}'
-{ "kty": "RSA", "n": "...", "e": "...", ... }
-```
-
-### Protecting Private Keys
-
-There is oftentimes a need to distribute a key file without the enclosed
-private keys. José provides an easy way to do this. This command simply takes
-a JWK as input and outputs a JWK:
+### Signatures
+José can sign and verify data. For example:
 
 ```sh
-$ jose pub -i ec.jwk
-{ "kty": "EC", "crv": "P-256", "x": "...", "y": "..." }
-
-$ cat ec.jwk | jose pub
-{ "kty": "EC", "crv": "P-256", "x": "...", "y": "..." }
-```
-
-### Signing a Payload
-This command signs some input data using one or more JWKs and produces a JWS.
-
-When creating multiple signatures, JWS general format is used:
-```sh
-$ echo hi | jose sig ec.jwk rsa.jwk
-{ "payload": "aGkK", "signatures": [
-  { "protected": "...", "signature": "..." },
-  { "protected": "...", "signature": "..." } ] }
-```
-
-With a single signature, JWS flattened format is used:
-```sh
-$ echo hi | jose sig ec.jwk
-{ "payload": "aGkK", "protected": "...", "signature": "..." }
-```
-
-Alternatively, JWS compact format may be used:
-```sh
-$ echo hi | jose sig -c ec.jwk
-eyJhbGciOiJFUzI1NiJ9.aGkK.VauBzVLMesMtTtGfwVOHh9WN1dn6iuEkmebFpJJu...
-```
-
-If the payload is specified in the template, stdin is not used:
-```sh
-$ jose sig -t '{ "payload": "aGkK" }' rsa.jwk
-{ "payload": "aGkK", "protected": "...", "signature": "..." }
-```
-
-The same is true when using an input file:
-```sh
-$ jose sig -i message.txt rsa.jwk
-{ "payload": "aGkK", "protected": "...", "signature": "..." }
-```
-
-### Verifying a Signature
-
-Here are some examples. First, we create a signature with two keys:
-```sh
-$ echo hi | jose sig -o /tmp/greeting.jws rsa.jwk ec.jwk
-```
-
-We can verify this signature with either key using an input file or stdin:
-```sh
-$ jose ver -i /tmp/greeting.jws ec.jwk
+$ echo hi | jose sig -i- -k ec.jwk -o msg.jws
+$ jose ver -i msg.jws -k ec.pub.jwk
 hi
-$ cat /tmp/greeting.jws | jose ver rsa.jwk
-hi
-```
-
-When we use a different key, validation fails:
-```sh
-$ jose ver -i /tmp/greeting.jws oct.jwk
+$ jose ver -i msg.jws -k oct.jwk
 No signatures validated!
 ```
 
-Normally, we want validation to succeed if any key validates:
+### Encryption
+José can encrypt and decrypt data. For example:
+
 ```sh
-$ jose ver -i /tmp/greeting.jws rsa.jwk oct.jwk
+$ echo hi | jose enc -i- -k rsa.pub.jwk -o msg.jwe
+$ jose dec -i msg.jwe -k rsa.jwk
 hi
-```
-
-However, we can also require validation of all specified keys:
-```sh
-$ jose ver -a -i /tmp/greeting.jws rsa.jwk oct.jwk
-Signature validation failed!
-```
-
-### Encrypting Plaintext
-When encrypting to multiple recipients, JWE general format is used:
-```sh
-$ echo hi | jose enc rsa.jwk oct.jwk
-{ "ciphertext": "...", "recipients": [{...}, {...}], ...}
-```
-
-With a single recipient, JWE flattened format is used:
-```sh
-$ echo hi | jose enc rsa.jwk
-{ "ciphertext": "...", "encrypted_key": "...", ... }
-```
-
-Alternatively, JWE compact format may be used:
-```sh
-$ echo hi | jose enc -c rsa.jwk
-eyJhbGciOiJSU0ExXzUiLCJlbmMiOiJBMTI4Q0JDLUhTMjU2In0.ZBRtX0Z0vaCMMg...
-```
-
-By tweaking the JWE template, you can choose alternate crypto parameters:
-```sh
-$ echo hi | jose enc -t '{"unprotected":{"enc":"A128GCM"}}' rsa.jwk
-{ "ciphertext": "...", "unprotected": { "enc": "A128GCM" }, ... }
-```
-
-Transparent plaintext compression is also supported:
-```sh
-$ echo hi | jose enc -t '{"protected":{"zip":"DEF"}}' rsa.jwk
-{ "ciphertext": "...", ... }
-```
-
-You can encrypt to one or more passwords by using the '-p' option. This can
-even be mixed with JWKs:
-```sh
-$ echo hi | jose enc -p
-Please enter a password:
-Please re-enter the previous password:
-{ "ciphertext": "...", ... }
-
-$ echo hi | jose enc -p rsa.jwk -p oct.jwk
-Please enter a password:
-Please re-enter the previous password:
-Please enter a password:
-Please re-enter the previous password:
-{ "ciphertext": "...", ... }
-```
-
-### Decrypting Ciphertext
-Here are some examples. First, we encrypt a message with three keys:
-```sh
-$ echo hi | jose enc -o /tmp/greeting.jws -p rsa.jwk oct.jwk
-Please enter a password:
-Please re-enter the previous password:
-```
-
-We can decrypt this message with any JWK using an input file or stdin:
-```sh
-$ jose dec -i /tmp/greeting.jws oct.jwk
-hi
-$ cat /tmp/greeting.jws | jose dec rsa.jwk
-hi
-```
-
-We can also decrypt this message using the password:
-```sh
-$ jose dec -i /tmp/greeting.jws
-Please enter password:
-hi
-```
-
-When we use a different key and suppress prompting, decryption fails:
-```sh
-$ jose dec -n -i /tmp/greeting.jws ec.jwk
+$ jose dec -i msg.jwe -k oct.jwk
 Decryption failed!
 ```
