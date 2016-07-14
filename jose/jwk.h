@@ -23,11 +23,11 @@ jose_jwk_register_resolver(jose_jwk_resolver_t *resolver);
 void
 jose_jwk_register_generator(jose_jwk_generator_t *generator);
 
-bool __attribute__((warn_unused_result))
+bool
 jose_jwk_generate(json_t *jwk);
 
-bool __attribute__((warn_unused_result))
+bool
 jose_jwk_clean(json_t *jwk);
 
-bool __attribute__((warn_unused_result))
+bool
 jose_jwk_allowed(const json_t *jwk, const char *use, const char *op);

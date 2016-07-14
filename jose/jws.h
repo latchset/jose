@@ -23,7 +23,7 @@ jose_jws_register_signer(jose_jws_signer_t *signer);
 /**
  * Converts a JWS from compact format into JSON format.
  */
-json_t * __attribute__((warn_unused_result))
+json_t *
 jose_jws_from_compact(const char *jws);
 
 /**
@@ -34,13 +34,13 @@ jose_jws_from_compact(const char *jws);
  *
  * Free with free().
  */
-char * __attribute__((warn_unused_result))
+char *
 jose_jws_to_compact(const json_t *jws);
 
-bool __attribute__((warn_unused_result))
+bool
 jose_jws_sign(json_t *jws, const json_t *jwk, json_t *sig);
 
-bool __attribute__((warn_unused_result))
+bool
 jose_jws_verify(const json_t *jws, const json_t *jwk);
 
 json_t *

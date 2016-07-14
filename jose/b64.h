@@ -9,13 +9,13 @@
 /**
  * Returns the length of data after decoding.
  */
-size_t __attribute__((warn_unused_result))
+size_t
 jose_b64_dlen(size_t elen);
 
 /**
  * Returns the length of data after encoding.
  */
-size_t __attribute__((warn_unused_result))
+size_t
 jose_b64_elen(size_t dlen);
 
 /**
@@ -24,13 +24,13 @@ jose_b64_elen(size_t dlen);
  * NOTE: The buffer MUST be at least as long as
  *       jose_b64_dlen(strlen(enc)).
  */
-bool __attribute__((warn_unused_result))
+bool
 jose_b64_decode(const char *enc, uint8_t dec[]);
 
 /**
  * Decodes the encoded C string to an allocated buffer.
  */
-uint8_t * __attribute__((warn_unused_result))
+uint8_t *
 jose_b64_decode_buf(const char *enc, size_t *len);
 
 /**
@@ -45,7 +45,7 @@ jose_b64_decode_buf_json(const json_t *enc, size_t *len);
  * NOTE: The buffer MUST be at least as long as
  *       jose_b64_dlen(json_string_length(enc)).
  */
-bool __attribute__((warn_unused_result))
+bool
 jose_b64_decode_json(const json_t *enc, uint8_t dec[]);
 
 /**
@@ -53,7 +53,7 @@ jose_b64_decode_json(const json_t *enc, uint8_t dec[]);
  *
  * Upon successful decoding, the serialization is deserialized.
  */
-json_t * __attribute__((warn_unused_result))
+json_t *
 jose_b64_decode_json_load(const json_t *enc);
 
 /**
@@ -68,11 +68,11 @@ jose_b64_encode(const uint8_t dec[], size_t len, char enc[]);
 /**
  * Encodes the input byte array to a JSON string.
  */
-json_t * __attribute__((warn_unused_result))
+json_t *
 jose_b64_encode_json(const uint8_t dec[], size_t len);
 
 /**
  * Encodes the input JSON after serializing it.
  */
-json_t * __attribute__((warn_unused_result))
+json_t *
 jose_b64_encode_json_dump(const json_t *dec);

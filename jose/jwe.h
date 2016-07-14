@@ -60,7 +60,7 @@ jose_jwe_register_zipper(jose_jwe_zipper_t *zipper);
 /**
  * Converts a JWE from compact format into JSON format.
  */
-json_t * __attribute__((warn_unused_result))
+json_t *
 jose_jwe_from_compact(const char *jwe);
 
 /**
@@ -71,29 +71,29 @@ jose_jwe_from_compact(const char *jwe);
  *
  * Free with free().
  */
-char * __attribute__((warn_unused_result))
+char *
 jose_jwe_to_compact(const json_t *jwe);
 
 
-bool __attribute__((warn_unused_result))
+bool
 jose_jwe_encrypt(json_t *jwe, const json_t *cek,
                  const uint8_t pt[], size_t ptl);
 
-bool __attribute__((warn_unused_result))
+bool
 jose_jwe_encrypt_json(json_t *jwe, const json_t *cek, json_t *pt);
 
 
-bool __attribute__((warn_unused_result))
+bool
 jose_jwe_wrap(json_t *jwe, json_t *cek, const json_t *jwk, json_t *rcp);
 
-json_t * __attribute__((warn_unused_result))
+json_t *
 jose_jwe_unwrap(const json_t *jwe, const json_t *jwk);
 
 
-uint8_t * __attribute__((warn_unused_result))
+uint8_t *
 jose_jwe_decrypt(const json_t *jwe, const json_t *cek, size_t *ptl);
 
-json_t * __attribute__((warn_unused_result))
+json_t *
 jose_jwe_decrypt_json(const json_t *jwe, const json_t *cek);
 
 json_t *
