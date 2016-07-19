@@ -50,3 +50,6 @@ jose_jwk_thumbprint_len(const char *hash);
 
 bool
 jose_jwk_thumbprint_buf(const json_t *jwk, const char *hash, char enc[]);
+
+json_t *
+jose_jwk_thumbprint_json(const json_t *jwk, const char *hash);

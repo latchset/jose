@@ -260,3 +260,17 @@ jose_jwk_thumbprint_buf(const json_t *jwk, const char *hash, char enc[])
     free(str);
     return ret;
 }
+
+json_t *
+jose_jwk_thumbprint_json(const json_t *jwk, const char *hash)
+{
+    json_t *ret = NULL;
+    char *thp = NULL;
+
+    thp = jose_jwk_thumbprint(jwk, hash);
+    if (thp)
+        ret = json_string(thp);
+
+    free(thp);
+    return ret;
+}
