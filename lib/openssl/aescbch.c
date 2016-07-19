@@ -254,6 +254,12 @@ decrypt(const json_t *jwe, const json_t *cek, const char *enc,
     if (tgl != sizeof(tag))
         goto egress;
 
+    if (!mktag(md, prot, aad, ky, kyl / 2, iv, ivl, ct, ctl, tag))
+        goto egress;
+
+    if (CRYPTO_memcmp(tag, tg, tgl) != 0)
+        goto egress;
+
     pt = malloc(ctl);
     if (!pt)
         goto egress;
@@ -269,13 +275,8 @@ decrypt(const json_t *jwe, const json_t *cek, const char *enc,
         goto egress;
     *ptl = len;
 
-    if (EVP_DecryptFinal(ctx, &pt[len], &len) <= 0)
-        goto egress;
+    vfy = EVP_DecryptFinal(ctx, &pt[len], &len) > 0;
     *ptl += len;
-
-    vfy = mktag(md, prot, aad, ky, kyl / 2, iv, ivl, ct, ctl, tag);
-    if (vfy)
-        vfy = CRYPTO_memcmp(tag, tg, tgl) == 0;
 
 egress:
     EVP_CIPHER_CTX_free(ctx);
