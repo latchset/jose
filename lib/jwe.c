@@ -300,8 +300,8 @@ egress:
     return ret;
 }
 
-static json_t *
-unwrap_rcp(const json_t *jwe, const json_t *rcp, const json_t *jwk)
+json_t *
+jose_jwe_unwrap(const json_t *jwe, const json_t *rcp, const json_t *jwk)
 {
     const jose_jwe_wrapper_t *wrapper = NULL;
     const char *halg = NULL;
@@ -309,6 +309,20 @@ unwrap_rcp(const json_t *jwe, const json_t *rcp, const json_t *jwk)
     const char *kalg = NULL;
     json_t *cek = NULL;
     json_t *jh = NULL;
+
+    if (!rcp) {
+        const json_t *rcps = NULL;
+
+        rcps = json_object_get(jwe, "recipients");
+        if (json_is_array(rcps)) {
+            for (size_t i = 0; i < json_array_size(rcps) && !cek; i++)
+                cek = jose_jwe_unwrap(jwe, json_array_get(rcps, i), jwk);
+        } else if (!rcps) {
+            cek = jose_jwe_unwrap(jwe, jwe, jwk);
+        }
+
+        return cek;
+    }
 
     jh = jose_jwe_merge_header(jwe, rcp);
     if (!jh)
@@ -346,25 +360,6 @@ unwrap_rcp(const json_t *jwe, const json_t *rcp, const json_t *jwk)
 
 egress:
     json_decref(jh);
-    return cek;
-}
-
-json_t *
-jose_jwe_unwrap(const json_t *jwe, const json_t *jwk)
-{
-    const json_t *rcps = NULL;
-    json_t *cek = NULL;
-
-    rcps = json_object_get(jwe, "recipients");
-    if (json_is_array(rcps)) {
-        for (size_t i = 0; i < json_array_size(rcps) && !cek; i++) {
-            const json_t *rcp = json_array_get(rcps, i);
-            cek = unwrap_rcp(jwe, rcp, jwk);
-        }
-    } else if (!rcps) {
-        cek = unwrap_rcp(jwe, jwe, jwk);
-    }
-
     return cek;
 }
 

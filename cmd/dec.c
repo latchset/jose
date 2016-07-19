@@ -116,7 +116,7 @@ jcmd_dec(int argc, char *argv[])
     for (size_t i = 0; i < json_array_size(jwks); i++) {
         json_t *cek = NULL;
 
-        cek = jose_jwe_unwrap(jwe, json_array_get(jwks, i));
+        cek = jose_jwe_unwrap(jwe, NULL, json_array_get(jwks, i));
         if (!cek)
             continue;
 
@@ -133,7 +133,7 @@ jcmd_dec(int argc, char *argv[])
             json_t *jwk = json_string(pwd);
             json_t *cek = NULL;
 
-            cek = jose_jwe_unwrap(jwe, jwk);
+            cek = jose_jwe_unwrap(jwe, NULL, jwk);
             json_decref(jwk);
             if (cek) {
                 ret = decrypt(jwe, cek, out);

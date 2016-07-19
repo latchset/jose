@@ -87,7 +87,7 @@ bool
 jose_jwe_wrap(json_t *jwe, json_t *cek, const json_t *jwk, json_t *rcp);
 
 json_t *
-jose_jwe_unwrap(const json_t *jwe, const json_t *jwk);
+jose_jwe_unwrap(const json_t *jwe, const json_t *rcp, const json_t *jwk);
 
 
 uint8_t *
