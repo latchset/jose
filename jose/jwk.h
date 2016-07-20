@@ -6,6 +6,13 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+typedef struct jose_jwk_type {
+    struct jose_jwk_type *next;
+    const char *kty;
+    const char **req;
+    const char **prv;
+} jose_jwk_type_t;
+
 typedef struct jose_jwk_resolver {
     struct jose_jwk_resolver *next;
     bool (*resolve)(json_t *jwk);
@@ -23,6 +30,9 @@ typedef struct jose_jwk_hasher {
     size_t size;
     bool (*hash)(const uint8_t in[], size_t inl, uint8_t out[]);
 } jose_jwk_hasher_t;
+
+void
+jose_jwk_register_type(jose_jwk_type_t *type);
 
 void
 jose_jwk_register_resolver(jose_jwk_resolver_t *resolver);

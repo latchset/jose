@@ -46,14 +46,18 @@ cmd/jose gen -t '{ "kty": "oct", "bytes": 32 }'
 ##
 
 # ... on some synthetic keys ...
-oct='{"k":"","a":"foo"}'
-rsa='{"p":"","d":"","q":"","dp":"","dq":"","qi":"","oth":"","a":"bar"}'
-ec='{"d":"","a":"baz"}'
-jwkset="{\"keys\":[$oct,$rsa,$ec]}"
-test "`echo $oct    | cmd/jose pub -i-`" == '{"a":"foo"}'
-test "`echo $rsa    | cmd/jose pub -i-`" == '{"a":"bar"}'
-test "`echo $ec     | cmd/jose pub -i-`" == '{"a":"baz"}'
-test "`echo $jwkset | cmd/jose pub -i-`" == '{"keys":[{"a":"foo"},{"a":"bar"},{"a":"baz"}]}'
+ioct='{"kty":"oct","k":"","a":"foo"}'
+irsa='{"kty":"RSA","p":"","d":"","q":"","dp":"","dq":"","qi":"","oth":"","a":"bar"}'
+iec='{"kty":"EC","d":"","a":"baz"}'
+ijwkset="{\"keys\":[$ioct,$irsa,$iec]}"
+ooct='{"a":"foo","kty":"oct"}'
+orsa='{"a":"bar","kty":"RSA"}'
+oec='{"a":"baz","kty":"EC"}'
+ojwkset="{\"keys\":[$ooct,$orsa,$oec]}"
+test "`echo $ioct    | cmd/jose pub -i-`" == "$ooct"
+test "`echo $irsa    | cmd/jose pub -i-`" == "$orsa"
+test "`echo $iec     | cmd/jose pub -i-`" == "$oec"
+test "`echo $ijwkset | cmd/jose pub -i-`" == "$ojwkset"
 
 # ... and all generated keys.
 for alg in $ASIGN $SSIGN $AWRAP $SWRAP $SENCR; do

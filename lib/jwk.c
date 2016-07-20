@@ -7,9 +7,17 @@
 #include <stdlib.h>
 #include <string.h>
 
+static jose_jwk_type_t *types;
 static jose_jwk_resolver_t *resolvers;
 static jose_jwk_generator_t *generators;
 static jose_jwk_hasher_t *hashers;
+
+void
+jose_jwk_register_type(jose_jwk_type_t *type)
+{
+    type->next = types;
+    types = type;
+}
 
 void
 jose_jwk_register_resolver(jose_jwk_resolver_t *resolver)
@@ -35,6 +43,7 @@ jose_jwk_register_hasher(jose_jwk_hasher_t *hasher)
 bool
 jose_jwk_generate(json_t *jwk)
 {
+    jose_jwk_type_t *type = NULL;
     const char *kty = NULL;
 
     for (jose_jwk_resolver_t *r = resolvers; r; r = r->next) {
@@ -45,9 +54,25 @@ jose_jwk_generate(json_t *jwk)
     if (json_unpack(jwk, "{s:s}", "kty", &kty) == -1)
         return false;
 
+    for (type = types; type && strcmp(kty, type->kty) != 0; type = type->next)
+        continue;
+
+    if (!type)
+        return false;
+
     for (jose_jwk_generator_t *g = generators; g; g = g->next) {
-        if (strcmp(g->kty, kty) == 0)
-            return g->generate(jwk);
+        if (strcmp(g->kty, kty) != 0)
+            continue;
+
+        if (!g->generate(jwk))
+            return false;
+
+        for (size_t i = 0; type->req[i]; i++) {
+            if (!json_object_get(jwk, type->req[i]))
+                return false;
+        }
+
+        return true;
     }
 
     return false;
@@ -56,13 +81,25 @@ jose_jwk_generate(json_t *jwk)
 static bool
 jwk_clean(json_t *jwk)
 {
-    const char *prv[] = { "k", "p", "d", "q", "dp", "dq", "qi", "oth", NULL };
+    jose_jwk_type_t *type = NULL;
+    const char *kty = NULL;
 
-    for (size_t i = 0; prv[i]; i++) {
-        if (!json_object_get(jwk, prv[i]))
+    if (json_unpack(jwk, "{s:s}", "kty", &kty) == -1)
+        return false;
+
+    for (type = types; type; type = type->next) {
+        if (strcasecmp(kty, type->kty) == 0)
+            break;
+    }
+
+    if (!type)
+        return false;
+
+    for (size_t i = 0; type->prv[i]; i++) {
+        if (!json_object_get(jwk, type->prv[i]))
             continue;
 
-        if (json_object_del(jwk, prv[i]) == -1)
+        if (json_object_del(jwk, type->prv[i]) == -1)
             return false;
     }
 
@@ -189,26 +226,9 @@ jose_jwk_thumbprint_len(const char *hash)
 bool
 jose_jwk_thumbprint_buf(const json_t *jwk, const char *hash, char enc[])
 {
-    struct {
-        const char *kty;
-
-        union {
-            struct {
-                const char *crv;
-                const char *x;
-                const char *y;
-            };
-
-            struct {
-                const char *e;
-                const char *n;
-            };
-
-            const char *k;
-        };
-    } d = {};
-
     jose_jwk_hasher_t *hasher = NULL;
+    jose_jwk_type_t *type = NULL;
+    const char *kty = NULL;
     json_t *key = NULL;
     char *str = NULL;
     bool ret = false;
@@ -218,45 +238,47 @@ jose_jwk_thumbprint_buf(const json_t *jwk, const char *hash, char enc[])
             break;
     }
 
-    if (!hasher)
+    if (json_unpack((json_t *) jwk, "{s:s}", "kty", &kty) == -1)
+        return false;
+
+    for (type = types; type; type = type->next) {
+        if (strcasecmp(kty, type->kty) == 0)
+            break;
+    }
+
+    if (!hasher || !type)
         return false;
 
     uint8_t buf[hasher->size];
 
-    if (json_unpack((json_t *) jwk, "{s:s,s:s}",
-                    "kty", &d.kty, "k", &d.k) == 0) {
-        if (strcmp(d.kty, "oct") != 0)
-            return false;
+    key = json_pack("{s:s}", "kty", kty);
 
-        key = json_pack("{s:s,s:s}", "kty", d.kty, "k", d.k);
-    } else if (json_unpack((json_t *) jwk, "{s:s,s:s,s:s}",
-                           "kty", &d.kty, "e", &d.e, "n", &d.n) == 0) {
-        if (strcmp(d.kty, "RSA") != 0)
-            return false;
+    for (size_t i = 0; type->req[i]; i++) {
+        json_t *tmp = NULL;
 
-        key = json_pack("{s:s,s:s,s:s}", "kty", d.kty, "e", d.e, "n", d.n);
-    } else if (json_unpack((json_t *) jwk, "{s:s,s:s,s:s,s:s}", "kty", &d.kty,
-                           "crv", &d.crv, "x", &d.x, "y", &d.y) == 0) {
-        if (strcmp(d.kty, "EC") != 0)
-            return false;
+        tmp = json_object_get(jwk, type->req[i]);
+        if (!tmp)
+            goto egress;
 
-        key = json_pack("{s:s,s:s,s:s,s:s}",
-                        "kty", d.kty, "crv", d.crv, "x", d.x, "y", d.y);
+        tmp = json_deep_copy(tmp);
+        if (!tmp)
+            goto egress;
+
+        if (json_object_set_new(key, type->req[i], tmp) == -1)
+            goto egress;
     }
 
-    if (!key)
-        return false;
-
     str = json_dumps(key, JSON_SORT_KEYS | JSON_COMPACT);
-    json_decref(key);
     if (!str)
-        return false;
+        goto egress;
 
     ret = hasher->hash((uint8_t *) str, strlen(str), buf);
     if (ret)
         jose_b64_encode_buf(buf, sizeof(buf), enc);
 
+egress:
     memset(buf, 0, sizeof(buf));
+    json_decref(key);
     free(str);
     return ret;
 }
@@ -273,4 +295,27 @@ jose_jwk_thumbprint_json(const json_t *jwk, const char *hash)
 
     free(thp);
     return ret;
+}
+
+static void __attribute__((constructor))
+constructor(void)
+{
+    static const char *oct_req[] = { "k", NULL };
+    static const char *oct_prv[] = { "k", NULL };
+
+    static const char *rsa_req[] = { "e", "n", NULL };
+    static const char *rsa_prv[] = { "p", "d", "q", "dp", "dq", "qi", "oth", NULL };
+
+    static const char *ec_req[] = { "crv", "x", "y", NULL };
+    static const char *ec_prv[] = { "d", NULL };
+
+    static jose_jwk_type_t builtins[] = {
+        { .kty = "oct", .req = oct_req, .prv = oct_prv },
+        { .kty = "RSA", .req = rsa_req, .prv = rsa_prv },
+        { .kty = "EC", .req = ec_req, .prv = ec_prv },
+        {}
+    };
+
+    for (size_t i = 0; builtins[i].kty; i++)
+        jose_jwk_register_type(&builtins[i]);
 }
