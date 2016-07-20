@@ -46,13 +46,13 @@ cmd/jose gen -t '{ "kty": "oct", "bytes": 32 }'
 ##
 
 # ... on some synthetic keys ...
-ioct='{"kty":"oct","k":"","a":"foo"}'
-irsa='{"kty":"RSA","p":"","d":"","q":"","dp":"","dq":"","qi":"","oth":"","a":"bar"}'
-iec='{"kty":"EC","d":"","a":"baz"}'
+ioct='{"kty":"oct","k":"","a":"foo","key_ops":["encrypt","decrypt"]}'
+irsa='{"kty":"RSA","p":"","d":"","q":"","dp":"","dq":"","qi":"","oth":"","a":"bar","key_ops":["encrypt","decrypt"]}'
+iec='{"kty":"EC","d":"","a":"baz","key_ops":["encrypt","decrypt"]}'
 ijwkset="{\"keys\":[$ioct,$irsa,$iec]}"
-ooct='{"a":"foo","kty":"oct"}'
-orsa='{"a":"bar","kty":"RSA"}'
-oec='{"a":"baz","kty":"EC"}'
+ooct='{"a":"foo","key_ops":[],"kty":"oct"}'
+orsa='{"a":"bar","key_ops":["encrypt"],"kty":"RSA"}'
+oec='{"a":"baz","key_ops":["encrypt"],"kty":"EC"}'
 ojwkset="{\"keys\":[$ooct,$orsa,$oec]}"
 test "`echo $ioct    | cmd/jose pub -i-`" == "$ooct"
 test "`echo $irsa    | cmd/jose pub -i-`" == "$orsa"

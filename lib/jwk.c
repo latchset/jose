@@ -111,6 +111,29 @@ jwk_clean(json_t *jwk)
             return false;
     }
 
+    for (jose_jwk_op_t *o = ops; o; o = o->next) {
+        json_t *arr = NULL;
+
+        if (!o->prv && (!type->sym || !o->pub))
+            continue;
+
+        arr = json_object_get(jwk, "key_ops");
+        for (size_t i = 0; i < json_array_size(arr); i++) {
+            const char *ko = NULL;
+
+            ko = json_string_value(json_array_get(arr, i));
+            if (!ko)
+                continue;
+
+            if ((!o->prv || strcmp(o->prv, ko) != 0) &&
+                (!type->sym || !o->pub || strcmp(o->pub, ko) != 0))
+                continue;
+
+            if (json_array_remove(arr, i--) == -1)
+                return false;
+        }
+    }
+
     return true;
 }
 
