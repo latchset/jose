@@ -8,10 +8,18 @@
 
 typedef struct jose_jwk_type {
     struct jose_jwk_type *next;
+    bool sym;
     const char *kty;
     const char **req;
     const char **prv;
 } jose_jwk_type_t;
+
+typedef struct jose_jwk_op {
+    struct jose_jwk_op *next;
+    const char *pub;
+    const char *prv;
+    const char *use;
+} jose_jwk_op_t;
 
 typedef struct jose_jwk_resolver {
     struct jose_jwk_resolver *next;
@@ -33,6 +41,9 @@ typedef struct jose_jwk_hasher {
 
 void
 jose_jwk_register_type(jose_jwk_type_t *type);
+
+void
+jose_jwk_register_op(jose_jwk_op_t *op);
 
 void
 jose_jwk_register_resolver(jose_jwk_resolver_t *resolver);

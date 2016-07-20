@@ -8,6 +8,7 @@
 #include <string.h>
 
 static jose_jwk_type_t *types;
+static jose_jwk_op_t *ops;
 static jose_jwk_resolver_t *resolvers;
 static jose_jwk_generator_t *generators;
 static jose_jwk_hasher_t *hashers;
@@ -17,6 +18,13 @@ jose_jwk_register_type(jose_jwk_type_t *type)
 {
     type->next = types;
     types = type;
+}
+
+void
+jose_jwk_register_op(jose_jwk_op_t *op)
+{
+    op->next = ops;
+    ops = op;
 }
 
 void
@@ -165,22 +173,13 @@ oallowed(const json_t *jwk, const char *op)
 bool
 jose_jwk_allowed(const json_t *jwk, const char *use, const char *op)
 {
-    static const struct {
-        const char *use;
-        const char *op;
-    } table[] = {
-        { "sig", "sign" },
-        { "sig", "verify" },
-        { "enc", "encrypt" },
-        { "enc", "decrypt" },
-        { "enc", "wrapKey" },
-        { "enc", "unwrapKey" },
-        {}
-    };
+    for (jose_jwk_op_t *o = ops; o && !use; o = o->next) {
+        if (o->pub && strcmp(o->pub, op) == 0)
+            use = o->use;
 
-    for (size_t i = 0; !use && op && table[i].use; i++)
-        if (strcmp(table[i].op, op) == 0)
-            use = table[i].use;
+        if (o->prv && strcmp(o->prv, op) == 0)
+            use = o->use;
+    }
 
     return use ? uallowed(jwk, use) : true && op ? oallowed(jwk, op) : true;
 }
@@ -309,13 +308,26 @@ constructor(void)
     static const char *ec_req[] = { "crv", "x", "y", NULL };
     static const char *ec_prv[] = { "d", NULL };
 
-    static jose_jwk_type_t builtins[] = {
-        { .kty = "oct", .req = oct_req, .prv = oct_prv },
+    static jose_jwk_type_t builtin_types[] = {
+        { .kty = "oct", .req = oct_req, .prv = oct_prv, .sym = true },
         { .kty = "RSA", .req = rsa_req, .prv = rsa_prv },
         { .kty = "EC", .req = ec_req, .prv = ec_prv },
         {}
     };
 
-    for (size_t i = 0; builtins[i].kty; i++)
-        jose_jwk_register_type(&builtins[i]);
+    static jose_jwk_op_t builtin_ops[] = {
+        { .pub = "verify",  .prv = "sign",      .use = "sig" },
+        { .pub = "encrypt", .prv = "decrypt",   .use = "enc" },
+        { .pub = "wrapKey", .prv = "unwrapKey", .use = "enc" },
+
+        { .pub = "deriveKey" },
+        { .pub = "deriveBits" },
+        {}
+    };
+
+    for (size_t i = 0; builtin_types[i].kty; i++)
+        jose_jwk_register_type(&builtin_types[i]);
+
+    for (size_t i = 0; builtin_ops[i].use; i++)
+        jose_jwk_register_op(&builtin_ops[i]);
 }
