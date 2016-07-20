@@ -18,26 +18,18 @@ resolve(json_t *jwk)
 {
     const char *alg = NULL;
     const char *kty = NULL;
-    json_t *bits = NULL;
     json_t *upd = NULL;
+    bool ret = false;
 
-    if (json_unpack(jwk, "{s?s,s?s,s?o}",
-                    "kty", &kty, "alg", &alg, "bits", &bits) == -1)
+    if (json_unpack(jwk, "{s?s,s?s}", "kty", &kty, "alg", &alg) == -1)
         return false;
 
     if (str2enum(alg, NAMES, NULL) >= 6)
         return true;
 
-    if (!kty) {
-        if (json_object_set_new(jwk, "kty", json_string("RSA")) == -1)
-            return false;
-    } else if (strcmp(kty, "RSA") != 0)
+    if (!kty && json_object_set_new(jwk, "kty", json_string("RSA")) == -1)
         return false;
-
-    if (!bits) {
-        if (json_object_set_new(jwk, "bits", json_integer(2048)) == -1)
-            return false;
-    } else if (!json_is_integer(bits) || json_integer_value(bits) < 2048)
+    if (kty && strcmp(kty, "RSA") != 0)
         return false;
 
     upd = json_pack("{s:s,s:[s,s]}", "use", "sig", "key_ops",
@@ -45,13 +37,9 @@ resolve(json_t *jwk)
     if (!upd)
         return false;
 
-    if (json_object_update_missing(jwk, upd) == -1) {
-        json_decref(upd);
-        return false;
-    }
-
+    ret = json_object_update_missing(jwk, upd) == 0;
     json_decref(upd);
-    return true;
+    return ret;
 }
 
 static const char *

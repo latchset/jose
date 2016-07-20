@@ -170,6 +170,7 @@ resolve(json_t *jwk)
     const char *kty = NULL;
     const char *grp = NULL;
     json_t *upd = NULL;
+    bool ret = false;
 
     if (json_unpack(jwk, "{s?s,s?s,s?s}",
                     "kty", &kty, "alg", &alg, "crv", &crv) == -1)
@@ -183,16 +184,14 @@ resolve(json_t *jwk)
     default: return true;
     }
 
-    if (!kty) {
-        if (json_object_set_new(jwk, "kty", json_string("EC")) == -1)
-            return false;
-    } else if (strcmp(kty, "EC") != 0)
+    if (!kty && json_object_set_new(jwk, "kty", json_string("EC")) == -1)
+        return false;
+    if (kty && strcmp(kty, "EC") != 0)
         return false;
 
-    if (!crv) {
-        if (json_object_set_new(jwk, "crv", json_string(grp)) == -1)
-            return false;
-    } else if (strcmp(crv, grp) != 0)
+    if (!crv && json_object_set_new(jwk, "crv", json_string(grp)) == -1)
+        return false;
+    if (crv && strcmp(crv, grp) != 0)
         return false;
 
     upd = json_pack("{s:s,s:[s,s]}", "use", "enc", "key_ops",
@@ -200,13 +199,9 @@ resolve(json_t *jwk)
     if (!upd)
         return false;
 
-    if (json_object_update_missing(jwk, upd) == -1) {
-        json_decref(upd);
-        return false;
-    }
-
+    ret = json_object_update_missing(jwk, upd) == 0;
     json_decref(upd);
-    return true;
+    return ret;
 }
 
 static const char *

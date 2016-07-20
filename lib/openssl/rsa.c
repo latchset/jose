@@ -12,9 +12,9 @@ mkrsa(const json_t *jwk)
     json_t *exp = NULL;
     BIGNUM *bn = NULL;
     RSA *key = NULL;
-    int bits = 0;
+    int bits = 2048;
 
-    if (json_unpack((json_t *) jwk, "{s:i,s?O}",
+    if (json_unpack((json_t *) jwk, "{s?i,s?O}",
                     "bits", &bits, "e", &exp) == -1)
         return NULL;
 
