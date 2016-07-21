@@ -61,7 +61,7 @@ bool
 jose_jwk_clean(json_t *jwk);
 
 bool
-jose_jwk_allowed(const json_t *jwk, const char *use, const char *op);
+jose_jwk_allowed(const json_t *jwk, bool req, const char *use, const char *op);
 
 char *
 jose_jwk_thumbprint(const json_t *jwk, const char *hash);

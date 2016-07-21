@@ -79,7 +79,7 @@ jose_jws_sign(json_t *jws, const json_t *jwk, json_t *sig)
     if (!sig)
         sig = json_object();
 
-    if (!jose_jwk_allowed(jwk, "sig", "sign"))
+    if (!jose_jwk_allowed(jwk, false, NULL, "sign"))
         goto egress;
 
     if (json_unpack(sig, "{s?o}", "protected", &p) == -1)
@@ -187,7 +187,7 @@ jose_jws_verify(const json_t *jws, const json_t *jwk)
     const json_t *array = NULL;
     const char *payl = NULL;
 
-    if (!jose_jwk_allowed(jwk, "sig", "verify"))
+    if (!jose_jwk_allowed(jwk, false, NULL, "verify"))
         return false;
 
     if (json_unpack((json_t *) jws, "{s: s}", "payload", &payl) == -1)
