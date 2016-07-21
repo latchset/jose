@@ -48,13 +48,16 @@ cmd_jose_SOURCES = \
 
 
 EXTRA_DIST = tests/vectors
-TESTS = $(dist_check_SCRIPTS)
+TESTS = $(check_PROGRAMS) $(dist_check_SCRIPTS)
+check_PROGRAMS = tests/jwk
 dist_check_SCRIPTS = \
     tests/rfc7515_A \
     tests/rfc7520_4 \
     tests/rfc7520_5 \
     tests/rfc7638 \
     tests/jose
+
+tests_jwk_LDADD = libjose.la
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = jose.pc

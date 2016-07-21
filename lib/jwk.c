@@ -158,45 +158,14 @@ jose_jwk_clean(json_t *jwk)
     return true;
 }
 
-static bool
-uallowed(const json_t *jwk, const char *use)
+bool
+jose_jwk_allowed(const json_t *jwk, bool req, const char *use, const char *op)
 {
+    bool found = true;
+    json_t *ko = NULL;
     json_t *u = NULL;
 
-    u = json_object_get(jwk, "use");
-    if (!json_is_string(u))
-        return true;
-
-    return strcmp(json_string_value(u), use) == 0;
-}
-
-static bool
-oallowed(const json_t *jwk, const char *op)
-{
-    json_t *ko = NULL;
-
-    ko = json_object_get(jwk, "key_ops");
-    if (!json_is_array(ko))
-        return true;
-
-    for (size_t i = 0; i < json_array_size(ko); i++) {
-        json_t *o = NULL;
-
-        o = json_array_get(ko, i);
-        if (!json_is_string(o))
-            continue;
-
-        if (strcmp(json_string_value(o), op) == 0)
-            return true;
-    }
-
-    return false;
-}
-
-bool
-jose_jwk_allowed(const json_t *jwk, const char *use, const char *op)
-{
-    for (jose_jwk_op_t *o = ops; o && !use; o = o->next) {
+    for (jose_jwk_op_t *o = ops; o && !use && op; o = o->next) {
         if (o->pub && strcmp(o->pub, op) == 0)
             use = o->use;
 
@@ -204,7 +173,28 @@ jose_jwk_allowed(const json_t *jwk, const char *use, const char *op)
             use = o->use;
     }
 
-    return use ? uallowed(jwk, use) : true && op ? oallowed(jwk, op) : true;
+    u = json_object_get(jwk, "use");
+    if (use && json_is_string(u)) {
+        if (strcmp(json_string_value(u), use) != 0)
+            return false;
+    } else if (req)
+        found = false;
+
+    ko = json_object_get(jwk, "key_ops");
+    if (op && json_is_array(ko)) {
+        found = false;
+        for (size_t i = 0; i < json_array_size(ko) && !found; i++) {
+            json_t *o = NULL;
+
+            o = json_array_get(ko, i);
+            if (!json_is_string(o))
+                continue;
+
+            found = strcmp(json_string_value(o), op) == 0;
+        }
+    }
+
+    return found;
 }
 
 char *
