@@ -329,6 +329,7 @@ egress:
     EVP_PKEY_free(lcl);
     EVP_PKEY_free(rem);
     json_decref(tmp);
+    json_decref(hd);
     free(pu);
     free(pv);
     return ret;
