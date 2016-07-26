@@ -2,7 +2,7 @@
 
 trap 'exit' ERR
 
-prfx=tests/vectors/rfc7515_A
+prfx=${srcdir}/tests/vectors/rfc7515_A
 
 cmd/jose ver -i $prfx.1.jwsc -k $prfx.1.jwk
 
