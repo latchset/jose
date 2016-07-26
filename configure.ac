@@ -10,9 +10,35 @@ AM_PROG_CC_C_O
 LT_INIT([disable-static])
 
 PKG_PROG_PKG_CONFIG([0.25])
-PKG_CHECK_MODULES([libcrypto], [libcrypto])
 PKG_CHECK_MODULES([jansson], [jansson])
-PKG_CHECK_MODULES([zlib], [zlib])
+
+AC_ARG_WITH(
+    [openssl],
+    [AS_HELP_STRING([--with-openssl], [build openssl library @<:@default=check@:>@])],
+    [],
+    [with_openssl=check]
+)
+AS_CASE(
+    ["$with_openssl"],
+    [yes], [PKG_CHECK_MODULES([libcrypto], [libcrypto], [HAVE_OPENSSL=1])],
+    [no], [HAVE_OPENSSL=0],
+    [PKG_CHECK_MODULES([libcrypto], [libcrypto], [HAVE_OPENSSL=1], [HAVE_OPENSSL=0])]
+)
+AM_CONDITIONAL([USE_OPENSSL], [test "$with_openssl" != no -a "$HAVE_OPENSSL" -eq 1])
+
+AC_ARG_WITH(
+    [zlib],
+    [AS_HELP_STRING([--with-zlib], [build zlib library @<:@default=check@:>@])],
+    [],
+    [with_zlib=check]
+)
+AS_CASE(
+    ["$with_zlib"],
+    [yes], [PKG_CHECK_MODULES([zlib], [zlib], [HAVE_ZLIB=1])],
+    [no], [HAVE_ZLIB=0],
+    [PKG_CHECK_MODULES([zlib], [zlib], [HAVE_ZLIB=1], [HAVE_ZLIB=0])]
+)
+AM_CONDITIONAL([USE_ZLIB], [test "$with_zlib" != no -a "$HAVE_ZLIB" -eq 1])
 
 JOSE_CFLAGS="\
 -Wall \
@@ -35,5 +61,5 @@ JOSE_CFLAGS="\
 "
 AC_SUBST([JOSE_CFLAGS])
 
-AC_CONFIG_FILES([jose.pc Makefile])
+AC_CONFIG_FILES([jose.pc jose-openssl.pc jose-zlib.pc Makefile])
 AC_OUTPUT

@@ -5,9 +5,6 @@
 #include <jose/jwk.h>
 #include <jose/jwe.h>
 
-#include <openssl/evp.h>
-#include <openssl/rand.h>
-
 #include <string.h>
 
 static const char *

@@ -3,8 +3,8 @@ exec_prefix=@exec_prefix@
 libdir=@libdir@
 includedir=${prefix}/include
 
-Name: José Core Library
-Description: Library for managing JOSE objects
+Name: José zLib Library
+Description: Library for managing JOSE objects using zlib
 Version: @VERSION@
-Libs: -L${libdir} -ljose
+Libs: -L${libdir} -ljose-zlib
 Cflags: -I${includedir}
