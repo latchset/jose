@@ -7,6 +7,7 @@
 #include <openssl/rsa.h>
 #include <jansson.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 #ifdef __APPLE__
 #include <libkern/OSByteOrder.h>
