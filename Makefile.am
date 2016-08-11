@@ -56,6 +56,7 @@ cmd_jose_SOURCES = \
     cmd/ver.c \
     cmd/enc.c \
     cmd/dec.c \
+    cmd/hdr.c \
     cmd/jose.c \
     cmd/jose.h
 
