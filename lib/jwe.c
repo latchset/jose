@@ -115,8 +115,9 @@ jose_jwe_to_compact(const json_t *jwe)
     if (unprotected || header || aad)
         return NULL;
 
-    asprintf(&out, "%s.%s.%s.%s.%s",
-             protected, encrypted_key, iv, ciphertext, tag);
+    if (asprintf(&out, "%s.%s.%s.%s.%s",
+                 protected, encrypted_key, iv, ciphertext, tag) < 0)
+        return NULL;
 
     return out;
 }

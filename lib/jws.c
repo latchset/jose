@@ -48,7 +48,9 @@ jose_jws_to_compact(const json_t *jws)
     if (header)
         return NULL;
 
-    asprintf(&out, "%s.%s.%s", protected, payload, signature);
+    if (asprintf(&out, "%s.%s.%s", protected, payload, signature) < 0)
+        return NULL;
+
     return out;
 }
 
