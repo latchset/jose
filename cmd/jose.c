@@ -218,6 +218,7 @@ main(int argc, char *argv[])
         { "gen", jcmd_gen },
         { "pub", jcmd_pub },
         { "thp", jcmd_thp },
+        { "exc", jcmd_exc },
         { "sig", jcmd_sig },
         { "ver", jcmd_ver },
         { "enc", jcmd_enc },
@@ -247,14 +248,15 @@ main(int argc, char *argv[])
     fprintf(stderr,
 "Usage: jose COMMAND [OPTIONS] [ARGUMENTS]\n"
 "\n"
-"\njose " GEN_USE
-"\njose " PUB_USE
-"\njose " THP_USE
-"\njose " SIG_USE
-"\njose " VER_USE
-"\njose " ENC_USE
-"\njose " DEC_USE
-"\njose " HDR_USE
+"\n  jose " GEN_USE
+"\n  jose " PUB_USE
+"\n  jose " THP_USE
+"\n  jose " EXC_USE
+"\n  jose " SIG_USE
+"\n  jose " VER_USE
+"\n  jose " ENC_USE
+"\n  jose " DEC_USE
+"\n  jose " HDR_USE
 "\n");
     return EXIT_FAILURE;
 }

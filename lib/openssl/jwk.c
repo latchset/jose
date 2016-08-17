@@ -18,6 +18,7 @@
 #include "misc.h"
 #include <jose/openssl.h>
 #include <jose/b64.h>
+#include <jose/jwk.h>
 
 #include <openssl/ec.h>
 #include <openssl/rand.h>
@@ -392,4 +393,55 @@ error:
     EC_KEY_free(key);
     BN_free(D);
     return NULL;
+}
+
+static json_t *
+exchange(const json_t *prv, const json_t *pub)
+{
+    const EC_GROUP *grp = NULL;
+    json_t *key = NULL;
+    EC_KEY *lcl = NULL;
+    EC_KEY *rem = NULL;
+    BN_CTX *bnc = NULL;
+    EC_POINT *p = NULL;
+
+    bnc = BN_CTX_new();
+    if (!bnc)
+        return NULL;
+
+    lcl = jose_openssl_jwk_to_EC_KEY(prv);
+    if (!lcl)
+        goto egress;
+
+    rem = jose_openssl_jwk_to_EC_KEY(pub);
+    if (!rem)
+        goto egress;
+
+    grp = EC_KEY_get0_group(lcl);
+    if (EC_GROUP_cmp(grp, EC_KEY_get0_group(rem), bnc) != 0)
+        goto egress;
+
+    p = EC_POINT_new(grp);
+    if (!p)
+        goto egress;
+
+    if (EC_POINT_mul(grp, p, NULL, EC_KEY_get0_public_key(rem),
+                     EC_KEY_get0_private_key(lcl), bnc) <= 0)
+        goto egress;
+
+    key = jose_openssl_jwk_from_EC_POINT(EC_KEY_get0_group(rem), p, NULL);
+
+egress:
+    EC_POINT_free(p);
+    EC_KEY_free(lcl);
+    EC_KEY_free(rem);
+    BN_CTX_free(bnc);
+    return key;
+}
+
+static void __attribute__((constructor))
+constructor(void)
+{
+    static jose_jwk_exchanger_t exchanger = { .exchange = exchange };
+    jose_jwk_register_exchanger(&exchanger);
 }

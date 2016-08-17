@@ -54,6 +54,11 @@ typedef struct jose_jwk_hasher {
     bool (*hash)(const uint8_t in[], size_t inl, uint8_t out[]);
 } jose_jwk_hasher_t;
 
+typedef struct jose_jwk_exchanger {
+    struct jose_jwk_exchanger *next;
+    json_t *(*exchange)(const json_t *prv, const json_t *pub);
+} jose_jwk_exchanger_t;
+
 void
 jose_jwk_register_type(jose_jwk_type_t *type);
 
@@ -68,6 +73,9 @@ jose_jwk_register_generator(jose_jwk_generator_t *generator);
 
 void
 jose_jwk_register_hasher(jose_jwk_hasher_t *hasher);
+
+void
+jose_jwk_register_exchanger(jose_jwk_exchanger_t *exchanger);
 
 bool
 jose_jwk_generate(json_t *jwk);
@@ -89,3 +97,6 @@ jose_jwk_thumbprint_buf(const json_t *jwk, const char *hash, char enc[]);
 
 json_t *
 jose_jwk_thumbprint_json(const json_t *jwk, const char *hash);
+
+json_t *
+jose_jwk_exchange(const json_t *prv, const json_t *pub);

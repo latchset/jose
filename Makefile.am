@@ -52,6 +52,7 @@ cmd_jose_SOURCES = \
     cmd/gen.c \
     cmd/pub.c \
     cmd/thp.c \
+    cmd/exc.c \
     cmd/sig.c \
     cmd/ver.c \
     cmd/enc.c \

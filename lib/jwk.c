@@ -27,6 +27,7 @@ static jose_jwk_op_t *ops;
 static jose_jwk_resolver_t *resolvers;
 static jose_jwk_generator_t *generators;
 static jose_jwk_hasher_t *hashers;
+static jose_jwk_exchanger_t *exchangers;
 
 void
 jose_jwk_register_type(jose_jwk_type_t *type)
@@ -61,6 +62,13 @@ jose_jwk_register_hasher(jose_jwk_hasher_t *hasher)
 {
     hasher->next = hashers;
     hashers = hasher;
+}
+
+void
+jose_jwk_register_exchanger(jose_jwk_exchanger_t *exchanger)
+{
+    exchanger->next = exchangers;
+    exchangers = exchanger;
 }
 
 bool
@@ -358,4 +366,26 @@ constructor(void)
 
     for (size_t i = 0; builtin_ops[i].use; i++)
         jose_jwk_register_op(&builtin_ops[i]);
+}
+
+json_t *
+jose_jwk_exchange(const json_t *prv, const json_t *pub)
+{
+    if (!jose_jwk_allowed(prv, false, NULL, "deriveKey") &&
+        !jose_jwk_allowed(prv, false, NULL, "deriveBits"))
+        return NULL;
+
+    if (!jose_jwk_allowed(pub, false, NULL, "deriveKey") &&
+        !jose_jwk_allowed(pub, false, NULL, "deriveBits"))
+        return NULL;
+
+    for (jose_jwk_exchanger_t *e = exchangers; e; e = e->next) {
+        json_t *key = NULL;
+
+        key = e->exchange(prv, pub);
+        if (key)
+            return key;
+    }
+
+    return NULL;
 }

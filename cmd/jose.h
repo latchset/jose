@@ -30,6 +30,9 @@
 #define THP_USE \
     "thp -i JWK(Set) [-H HASH] [-o THMB]"
 
+#define EXC_USE \
+    "exc [-t TMPL] -l JWK -r JWK [-o JWK]"
+
 #define SIG_USE \
     "sig -i PLD [-t TMPL] [-s SIGT ...] -k JWK(Set) ... [-o JWS] [-c] [-d]"
 
@@ -70,6 +73,9 @@ jcmd_pub(int argc, char *argv[]);
 
 int
 jcmd_thp(int argc, char *argv[]);
+
+int
+jcmd_exc(int argc, char *argv[]);
 
 int
 jcmd_sig(int argc, char *argv[]);
