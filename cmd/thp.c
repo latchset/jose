@@ -88,6 +88,7 @@ jcmd_thp(int argc, char *argv[])
     }
 
     jcmd_dump_data(out, (uint8_t *) thp, strlen(thp));
+    ret = EXIT_SUCCESS;
 
 egress:
     json_decref(jwk);
