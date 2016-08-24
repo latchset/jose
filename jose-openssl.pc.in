@@ -5,6 +5,8 @@ includedir=${prefix}/include
 
 Name: José OpenSSL Library
 Description: Library for managing JOSE objects using OpenSSL
+Requires: jose
+Requires.private: libcrypto
 Version: @VERSION@
 Libs: -L${libdir} -ljose-openssl
 Cflags: -I${includedir}

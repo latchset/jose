@@ -5,6 +5,8 @@ includedir=${prefix}/include
 
 Name: José zLib Library
 Description: Library for managing JOSE objects using zlib
+Requires: jose
+Requires.private: zlib
 Version: @VERSION@
 Libs: -L${libdir} -ljose-zlib
 Cflags: -I${includedir}
