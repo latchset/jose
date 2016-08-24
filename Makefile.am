@@ -17,7 +17,7 @@ libjose_la_SOURCES = \
     lib/jwe.c \
     lib/dir.c
 
-TESTS = $(check_PROGRAMS)
+TESTS = tests/jwk
 check_PROGRAMS = tests/jwk
 tests_jwk_LDADD = libjose.la
 
@@ -62,6 +62,7 @@ cmd_jose_SOURCES = \
     cmd/jose.h
 
 TESTS += $(dist_check_SCRIPTS)
+check_PROGRAMS += tests/rsa_oaep
 dist_check_SCRIPTS = \
     tests/rfc7515_A \
     tests/rfc7520_4 \

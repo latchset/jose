@@ -5,9 +5,11 @@ prfx=tests/vectors/rfc7520_5
 test "`cmd/jose dec -i $prfx.1.jwec  -k $prfx.1.jwk`"    == "`cat $prfx.1.pt`"
 test "`cmd/jose dec -i $prfx.1.jwef  -k $prfx.1.jwk`"    == "`cat $prfx.1.pt`"
 test "`cmd/jose dec -i $prfx.1.jweg  -k $prfx.1.jwk`"    == "`cat $prfx.1.pt`"
-test "`cmd/jose dec -i $prfx.2.jwec  -k $prfx.2.jwk`"    == "`cat $prfx.2.pt`"
-test "`cmd/jose dec -i $prfx.2.jwef  -k $prfx.2.jwk`"    == "`cat $prfx.2.pt`"
-test "`cmd/jose dec -i $prfx.2.jweg  -k $prfx.2.jwk`"    == "`cat $prfx.2.pt`"
+if tests/rsa_oaep; then
+    test "`cmd/jose dec -i $prfx.2.jwec  -k $prfx.2.jwk`"    == "`cat $prfx.2.pt`"
+    test "`cmd/jose dec -i $prfx.2.jwef  -k $prfx.2.jwk`"    == "`cat $prfx.2.pt`"
+    test "`cmd/jose dec -i $prfx.2.jweg  -k $prfx.2.jwk`"    == "`cat $prfx.2.pt`"
+fi
 test "`cmd/jose dec -i $prfx.3.jwec  -k $prfx.3.jwk`"    == "`cat $prfx.3.pt`"
 test "`cmd/jose dec -i $prfx.3.jwef  -k $prfx.3.jwk`"    == "`cat $prfx.3.pt`"
 test "`cmd/jose dec -i $prfx.3.jweg  -k $prfx.3.jwk`"    == "`cat $prfx.3.pt`"

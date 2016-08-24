@@ -41,3 +41,4 @@ tests/jwk
 tests/jwkset
 tests/jws
 tests/jwe
+tests/rsa_oaep

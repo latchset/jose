@@ -25,7 +25,14 @@
 
 #include <string.h>
 
+#ifdef EVP_PKEY_CTX_set_rsa_oaep_md
 #define NAMES "RSA1_5", "RSA-OAEP", "RSA-OAEP-256"
+#else
+#define NAMES "RSA1_5"
+#define EVP_PKEY_CTX_set_rsa_oaep_md(ctx, md) (-1)
+#endif
+
+static const char *algs[] = { NAMES, NULL };
 
 static bool
 resolve(json_t *jwk)
@@ -38,7 +45,7 @@ resolve(json_t *jwk)
     if (json_unpack(jwk, "{s?s,s?s}", "kty", &kty, "alg", &alg) == -1)
         return false;
 
-    if (str2enum(alg, NAMES, NULL) >= 3)
+    if (!algs[str2enum(alg, NAMES, NULL)])
         return true;
 
     if (!kty && json_object_set_new(jwk, "kty", json_string("RSA")) == -1)
@@ -213,8 +220,6 @@ egress:
 static void __attribute__((constructor))
 constructor(void)
 {
-    static const char *algs[] = { NAMES, NULL };
-
     static jose_jwk_resolver_t resolver = {
         .resolve = resolve
     };
