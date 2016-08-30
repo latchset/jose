@@ -30,6 +30,50 @@
 
 extern jose_jwe_wrapper_t aeskw_wrapper;
 
+static json_t *
+exchange(const json_t *prv, const json_t *pub)
+{
+    const EC_GROUP *grp = NULL;
+    json_t *key = NULL;
+    EC_KEY *lcl = NULL;
+    EC_KEY *rem = NULL;
+    BN_CTX *bnc = NULL;
+    EC_POINT *p = NULL;
+
+    bnc = BN_CTX_new();
+    if (!bnc)
+        return NULL;
+
+    lcl = jose_openssl_jwk_to_EC_KEY(prv);
+    if (!lcl)
+        goto egress;
+
+    rem = jose_openssl_jwk_to_EC_KEY(pub);
+    if (!rem)
+        goto egress;
+
+    grp = EC_KEY_get0_group(lcl);
+    if (EC_GROUP_cmp(grp, EC_KEY_get0_group(rem), bnc) != 0)
+        goto egress;
+
+    p = EC_POINT_new(grp);
+    if (!p)
+        goto egress;
+
+    if (EC_POINT_mul(grp, p, NULL, EC_KEY_get0_public_key(rem),
+                     EC_KEY_get0_private_key(lcl), bnc) <= 0)
+        goto egress;
+
+    key = jose_openssl_jwk_from_EC_POINT(EC_KEY_get0_group(rem), p, NULL);
+
+egress:
+    EC_POINT_free(p);
+    EC_KEY_free(lcl);
+    EC_KEY_free(rem);
+    BN_CTX_free(bnc);
+    return key;
+}
+
 static bool
 concatkdf(const EVP_MD *md, uint8_t dk[], size_t dkl,
           const uint8_t z[], size_t zl, ...)
@@ -97,84 +141,6 @@ egress:
     memset(hsh, 0, sizeof(hsh));
     EVP_MD_CTX_destroy(ctx);
     return ret;
-}
-
-static EVP_PKEY *
-generate(const EC_KEY *rem)
-{
-    EVP_PKEY_CTX *pctx = NULL;
-    EVP_PKEY_CTX *kctx = NULL;
-    EVP_PKEY *prm = NULL;
-    EVP_PKEY *lcl = NULL;
-    int nid = NID_undef;
-
-    nid = EC_GROUP_get_curve_name(EC_KEY_get0_group(rem));
-    if (nid == NID_undef)
-        return NULL;
-
-    /* Create the key generation parameters. */
-    pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_EC, NULL);
-    if (!pctx)
-        goto egress;
-
-    if (EVP_PKEY_paramgen_init(pctx) <= 0)
-        goto egress;
-
-    if (EVP_PKEY_CTX_set_ec_paramgen_curve_nid(pctx, nid) <= 0)
-        goto egress;
-
-    if (!EVP_PKEY_paramgen(pctx, &prm))
-        goto egress;
-
-    /* Generate the ephemeral key. */
-    kctx = EVP_PKEY_CTX_new(prm, NULL);
-    if (!kctx)
-        goto egress;
-
-    if (EVP_PKEY_keygen_init(kctx) <= 0)
-        goto egress;
-
-    if (EVP_PKEY_keygen(kctx, &lcl) <= 0)
-        goto egress;
-
-egress:
-    EVP_PKEY_CTX_free(pctx);
-    EVP_PKEY_CTX_free(kctx);
-    EVP_PKEY_free(prm);
-    return lcl;
-}
-
-static uint8_t *
-ecdh(EVP_PKEY *lcl, EVP_PKEY *rem, size_t *len)
-{
-    EVP_PKEY_CTX *ctx = NULL;
-    uint8_t *key = NULL;
-
-    ctx = EVP_PKEY_CTX_new(lcl, NULL);
-    if (!ctx)
-        goto egress;
-
-    if (EVP_PKEY_derive_init(ctx) <= 0)
-        goto egress;
-
-    if (EVP_PKEY_derive_set_peer(ctx, rem) <= 0)
-        goto egress;
-
-    if (EVP_PKEY_derive(ctx, NULL, len) <= 0)
-        goto egress;
-
-    key = malloc(*len);
-    if (!key)
-        goto egress;
-
-    if (EVP_PKEY_derive(ctx, key, len) <= 0) {
-        clear_free(key, *len);
-        key = NULL;
-    }
-
-egress:
-    EVP_PKEY_CTX_free(ctx);
-    return key;
 }
 
 static bool
@@ -248,8 +214,6 @@ wrap(json_t *jwe, json_t *cek, const json_t *jwk, json_t *rcp,
     const char *apv = NULL;
     const char *aes = NULL;
     const char *enc = NULL;
-    EVP_PKEY *rem = NULL;
-    EVP_PKEY *lcl = NULL;
     uint8_t *ky = NULL;
     uint8_t *pu = NULL;
     uint8_t *pv = NULL;
@@ -294,26 +258,30 @@ wrap(json_t *jwe, json_t *cek, const json_t *jwk, json_t *rcp,
     if (!aes && !enc)
         goto egress;
 
-    rem = jose_openssl_jwk_to_EVP_PKEY(jwk);
-    if (!rem || EVP_PKEY_base_id(rem) != EVP_PKEY_EC)
-        goto egress;
-
-    lcl = generate(rem->pkey.ec);
-    if (!lcl)
-        goto egress;
-
     h = json_object_get(rcp, "header");
     if (!h && json_object_set_new(rcp, "header", h = json_object()) == -1)
-        return false;
+        goto egress;
 
-    epk = jose_openssl_jwk_from_EVP_PKEY(lcl);
+    epk = json_pack("{s:s,s:O}", "kty", "EC", "crv",
+                    json_object_get(jwk, "crv"));
+    if (!epk)
+        goto egress;
+
     if (json_object_set_new(h, "epk", epk) == -1)
+        goto egress;
+
+    if (!jose_jwk_generate(epk))
+        goto egress;
+
+    tmp = exchange(epk, jwk);
+    if (!tmp)
         goto egress;
 
     if (!jose_jwk_clean(epk))
         goto egress;
 
-    ky = ecdh(lcl, rem, &kyl);
+    ky = jose_b64_decode_json(json_object_get(tmp, "x"), &kyl);
+    json_decref(tmp);
     if (!ky)
         goto egress;
 
@@ -341,8 +309,6 @@ wrap(json_t *jwe, json_t *cek, const json_t *jwk, json_t *rcp,
 egress:
     memset(dk, 0, sizeof(dk));
     clear_free(ky, kyl);
-    EVP_PKEY_free(lcl);
-    EVP_PKEY_free(rem);
     json_decref(tmp);
     json_decref(hd);
     free(pu);
@@ -391,8 +357,6 @@ unwrap(const json_t *jwe, const json_t *jwk, const json_t *rcp,
     const char *apv = NULL;
     const char *aes = NULL;
     const char *enc = NULL;
-    EVP_PKEY *rem = NULL;
-    EVP_PKEY *lcl = NULL;
     uint8_t *ky = NULL;
     uint8_t *pu = NULL;
     uint8_t *pv = NULL;
@@ -422,16 +386,14 @@ unwrap(const json_t *jwe, const json_t *jwk, const json_t *rcp,
     if (!aes && !enc)
         goto egress;
 
-    lcl = jose_openssl_jwk_to_EVP_PKEY(jwk);
-    rem = jose_openssl_jwk_to_EVP_PKEY(epk);
     pu = jose_b64_decode(apu, &pul);
     pv = jose_b64_decode(apv, &pvl);
-    if (!lcl || !rem || (apu && !pu) || (apv && !pv) ||
-        EVP_PKEY_base_id(lcl) != EVP_PKEY_EC ||
-        EVP_PKEY_base_id(rem) != EVP_PKEY_EC)
+    if ((apu && !pu) || (apv && !pv))
         goto egress;
 
-    ky = ecdh(lcl, rem, &kyl);
+    tmp = exchange(jwk, epk);
+    ky = jose_b64_decode_json(json_object_get(tmp, "x"), &kyl);
+    json_decref(tmp);
     if (!ky)
         goto egress;
 
@@ -454,8 +416,6 @@ unwrap(const json_t *jwe, const json_t *jwk, const json_t *rcp,
 egress:
     memset(dk, 0, sizeof(dk));
     clear_free(ky, kyl);
-    EVP_PKEY_free(lcl);
-    EVP_PKEY_free(rem);
     json_decref(tmp);
     json_decref(hd);
     free(pu);
@@ -468,6 +428,10 @@ constructor(void)
 {
     static const char *algs[] = { NAMES, NULL };
 
+    static jose_jwk_exchanger_t exchanger = {
+        .exchange = exchange
+    };
+
     static jose_jwk_resolver_t resolver = {
         .resolve = resolve
     };
@@ -479,6 +443,7 @@ constructor(void)
         .unwrap = unwrap,
     };
 
+    jose_jwk_register_exchanger(&exchanger);
     jose_jwk_register_resolver(&resolver);
     jose_jwe_register_wrapper(&wrapper);
 }
