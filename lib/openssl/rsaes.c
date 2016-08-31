@@ -21,6 +21,7 @@
 #include <jose/jwe.h>
 #include <jose/openssl.h>
 
+#include <openssl/rand.h>
 #include <openssl/rsa.h>
 
 #include <string.h>
@@ -151,6 +152,8 @@ unwrap(const json_t *jwe, const json_t *jwk, const json_t *rcp,
     openssl_auto(EVP_PKEY) *key = NULL;
     jose_buf_auto_t *pt = NULL;
     jose_buf_auto_t *ct = NULL;
+    jose_buf_auto_t *rt = NULL;
+    jose_buf_t *tt = NULL;
     const EVP_MD *md = NULL;
     int pad = 0;
 
@@ -191,11 +194,28 @@ unwrap(const json_t *jwe, const json_t *jwk, const json_t *rcp,
             return false;
     }
 
-    if (EVP_PKEY_decrypt(ctx, pt->data, &pt->size, ct->data, ct->size) <= 0)
-        return false;
+    /* Handle MMA Attack as prescribed by RFC 3218, always generate a
+     * random buffer of appropriate length so that the same operations
+     * are performed whether decrypt succeeds or not, in an attempt to
+     * foil timing attacks */
+    if (pad == RSA_PKCS1_PADDING) {
+        rt = jose_buf(ct->size, JOSE_BUF_FLAG_WIPE);
+        if (!rt)
+            return false;
+        if (RAND_bytes(rt->data, rt->size) <= 0)
+            return false;
+    }
+
+    tt = pt;
+    if (EVP_PKEY_decrypt(ctx, pt->data, &pt->size, ct->data, ct->size) <= 0) {
+        if (pad == RSA_PKCS1_PADDING) {
+            tt = rt;
+        } else
+            return false;
+    }
 
     return json_object_set_new(cek, "k",
-                               jose_b64_encode_json(pt->data, pt->size)) == 0;
+                               jose_b64_encode_json(tt->data, tt->size)) == 0;
 }
 
 static void __attribute__((constructor))
