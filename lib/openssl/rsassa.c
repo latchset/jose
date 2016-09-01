@@ -151,13 +151,12 @@ static bool
 verify(const json_t *sig, const json_t *jwk,
        const char *alg, const char *prot, const char *payl)
 {
+    jose_buf_auto_t *sgn = NULL;
     EVP_PKEY_CTX *pctx = NULL;
     const EVP_MD *md = NULL;
     EVP_MD_CTX *ctx = NULL;
     EVP_PKEY *key = NULL;
-    uint8_t *sg = NULL;
     bool ret = false;
-    size_t sgl = 0;
     int pad = 0;
 
     switch (str2enum(alg, NAMES, NULL)) {
@@ -178,8 +177,8 @@ verify(const json_t *sig, const json_t *jwk,
     if (RSA_size(key->pkey.rsa) < 2048 / 8)
         goto egress;
 
-    sg = jose_b64_decode_json(json_object_get(sig, "signature"), &sgl);
-    if (!sg)
+    sgn = jose_b64_decode_json(json_object_get(sig, "signature"));
+    if (!sgn)
         goto egress;
 
     ctx = EVP_MD_CTX_create();
@@ -201,12 +200,11 @@ verify(const json_t *sig, const json_t *jwk,
     if (EVP_DigestVerifyUpdate(ctx, payl, strlen(payl)) < 0)
         goto egress;
 
-    ret = EVP_DigestVerifyFinal(ctx, sg, sgl) == 1;
+    ret = EVP_DigestVerifyFinal(ctx, sgn->data, sgn->size) == 1;
 
 egress:
     EVP_MD_CTX_destroy(ctx);
     EVP_PKEY_free(key);
-    free(sg);
     return ret;
 }
 

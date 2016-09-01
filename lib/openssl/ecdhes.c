@@ -207,21 +207,18 @@ static bool
 wrap(json_t *jwe, json_t *cek, const json_t *jwk, json_t *rcp,
      const char *alg)
 {
+    jose_buf_auto_t *ky = NULL;
+    jose_buf_auto_t *pu = NULL;
+    jose_buf_auto_t *pv = NULL;
+    jose_buf_auto_t *dk = NULL;
     json_auto_t *tmp = NULL;
     json_auto_t *hdr = NULL;
     const char *apu = NULL;
     const char *apv = NULL;
     const char *aes = NULL;
     const char *enc = NULL;
-    uint8_t *ky = NULL;
-    uint8_t *pu = NULL;
-    uint8_t *pv = NULL;
     json_t *epk = NULL;
     json_t *h = NULL;
-    bool ret = false;
-    size_t kyl = 0;
-    size_t pul = 0;
-    size_t pvl = 0;
 
     if (json_object_get(cek, "k")) {
         if (strcmp(alg, "ECDH-ES") == 0)
@@ -231,88 +228,79 @@ wrap(json_t *jwe, json_t *cek, const json_t *jwk, json_t *rcp,
     }
 
     switch (str2enum(alg, NAMES, NULL)) {
-    case 0:
-        kyl = jose_b64_dlen(json_string_length(json_object_get(cek, "k")));
-        if (kyl == 0)
-            return false;
-        break;
-    case 1: kyl = 16; aes = "A128KW"; break;
-    case 2: kyl = 24; aes = "A192KW"; break;
-    case 3: kyl = 32; aes = "A256KW"; break;
+    case 0: dk = jose_b64_decode_json(json_object_get(cek, "k"));  break;
+    case 1: dk = jose_buf(16, JOSE_BUF_FLAG_WIPE); aes = "A128KW"; break;
+    case 2: dk = jose_buf(24, JOSE_BUF_FLAG_WIPE); aes = "A192KW"; break;
+    case 3: dk = jose_buf(32, JOSE_BUF_FLAG_WIPE); aes = "A256KW"; break;
     default: return false;
     }
-
-    uint8_t dk[kyl];
+    if (!dk)
+        return false;
 
     hdr = jose_jwe_merge_header(jwe, rcp);
     if (!hdr)
-        goto egress;
+        return false;
 
     if (json_unpack(hdr, "{s?s,s?s,s?s}", "apu", &apu,
                     "apv", &apv, "enc", &enc) == -1)
-        goto egress;
+        return false;
 
     if (!aes && !enc)
-        goto egress;
+        return false;
 
     h = json_object_get(rcp, "header");
     if (!h && json_object_set_new(rcp, "header", h = json_object()) == -1)
-        goto egress;
+        return false;
 
     epk = json_pack("{s:s,s:O}", "kty", "EC", "crv",
                     json_object_get(jwk, "crv"));
     if (!epk)
-        goto egress;
+        return false;
 
     if (json_object_set_new(h, "epk", epk) == -1)
-        goto egress;
+        return false;
 
     if (!jose_jwk_generate(epk))
-        goto egress;
+        return false;
 
     tmp = exchange(epk, jwk);
     if (!tmp)
-        goto egress;
+        return false;
 
     if (!jose_jwk_clean(epk))
-        goto egress;
+        return false;
 
-    ky = jose_b64_decode_json(json_object_get(tmp, "x"), &kyl);
+    ky = jose_b64_decode_json(json_object_get(tmp, "x"));
     if (!ky)
-        goto egress;
+        return false;
 
-    pu = jose_b64_decode(apu, &pul);
-    pv = jose_b64_decode(apv, &pvl);
+    pu = jose_b64_decode(apu);
+    pv = jose_b64_decode(apv);
     if ((apu && !pu) || (apv && !pv))
-        goto egress;
+        return false;
 
-    if (!concatkdf(EVP_sha256(), dk, sizeof(dk), ky, kyl,
+    if (!concatkdf(EVP_sha256(), dk->data, dk->size, ky->data, ky->size,
                    aes ? alg : enc, strlen(aes ? alg : enc),
-                   pu ? pu : (uint8_t *) "", pul,
-                   pv ? pv : (uint8_t *) "", pvl, NULL))
-        goto egress;
+                   pu ? pu->data : (uint8_t *) "",
+                   pu ? pu->size : 0,
+                   pv ? pv->data : (uint8_t *) "",
+                   pv ? pv->size : 0, NULL))
+        return false;
 
     json_decref(tmp);
     tmp = json_pack("{s:s,s:o}", "kty", "oct", "k",
-                    jose_b64_encode_json(dk, sizeof(dk)));
+                    jose_b64_encode_json(dk->data, dk->size));
     if (!tmp)
-        goto egress;
+        return false;
 
     if (aes)
-        ret = aeskw_wrapper.wrap(jwe, cek, tmp, rcp, aes);
-    else
-        ret = json_object_update(cek, tmp) == 0;
+        return aeskw_wrapper.wrap(jwe, cek, tmp, rcp, aes);
 
-egress:
-    memset(dk, 0, sizeof(dk));
-    clear_free(ky, kyl);
-    free(pu);
-    free(pv);
-    return ret;
+    return json_object_update(cek, tmp) == 0;
 }
 
-static size_t
-get_keyl(const json_t *jwe, const json_t *rcp)
+static jose_buf_t *
+get_dk(const json_t *jwe, const json_t *rcp)
 {
     json_auto_t *head = NULL;
     json_auto_t *jwk = NULL;
@@ -320,65 +308,62 @@ get_keyl(const json_t *jwe, const json_t *rcp)
 
     head = jose_jwe_merge_header(jwe, rcp);
     if (!head)
-        return 0;
+        return NULL;
 
     if (json_unpack(head, "{s:s}", "enc", &enc) == -1)
-        return 0;
+        return NULL;
 
     jwk = json_pack("{s:s}", "alg", enc);
     if (!jwk)
-        return 0;
+        return NULL;
 
     if (!jose_jwk_generate(jwk))
-        return 0;
+        return NULL;
 
     if (!json_is_string(json_object_get(jwk, "k")))
-        return 0;
+        return NULL;
 
-    return jose_b64_dlen(json_string_length(json_object_get(jwk, "k")));
+    return jose_b64_decode_json(json_object_get(jwk, "k"));
 }
 
 static bool
 unwrap(const json_t *jwe, const json_t *jwk, const json_t *rcp,
        const char *alg, json_t *cek)
 {
+    jose_buf_auto_t *ky = NULL;
+    jose_buf_auto_t *pu = NULL;
+    jose_buf_auto_t *pv = NULL;
+    jose_buf_auto_t *dk = NULL;
     json_auto_t *tmp = NULL;
     json_auto_t *hdr = NULL;
     const char *apu = NULL;
     const char *apv = NULL;
     const char *aes = NULL;
     const char *enc = NULL;
-    uint8_t *ky = NULL;
-    uint8_t *pu = NULL;
-    uint8_t *pv = NULL;
     json_t *epk = NULL;
-    bool ret = false;
-    size_t kyl = 0;
-    size_t pul = 0;
-    size_t pvl = 0;
 
     switch (str2enum(alg, NAMES, NULL)) {
-    case 0: kyl = get_keyl(jwe, rcp); if (kyl == 0) return false; break;
-    case 1: kyl = 16; aes = "A128KW"; break;
-    case 2: kyl = 24; aes = "A192KW"; break;
-    case 3: kyl = 32; aes = "A256KW"; break;
+    case 0: dk = get_dk(jwe, rcp);  break;
+    case 1: dk = jose_buf(16, JOSE_BUF_FLAG_WIPE); aes = "A128KW"; break;
+    case 2: dk = jose_buf(24, JOSE_BUF_FLAG_WIPE); aes = "A192KW"; break;
+    case 3: dk = jose_buf(32, JOSE_BUF_FLAG_WIPE); aes = "A256KW"; break;
     default: return false;
     }
-
-    uint8_t dk[kyl];
+    if (!dk)
+        return false;
 
     hdr = jose_jwe_merge_header(jwe, rcp);
     if (json_unpack(hdr, "{s:o,s?s,s?s,s:s}", "epk", &epk, "apu", &apu,
                     "apv", &apv, "enc", &enc) == -1)
-        goto egress;
+        return false;
 
     if (!aes && !enc)
-        goto egress;
+        return false;
 
-    pu = jose_b64_decode(apu, &pul);
-    pv = jose_b64_decode(apv, &pvl);
+    pu = jose_b64_decode(apu);
+    pv = jose_b64_decode(apv);
     if ((apu && !pu) || (apv && !pv))
-        goto egress;
+        return false;
 
     /* If the JWK has a private key, perform the normal exchange. */
     if (json_object_get(jwk, "d"))
@@ -389,33 +374,28 @@ unwrap(const json_t *jwe, const json_t *jwk, const json_t *rcp,
                         json_object_get(epk, "crv")))
         tmp = json_deep_copy(jwk);
 
-    ky = jose_b64_decode_json(json_object_get(tmp, "x"), &kyl);
+    ky = jose_b64_decode_json(json_object_get(tmp, "x"));
     if (!ky)
-        goto egress;
+        return false;
 
-    if (!concatkdf(EVP_sha256(), dk, sizeof(dk), ky, kyl,
+    if (!concatkdf(EVP_sha256(), dk->data, dk->size, ky->data, ky->size,
                    aes ? alg : enc, strlen(aes ? alg : enc),
-                   pu ? pu : (uint8_t *) "", pul,
-                   pv ? pv : (uint8_t *) "", pvl, NULL))
-        goto egress;
+                   pu ? pu->data : (uint8_t *) "",
+                   pu ? pu->size : 0,
+                   pv ? pv->data : (uint8_t *) "",
+                   pv ? pv->size : 0, NULL))
+        return false;
 
     json_decref(tmp);
     tmp = json_pack("{s:s,s:o}", "kty", "oct", "k",
-                    jose_b64_encode_json(dk, sizeof(dk)));
+                    jose_b64_encode_json(dk->data, dk->size));
     if (!tmp)
-        goto egress;
+        return false;
 
     if (aes)
-        ret = aeskw_wrapper.unwrap(jwe, tmp, rcp, aes, cek);
-    else
-        ret = json_object_update_missing(cek, tmp) == 0;
+        return aeskw_wrapper.unwrap(jwe, tmp, rcp, aes, cek);
 
-egress:
-    memset(dk, 0, sizeof(dk));
-    clear_free(ky, kyl);
-    free(pu);
-    free(pv);
-    return ret;
+    return json_object_update_missing(cek, tmp) == 0;
 }
 
 static void __attribute__((constructor))

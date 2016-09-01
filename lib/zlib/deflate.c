@@ -19,11 +19,19 @@
 #include <zlib.h>
 #include <string.h>
 
-static uint8_t *
-comp_deflate(const uint8_t *buf, size_t len, size_t *out)
+static inline void
+swap(jose_buf_t **a, jose_buf_t **b)
 {
-    uint8_t *o = NULL;
-    z_stream strm = {};
+    jose_buf_t *c = *a;
+    *a = *b;
+    *b = c;
+}
+
+static jose_buf_t *
+comp_deflate(const uint8_t *buf, size_t len)
+{
+    z_stream __attribute__((cleanup(deflateEnd))) strm = {};
+    jose_buf_auto_t *out = NULL;
 
     strm.next_in = (uint8_t *) buf;
     strm.avail_in = len;
@@ -33,38 +41,34 @@ comp_deflate(const uint8_t *buf, size_t len, size_t *out)
         return NULL;
 
     while (strm.avail_in > 0) {
-        uint8_t *tmp = NULL;
+        jose_buf_auto_t *tmp = NULL;
 
         strm.avail_out = 16 * 1024; /* 16K blocks */
 
-        tmp = realloc(o, strm.total_out + strm.avail_out);
+        tmp = jose_buf(strm.total_out + strm.avail_out, JOSE_BUF_FLAG_WIPE);
         if (!tmp)
-            goto error;
+            return NULL;
 
-        o = tmp;
-        strm.next_out = &o[strm.total_out];
+        if (out)
+            memcpy(tmp->data, out->data, strm.total_out);
+
+        swap(&tmp, &out);
+
+        strm.next_out = &out->data[strm.total_out];
 
         if (deflate(&strm, Z_FINISH) != Z_STREAM_END)
-            goto error;
+            return NULL;
     }
 
-    *out = strm.total_out;
-    deflateEnd(&strm);
-    return o;
-
-error:
-    deflateEnd(&strm);
-    if (o)
-        memset(o, 0, *out);
-    free(o);
-    return NULL;
+    out->size = strm.total_out;
+    return jose_buf_incref(out);
 }
 
-static uint8_t *
-comp_inflate(const uint8_t *buf, size_t len, size_t *out)
+static jose_buf_t *
+comp_inflate(const uint8_t *buf, size_t len)
 {
-    uint8_t *o = NULL;
-    z_stream strm = {};
+    z_stream __attribute__((cleanup(inflateEnd))) strm = {};
+    jose_buf_auto_t *out = NULL;
 
     strm.next_in = (uint8_t *) buf;
     strm.avail_in = len;
@@ -73,31 +77,27 @@ comp_inflate(const uint8_t *buf, size_t len, size_t *out)
         return NULL;
 
     while (strm.avail_in > 0) {
-        uint8_t *tmp = NULL;
+        jose_buf_auto_t *tmp = NULL;
 
         strm.avail_out = 16 * 1024; /* 16K blocks */
 
-        tmp = realloc(o, strm.total_out + strm.avail_out);
+        tmp = jose_buf(strm.total_out + strm.avail_out, JOSE_BUF_FLAG_WIPE);
         if (!tmp)
-            goto error;
+            return NULL;
 
-        o = tmp;
-        strm.next_out = &o[strm.total_out];
+        if (out)
+            memcpy(tmp->data, out->data, strm.total_out);
+
+        swap(&tmp, &out);
+
+        strm.next_out = &out->data[strm.total_out];
 
         if (inflate(&strm, Z_FINISH) != Z_STREAM_END)
-            goto error;
+            return NULL;
     }
 
-    *out = strm.total_out;
-    inflateEnd(&strm);
-    return o;
-
-error:
-    inflateEnd(&strm);
-    if (o)
-        memset(o, 0, *out);
-    free(o);
-    return NULL;
+    out->size = strm.total_out;
+    return jose_buf_incref(out);
 }
 
 static void __attribute__((constructor))

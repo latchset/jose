@@ -153,46 +153,35 @@ verify_sig(const char *payl, const json_t *sig, const json_t *jwk)
 {
     const jose_jws_signer_t *signer = NULL;
     const char *prot = NULL;
-    const char *sign = NULL;
     const char *kalg = NULL;
-    const char *palg = NULL;
     const char *halg = NULL;
-    json_auto_t *p = NULL;
+    json_auto_t *hdr = NULL;
 
-    if (json_unpack((json_t *) sig, "{s:s,s?o,s?s,s?{s?s}}",
-                    "signature", &sign, "protected", &p, "protected", &prot,
-                    "header", "alg", &halg) == -1)
+    if (json_unpack((json_t *) sig, "{s?s}", "protected", &prot) != 0)
         return false;
 
-    if (p) {
-        if (!json_is_string(p))
-            return false;
-
-        p = jose_b64_decode_json_load(p);
-        if (json_unpack(p, "{s:s}", "alg", &palg) == -1)
-            return false;
-    }
-
-    if (json_unpack((json_t *) jwk, "{s?s}", "alg", &kalg) == -1)
+    if (json_unpack((json_t *) jwk, "{s?s}", "alg", &kalg) != 0)
         return false;
 
-    if (palg && halg)
+    hdr = jose_jws_merge_header(sig);
+    if (!hdr)
         return false;
 
-    if (!palg && !halg) {
+    if (json_unpack(hdr, "{s:s}", "alg", &halg) != 0)
+        return false;
+
+    if (!halg) {
         if (!kalg)
             return false;
         halg = kalg;
-    }
-
-    if (kalg && strcmp(palg ? palg : halg, kalg) != 0)
+    } else if (kalg && strcmp(halg, kalg) != 0)
         return false;
 
-    signer = find(palg ? palg : halg);
+    signer = find(halg);
     if (!signer)
         return false;
 
-    return signer->verify(sig, jwk, palg ? palg : halg, prot ? prot : "", payl);
+    return signer->verify(sig, jwk, halg, prot ? prot : "", payl);
 }
 
 bool

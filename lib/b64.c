@@ -47,27 +47,21 @@ jose_b64_elen(size_t dlen)
     }
 }
 
-uint8_t *
-jose_b64_decode(const char *enc, size_t *len)
+jose_buf_t *
+jose_b64_decode(const char *enc)
 {
-    uint8_t *buf = NULL;
+    jose_buf_auto_t *buf = NULL;
 
     if (!enc)
         return NULL;
 
-    *len = jose_b64_dlen(strlen(enc));
-    if (*len == 0)
-        return NULL;
-
-    buf = malloc(*len);
+    buf = jose_buf(jose_b64_dlen(strlen(enc)), JOSE_BUF_FLAG_WIPE);
     if (!buf)
         return NULL;
 
-    if (jose_b64_decode_buf(enc, buf))
-        return buf;
+    if (jose_b64_decode_buf(enc, buf->data))
+        return jose_buf_incref(buf);
 
-    memset(buf, 0, *len);
-    free(buf);
     return NULL;
 }
 
@@ -113,13 +107,13 @@ jose_b64_decode_buf(const char *enc, uint8_t dec[])
     return true;
 }
 
-uint8_t *
-jose_b64_decode_json(const json_t *enc, size_t *len)
+jose_buf_t *
+jose_b64_decode_json(const json_t *enc)
 {
     if (!json_is_string(enc))
         return NULL;
 
-    return jose_b64_decode(json_string_value(enc), len);
+    return jose_b64_decode(json_string_value(enc));
 }
 
 bool
@@ -134,20 +128,13 @@ jose_b64_decode_json_buf(const json_t *enc, uint8_t dec[])
 json_t *
 jose_b64_decode_json_load(const json_t *enc)
 {
-    uint8_t *buf = NULL;
-    json_t *out = NULL;
-    size_t len = 0;
+    jose_buf_auto_t *buf = NULL;
 
-    buf = jose_b64_decode_json(enc, &len);
+    buf = jose_b64_decode_json(enc);
     if (!buf)
         return NULL;
 
-    if (jose_b64_decode_json_buf(enc, buf))
-        out = json_loadb((char *) buf, len, JSON_DECODE_ANY, NULL);
-
-    memset(buf, 0, len);
-    free(buf);
-    return out;
+    return json_loadb((char *) buf->data, buf->size, JSON_DECODE_ANY, NULL);
 }
 
 char *

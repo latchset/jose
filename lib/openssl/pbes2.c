@@ -40,42 +40,37 @@ suggest(const json_t *jwk)
 static json_t *
 pbkdf2(const json_t *jwk, const char *alg, int iter, uint8_t st[], size_t stl)
 {
+    jose_buf_auto_t *slt = NULL;
+    jose_buf_auto_t *dk = NULL;
     const EVP_MD *md = NULL;
-    uint8_t *salt = NULL;
-    json_t *key = NULL;
-    size_t saltl = 0;
-    size_t dkl = 0;
 
     if (!json_is_string(jwk))
         return NULL;
 
     switch (str2enum(alg, NAMES, NULL)) {
-    case 0: md = EVP_sha256(); dkl = 16; break;
-    case 1: md = EVP_sha384(); dkl = 24; break;
-    case 2: md = EVP_sha512(); dkl = 32; break;
+    case 0: md = EVP_sha256(); dk = jose_buf(16, JOSE_BUF_FLAG_WIPE); break;
+    case 1: md = EVP_sha384(); dk = jose_buf(24, JOSE_BUF_FLAG_WIPE); break;
+    case 2: md = EVP_sha512(); dk = jose_buf(32, JOSE_BUF_FLAG_WIPE); break;
     default: return NULL;
     }
 
-    uint8_t dk[dkl];
+    if (!dk)
+        return NULL;
 
-    saltl = strlen(alg) + 1 + stl;
-    salt = malloc(saltl);
-    if (!salt)
-        goto egress;
+    slt = jose_buf(strlen(alg) + 1 + stl, JOSE_BUF_FLAG_WIPE);
+    if (!slt)
+        return NULL;
 
-    memcpy(salt, alg, saltl - stl);
-    memcpy(&salt[saltl - stl], st, stl);
+    memcpy(slt->data, alg, slt->size - stl);
+    memcpy(&slt->data[slt->size - stl], st, stl);
 
     if (PKCS5_PBKDF2_HMAC(json_string_value(jwk), json_string_length(jwk),
-                          salt, saltl, iter, md, dkl, dk) > 0) {
-        key = json_pack("{s:s,s:o}", "kty", "oct", "k",
-                        jose_b64_encode_json(dk, sizeof(dk)));
-    }
+                          slt->data, slt->size, iter,
+                          md, dk->size, dk->data) > 0)
+        return json_pack("{s:s,s:o}", "kty", "oct", "k",
+                         jose_b64_encode_json(dk->data, dk->size));
 
-egress:
-    memset(dk, 0, sizeof(dk));
-    clear_free(salt, saltl);
-    return key;
+    return NULL;
 }
 
 static bool
@@ -141,14 +136,12 @@ static bool
 unwrap(const json_t *jwe, const json_t *jwk, const json_t *rcp,
        const char *alg, json_t *cek)
 {
+    jose_buf_auto_t *st = NULL;
     json_auto_t *key = NULL;
     json_auto_t *hdr = NULL;
     const char *aes = NULL;
     const char *p2s = NULL;
     json_int_t p2c = -1;
-    uint8_t *st = NULL;
-    bool ret = false;
-    size_t stl = 0;
 
     switch (str2enum(alg, NAMES, NULL)) {
     case 0: aes = "A128KW"; break;
@@ -159,22 +152,20 @@ unwrap(const json_t *jwe, const json_t *jwk, const json_t *rcp,
 
     hdr = jose_jwe_merge_header(jwe, rcp);
     if (!hdr)
-        goto egress;
+        return false;
 
     if (json_unpack(hdr, "{s:s,s:I}", "p2s", &p2s, "p2c", &p2c) == -1)
-        goto egress;
+        return false;
 
-    st = jose_b64_decode(p2s, &stl);
-    if (!st || stl < 8)
-        goto egress;
+    st = jose_b64_decode(p2s);
+    if (!st || st->size < 8)
+        return false;
 
-    key = pbkdf2(jwk, alg, p2c, st, stl);
-    if (key)
-        ret = aeskw_wrapper.unwrap(jwe, key, rcp, aes, cek);
+    key = pbkdf2(jwk, alg, p2c, st->data, st->size);
+    if (!key)
+        return false;
 
-egress:
-    free(st);
-    return ret;
+    return aeskw_wrapper.unwrap(jwe, key, rcp, aes, cek);
 }
 
 static void __attribute__((constructor))

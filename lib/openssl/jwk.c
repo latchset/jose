@@ -226,12 +226,11 @@ egress:
 EVP_PKEY *
 jose_openssl_jwk_to_EVP_PKEY(const json_t *jwk)
 {
+    jose_buf_auto_t *buf = NULL;
     const char *kty = NULL;
     EVP_PKEY *key = NULL;
-    uint8_t *buf = NULL;
     EC_KEY *ec = NULL;
     RSA *rsa = NULL;
-    size_t len = 0;
 
     if (json_unpack((json_t *) jwk, "{s:s}", "kty", &kty) == -1)
         return NULL;
@@ -272,13 +271,11 @@ jose_openssl_jwk_to_EVP_PKEY(const json_t *jwk)
         return key;
 
     case 2:
-        buf = jose_b64_decode_json(json_object_get(jwk, "k"), &len);
+        buf = jose_b64_decode_json(json_object_get(jwk, "k"));
         if (!buf)
             return NULL;
 
-        key = EVP_PKEY_new_mac_key(EVP_PKEY_HMAC, NULL, buf, len);
-        clear_free(buf, len);
-        return key;
+        return EVP_PKEY_new_mac_key(EVP_PKEY_HMAC, NULL, buf->data, buf->size);
 
     default: return NULL;
     }

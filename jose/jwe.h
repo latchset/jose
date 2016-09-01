@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <jose/buf.h>
 #include <jansson.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -32,9 +33,9 @@ typedef struct jose_jwe_crypter {
     (*encrypt)(json_t *jwe, const json_t *cek, const uint8_t pt[], size_t ptl,
                const char *enc, const char *prot, const char *aad);
 
-    uint8_t *
+    jose_buf_t *
     (*decrypt)(const json_t *jwe, const json_t *cek, const char *enc,
-               const char *prot, const char *aad, size_t *ptl);
+               const char *prot, const char *aad);
 } jose_jwe_crypter_t;
 
 typedef struct jose_jwe_wrapper {
@@ -56,11 +57,11 @@ typedef struct jose_jwe_zipper {
     struct jose_jwe_zipper *next;
     const char *zip;
 
-    uint8_t *
-    (*deflate)(const uint8_t val[], size_t len, size_t *out);
+    jose_buf_t *
+    (*deflate)(const uint8_t val[], size_t len);
 
-    uint8_t *
-    (*inflate)(const uint8_t val[], size_t len, size_t *out);
+    jose_buf_t *
+    (*inflate)(const uint8_t val[], size_t len);
 } jose_jwe_zipper_t;
 
 void
@@ -105,8 +106,8 @@ json_t *
 jose_jwe_unwrap(const json_t *jwe, const json_t *rcp, const json_t *jwk);
 
 
-uint8_t *
-jose_jwe_decrypt(const json_t *jwe, const json_t *cek, size_t *ptl);
+jose_buf_t *
+jose_jwe_decrypt(const json_t *jwe, const json_t *cek);
 
 json_t *
 jose_jwe_decrypt_json(const json_t *jwe, const json_t *cek);

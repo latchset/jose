@@ -178,21 +178,20 @@ verify(const json_t *sig, const json_t *jwk,
        const char *alg, const char *prot, const char *payl)
 {
     uint8_t hsh[EVP_MAX_MD_SIZE];
+    jose_buf_auto_t *sgn = NULL;
     ECDSA_SIG ecdsa = {};
     EC_KEY *key = NULL;
-    uint8_t *sg = NULL;
     bool ret = false;
     size_t hshl = 0;
-    size_t sgl = 0;
 
     key = setup(jwk, alg, prot, payl, hsh, &hshl);
     if (!key)
         return false;
 
-    sg = jose_b64_decode_json(json_object_get(sig, "signature"), &sgl);
+    sgn = jose_b64_decode_json(json_object_get(sig, "signature"));
     if (sig) {
-        ecdsa.r = bn_decode(sg, sgl / 2);
-        ecdsa.s = bn_decode(&sg[sgl / 2], sgl / 2);
+        ecdsa.r = bn_decode(sgn->data, sgn->size / 2);
+        ecdsa.s = bn_decode(&sgn->data[sgn->size / 2], sgn->size / 2);
         if (ecdsa.r && ecdsa.s)
             ret = ECDSA_do_verify(hsh, hshl, &ecdsa, key) == 1;
     }
@@ -200,7 +199,6 @@ verify(const json_t *sig, const json_t *jwk,
     EC_KEY_free(key);
     BN_free(ecdsa.r);
     BN_free(ecdsa.s);
-    free(sg);
     return ret;
 }
 

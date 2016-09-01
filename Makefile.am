@@ -4,13 +4,14 @@ EXTRA_DIST = tests/vectors
 incdir = $(includedir)/$(PACKAGE_NAME)
 pkgconfigdir = $(libdir)/pkgconfig
 
-inc_HEADERS = jose/b64.h jose/jwk.h jose/jws.h jose/jwe.h
+inc_HEADERS = jose/buf.h jose/b64.h jose/jwk.h jose/jws.h jose/jwe.h
 pkgconfig_DATA = jose.pc
 lib_LTLIBRARIES = libjose.la
 libjose_la_LIBADD = @jansson_LIBS@
 libjose_la_LDFLAGS = -export-symbols-regex '^jose_'
 libjose_la_SOURCES = \
     lib/misc.c lib/misc.h \
+    lib/buf.c \
     lib/b64.c \
     lib/jwk.c \
     lib/jws.c \

@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <jose/buf.h>
 #include <jansson.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -36,8 +37,8 @@ jose_b64_elen(size_t dlen);
 /**
  * Decodes the encoded C string to an allocated byte array.
  */
-uint8_t *
-jose_b64_decode(const char *enc, size_t *len);
+jose_buf_t *
+jose_b64_decode(const char *enc);
 
 /**
  * Decodes the encoded C string to a byte array.
@@ -51,8 +52,8 @@ jose_b64_decode_buf(const char *enc, uint8_t dec[]);
 /**
  * Decodes the encoded JSON string to an allocated byte array.
  */
-uint8_t *
-jose_b64_decode_json(const json_t *enc, size_t *len);
+jose_buf_t *
+jose_b64_decode_json(const json_t *enc);
 
 /**
  * Decodes the encoded JSON string to a byte array.

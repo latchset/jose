@@ -143,15 +143,14 @@ jose_jwe_encrypt(json_t *jwe, const json_t *cek,
 {
     const jose_jwe_crypter_t *crypter = NULL;
     const jose_jwe_zipper_t *zipper = NULL;
+    jose_buf_auto_t *zpt = NULL;
     const char *prot = NULL;
     const char *kalg = NULL;
     const char *penc = NULL;
     const char *senc = NULL;
     const char *zip = NULL;
     const char *aad = NULL;
-    uint8_t *zpt = NULL;
-    json_t *p = NULL;
-    bool ret = false;
+    json_auto_t *p = NULL;
 
     if (!jose_jwk_allowed(cek, false, NULL, "encrypt"))
         return false;
@@ -168,14 +167,14 @@ jose_jwe_encrypt(json_t *jwe, const json_t *cek,
         json_decref(p);
         p = jose_b64_decode_json_load(p);
         if (!p)
-            goto egress;
+            return false;
 
         if (json_unpack(p, "{s?s,s?s}", "enc", &penc, "zip", &zip) == -1)
-            goto egress;
+            return false;
     }
 
     if (penc && senc && strcmp(penc, senc) != 0)
-        goto egress;
+        return false;
 
     if (!penc && !senc) {
         senc = kalg;
@@ -184,38 +183,35 @@ jose_jwe_encrypt(json_t *jwe, const json_t *cek,
             senc = crypter->suggest(cek);
 
         if (!senc || !set_protected_new(jwe, "enc", json_string(senc)))
-            goto egress;
+            return false;
     }
 
     if (kalg && strcmp(penc ? penc : senc, kalg) != 0)
-        goto egress;
+        return false;
 
     if (zip) {
         zipper = find_zipper(zip);
         if (!zipper)
-            goto egress;
+            return false;
 
-        pt = zpt = zipper->deflate(pt, ptl, &ptl);
+        zpt = zipper->deflate(pt, ptl);
         if (!zpt)
-            goto egress;
+            return false;
     }
 
     crypter = find_crypter(penc ? penc : senc);
     if (!crypter)
-        goto egress;
+        return false;
 
     prot = encode_protected(jwe);
     if (!prot)
-        goto egress;
+        return false;
 
-    ret = crypter->encrypt(jwe, cek, pt, ptl, penc ? penc : senc, prot, aad);
-
-egress:
-    if (zpt)
-        memset(zpt, 0, ptl);
-    json_decref(p);
-    free(zpt);
-    return ret;
+    return crypter->encrypt(jwe, cek,
+                            zpt ? zpt->data : pt,
+                            zpt ? zpt->size : ptl,
+                            penc ? penc : senc,
+                            prot, aad);
 }
 
 bool
@@ -371,11 +367,12 @@ jose_jwe_unwrap(const json_t *jwe, const json_t *rcp, const json_t *jwk)
     return json_incref(cek);
 }
 
-uint8_t *
-jose_jwe_decrypt(const json_t *jwe, const json_t *cek, size_t *ptl)
+jose_buf_t *
+jose_jwe_decrypt(const json_t *jwe, const json_t *cek)
 {
     const jose_jwe_crypter_t *crypter = NULL;
     const jose_jwe_zipper_t *zipper = NULL;
+    jose_buf_auto_t *pt = NULL;
     json_auto_t *hdr = NULL;
     const char *prot = NULL;
     const char *kalg = NULL;
@@ -383,7 +380,6 @@ jose_jwe_decrypt(const json_t *jwe, const json_t *cek, size_t *ptl)
     const char *enc = NULL;
     const char *aad = NULL;
     const char *zip = NULL;
-    uint8_t *pt = NULL;
 
     if (!jose_jwk_allowed(cek, false, NULL, "decrypt"))
         return NULL;
@@ -419,40 +415,33 @@ jose_jwe_decrypt(const json_t *jwe, const json_t *cek, size_t *ptl)
     if (!crypter)
         return NULL;
 
-    pt = crypter->decrypt(jwe, cek, enc, prot ? prot : "", aad, ptl);
+    pt = crypter->decrypt(jwe, cek, enc, prot ? prot : "", aad);
 
     if (pt && zipper) {
-        uint8_t *tmp = NULL;
-        size_t len = *ptl;
-        tmp = zipper->inflate(pt, *ptl, ptl);
-        memset(pt, 0, len);
-        free(pt);
-        pt = tmp;
+        jose_buf_auto_t *tmp = NULL;
+        tmp = zipper->inflate(pt->data, pt->size);
+        jose_buf_decref(pt);
+        pt = jose_buf_incref(tmp);
     }
 
-    return pt;
+    return jose_buf_incref(pt);
 }
 
 json_t *
 jose_jwe_decrypt_json(const json_t *jwe, const json_t *cek)
 {
-    json_t *json = NULL;
-    uint8_t *pt = NULL;
+    jose_buf_auto_t *pt = NULL;
     json_t *ct = NULL;
-    size_t ptl = 0;
 
     ct = json_object_get(jwe, "ciphertext");
     if (!json_is_string(ct))
         return NULL;
 
-    pt = jose_jwe_decrypt(jwe, cek, &ptl);
-    if (pt) {
-        json = json_loadb((char *) pt, ptl, JSON_DECODE_ANY, NULL);
-        memset(pt, 0, ptl);
-        free(pt);
-    }
+    pt = jose_jwe_decrypt(jwe, cek);
+    if (!pt)
+        return NULL;
 
-    return json;
+    return json_loadb((char *) pt->data, pt->size, JSON_DECODE_ANY, NULL);
 }
 
 json_t *

@@ -17,30 +17,29 @@
 
 #pragma once
 
-#include <openssl/ec.h>
-#include <openssl/evp.h>
-#include <openssl/rsa.h>
-#include <jansson.h>
-#include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
-#ifdef __APPLE__
-#include <libkern/OSByteOrder.h>
-#define htobe32(x) OSSwapHostToBigInt32(x)
-#define htobe64(x) OSSwapHostToBigInt64(x)
+#if defined(__GNUC__) || defined(__clang__)
+#define jose_buf_auto_t jose_buf_t __attribute__((cleanup(jose_buf_auto)))
 #endif
 
-size_t
-str2enum(const char *str, ...);
+#define JOSE_BUF_FLAG_NONE 0
+#define JOSE_BUF_FLAG_WIPE (1 << 0)
 
-BIGNUM *
-bn_decode(const uint8_t buf[], size_t len);
+typedef struct {
+    size_t size;
+    uint8_t data[];
+} jose_buf_t;
 
-BIGNUM *
-bn_decode_json(const json_t *json);
+jose_buf_t *
+jose_buf(size_t size, uint64_t flags);
 
-bool
-bn_encode(const BIGNUM *bn, uint8_t buf[], size_t len);
+jose_buf_t *
+jose_buf_incref(jose_buf_t *buf);
 
-json_t *
-bn_encode_json(const BIGNUM *bn, size_t len);
+void
+jose_buf_decref(jose_buf_t *buf);
+
+void
+jose_buf_auto(jose_buf_t **buf);

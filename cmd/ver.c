@@ -21,26 +21,20 @@
 static bool
 dump(const char *filename, const json_t *jws)
 {
+    jose_buf_auto_t *buf = NULL;
     const char *payload = NULL;
-    uint8_t *out = NULL;
-    bool ret = false;
-    size_t len = 0;
 
     if (json_unpack((json_t *) jws, "{s:s}", "payload", &payload) < 0)
         return false;
 
-    out = jose_b64_decode(payload, &len);
-    if (!out)
-        goto egress;
+    buf = jose_b64_decode(payload);
+    if (!buf)
+        return false;
 
-    if (!jcmd_dump_data(filename, out, len))
-        goto egress;
+    if (!jcmd_dump_data(filename, buf->data, buf->size))
+        return false;
 
-    ret = true;
-
-egress:
-    free(out);
-    return ret;
+    return true;
 }
 
 static const struct option opts[] = {

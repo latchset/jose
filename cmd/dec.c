@@ -53,24 +53,19 @@ jwe_has_pbes2(const json_t *jwe)
 static int
 decrypt(const json_t *jwe, const json_t *cek, const char *to)
 {
-    uint8_t *out = NULL;
-    size_t len = 0;
+    jose_buf_auto_t *pt = NULL;
 
-    out = jose_jwe_decrypt(jwe, cek, &len);
-    if (!out) {
+    pt = jose_jwe_decrypt(jwe, cek);
+    if (!pt) {
         fprintf(stderr, "Error during decryption!\n");
         return EXIT_FAILURE;
     }
 
-    if (!jcmd_dump_data(to, out, len)) {
+    if (!jcmd_dump_data(to, pt->data, pt->size)) {
         fprintf(stderr, "Error dumping JWE!\n");
-        memset(out, 0, len);
-        free(out);
         return EXIT_FAILURE;
     }
 
-    memset(out, 0, len);
-    free(out);
     return EXIT_SUCCESS;
 }
 

@@ -29,7 +29,7 @@
 #define NAMES "HS256", "HS384", "HS512"
 
 static bool
-hmac(const EVP_MD *md, const uint8_t key[], size_t klen, uint8_t hsh[], ...)
+hmac(const EVP_MD *md, const jose_buf_t *key, uint8_t hsh[], ...)
 {
     unsigned int ign = 0;
     HMAC_CTX ctx = {};
@@ -40,7 +40,7 @@ hmac(const EVP_MD *md, const uint8_t key[], size_t klen, uint8_t hsh[], ...)
 
     HMAC_CTX_init(&ctx);
 
-    if (HMAC_Init(&ctx, key, klen, md) <= 0)
+    if (HMAC_Init(&ctx, key->data, key->size, md) <= 0)
         goto egress;
 
     for (const char *data = NULL; (data = va_arg(ap, const char *)); ) {
@@ -125,10 +125,8 @@ static bool
 sign(json_t *sig, const json_t *jwk,
      const char *alg, const char *prot, const char *payl)
 {
+    jose_buf_auto_t *key = NULL;
     const EVP_MD *md = NULL;
-    uint8_t *ky = NULL;
-    bool ret = false;
-    size_t kyl = 0;
 
     switch (str2enum(alg, NAMES, NULL)) {
     case 0: md = EVP_sha256(); break;
@@ -139,21 +137,15 @@ sign(json_t *sig, const json_t *jwk,
 
     uint8_t hsh[EVP_MD_size(md)];
 
-    ky = jose_b64_decode_json(json_object_get(jwk, "k"), &kyl);
-    if (!ky || kyl < sizeof(hsh))
-        goto egress;
+    key = jose_b64_decode_json(json_object_get(jwk, "k"));
+    if (!key || key->size < sizeof(hsh))
+        return false;
 
-    if (!hmac(md, ky, kyl, hsh,
-              prot ? prot : "", ".",
-              payl ? payl : ".", NULL))
-        goto egress;
+    if (!hmac(md, key, hsh, prot ? prot : "", ".", payl ? payl : ".", NULL))
+        return false;
 
-    ret = json_object_set_new(sig, "signature",
-                              jose_b64_encode_json(hsh, sizeof(hsh))) == 0;
-
-egress:
-    clear_free(ky, kyl);
-    return ret;
+    return json_object_set_new(sig, "signature",
+                               jose_b64_encode_json(hsh, sizeof(hsh))) == 0;
 }
 
 static bool
@@ -161,11 +153,8 @@ verify(const json_t *sig, const json_t *jwk,
        const char *alg, const char *prot, const char *payl)
 {
     const EVP_MD *md = NULL;
-    uint8_t *ky = NULL;
-    uint8_t *sg = NULL;
-    bool ret = false;
-    size_t kyl = 0;
-    size_t sgl = 0;
+    jose_buf_t *key = NULL;
+    jose_buf_t *sgn = NULL;
 
     switch (str2enum(alg, NAMES, NULL)) {
     case 0: md = EVP_sha256(); break;
@@ -176,25 +165,18 @@ verify(const json_t *sig, const json_t *jwk,
 
     uint8_t hsh[EVP_MD_size(md)];
 
-    sg = jose_b64_decode_json(json_object_get(sig, "signature"), &sgl);
-    if (!sg || sgl != sizeof(hsh))
-        goto egress;
+    sgn = jose_b64_decode_json(json_object_get(sig, "signature"));
+    if (!sgn || sgn->size != sizeof(hsh))
+        return false;
 
-    ky = jose_b64_decode_json(json_object_get(jwk, "k"), &kyl);
-    if (!ky || kyl < sizeof(hsh))
-        goto egress;
+    key = jose_b64_decode_json(json_object_get(jwk, "k"));
+    if (!key || key->size < sizeof(hsh))
+        return false;
 
-    if (!hmac(md, ky, kyl, hsh,
-              prot ? prot : "", ".",
-              payl ? payl : ".", NULL))
-        goto egress;
+    if (!hmac(md, key, hsh, prot ? prot : "", ".", payl ? payl : ".", NULL))
+        return false;
 
-    ret = CRYPTO_memcmp(hsh, sg, sizeof(hsh)) == 0;
-
-egress:
-    clear_free(ky, kyl);
-    free(sg);
-    return ret;
+    return CRYPTO_memcmp(hsh, sgn->data, sizeof(hsh)) == 0;
 }
 
 static void __attribute__((constructor))

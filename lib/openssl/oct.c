@@ -23,26 +23,22 @@
 static bool
 generate(json_t *jwk)
 {
+    jose_buf_auto_t *buf = NULL;
     json_int_t len = 0;
-    uint8_t *buf = NULL;
 
     if (json_unpack(jwk, "{s:i}", "bytes", &len) == -1)
         return false;
 
-    buf = malloc(len);
+    buf = jose_buf(len, JOSE_BUF_FLAG_WIPE);
     if (!buf)
         return false;
 
-    if (RAND_bytes(buf, len) <= 0) {
-        clear_free(buf, len);
+    if (RAND_bytes(buf->data, len) <= 0)
         return false;
-    }
 
-    if (json_object_set_new(jwk, "k", jose_b64_encode_json(buf, len)) == -1) {
-        clear_free(buf, len);
+    if (json_object_set_new(jwk, "k",
+                            jose_b64_encode_json(buf->data, buf->size)) == -1)
         return false;
-    }
-    clear_free(buf, len);
 
     return json_object_del(jwk, "bytes") == 0;
 }

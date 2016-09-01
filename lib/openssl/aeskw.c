@@ -91,13 +91,10 @@ wrap(json_t *jwe, json_t *cek, const json_t *jwk, json_t *rcp,
 {
     const EVP_CIPHER *cph = NULL;
     EVP_CIPHER_CTX *ctx = NULL;
-    uint8_t *ky = NULL;
-    uint8_t *pt = NULL;
-    uint8_t *ct = NULL;
+    jose_buf_auto_t *ky = NULL;
+    jose_buf_auto_t *pt = NULL;
+    jose_buf_auto_t *ct = NULL;
     bool ret = false;
-    size_t kyl = 0;
-    size_t ptl = 0;
-    size_t ctl = 0;
     int tmp;
 
     if (!json_object_get(cek, "k") && !jose_jwk_generate(cek))
@@ -113,18 +110,19 @@ wrap(json_t *jwe, json_t *cek, const json_t *jwk, json_t *rcp,
     uint8_t iv[EVP_CIPHER_iv_length(cph)];
     memset(iv, 0xA6, EVP_CIPHER_iv_length(cph));
 
-    ky = jose_b64_decode_json(json_object_get(jwk, "k"), &kyl);
+    ky = jose_b64_decode_json(json_object_get(jwk, "k"));
     if (!ky)
         goto egress;
 
-    if ((int) kyl != EVP_CIPHER_key_length(cph))
+    if ((int) ky->size != EVP_CIPHER_key_length(cph))
         goto egress;
 
-    pt = jose_b64_decode_json(json_object_get(cek, "k"), &ptl);
+    pt = jose_b64_decode_json(json_object_get(cek, "k"));
     if (!pt)
         goto egress;
 
-    ct = malloc(ptl + EVP_CIPHER_block_size(cph) * 2 - 1);
+    ct = jose_buf(pt->size + EVP_CIPHER_block_size(cph) * 2 - 1,
+                  JOSE_BUF_FLAG_NONE);
     if (!ct)
         goto egress;
 
@@ -134,25 +132,22 @@ wrap(json_t *jwe, json_t *cek, const json_t *jwk, json_t *rcp,
 
     EVP_CIPHER_CTX_set_flags(ctx, EVP_CIPHER_CTX_FLAG_WRAP_ALLOW);
 
-    if (EVP_EncryptInit_ex(ctx, cph, NULL, ky, iv) <= 0)
+    if (EVP_EncryptInit_ex(ctx, cph, NULL, ky->data, iv) <= 0)
         goto egress;
 
-    if (EVP_EncryptUpdate(ctx, ct, &tmp, pt, ptl) <= 0)
+    if (EVP_EncryptUpdate(ctx, ct->data, &tmp, pt->data, pt->size) <= 0)
         goto egress;
-    ctl = tmp;
+    ct->size = tmp;
 
-    if (EVP_EncryptFinal(ctx, &ct[tmp], &tmp) <= 0)
+    if (EVP_EncryptFinal(ctx, &ct->data[tmp], &tmp) <= 0)
         goto egress;
-    ctl += tmp;
+    ct->size += tmp;
 
     ret = json_object_set_new(rcp, "encrypted_key",
-                              jose_b64_encode_json(ct, ctl)) == 0;
+                              jose_b64_encode_json(ct->data, ct->size)) == 0;
 
 egress:
     EVP_CIPHER_CTX_free(ctx);
-    clear_free(ky, kyl);
-    clear_free(pt, ptl);
-    free(ct);
     return ret;
 }
 
@@ -162,13 +157,10 @@ unwrap(const json_t *jwe, const json_t *jwk, const json_t *rcp,
 {
     const EVP_CIPHER *cph = NULL;
     EVP_CIPHER_CTX *ctx = NULL;
-    uint8_t *ky = NULL;
-    uint8_t *ct = NULL;
-    uint8_t *pt = NULL;
+    jose_buf_auto_t *ky = NULL;
+    jose_buf_auto_t *pt = NULL;
+    jose_buf_auto_t *ct = NULL;
     bool ret = false;
-    size_t kyl = 0;
-    size_t ctl = 0;
-    size_t ptl = 0;
     int tmp = 0;
 
     switch (str2enum(alg, NAMES, NULL)) {
@@ -181,18 +173,18 @@ unwrap(const json_t *jwe, const json_t *jwk, const json_t *rcp,
     uint8_t iv[EVP_CIPHER_iv_length(cph)];
     memset(iv, 0xA6, EVP_CIPHER_iv_length(cph));
 
-    ky = jose_b64_decode_json(json_object_get(jwk, "k"), &kyl);
+    ky = jose_b64_decode_json(json_object_get(jwk, "k"));
     if (!ky)
         goto egress;
 
-    if ((int) kyl != EVP_CIPHER_key_length(cph))
+    if ((int) ky->size != EVP_CIPHER_key_length(cph))
         goto egress;
 
-    ct = jose_b64_decode_json(json_object_get(rcp, "encrypted_key"), &ctl);
+    ct = jose_b64_decode_json(json_object_get(rcp, "encrypted_key"));
     if (!ct)
         goto egress;
 
-    pt = malloc(ctl);
+    pt = jose_buf(ct->size, JOSE_BUF_FLAG_WIPE);
     if (!pt)
         goto egress;
 
@@ -202,24 +194,22 @@ unwrap(const json_t *jwe, const json_t *jwk, const json_t *rcp,
 
     EVP_CIPHER_CTX_set_flags(ctx, EVP_CIPHER_CTX_FLAG_WRAP_ALLOW);
 
-    if (EVP_DecryptInit_ex(ctx, cph, NULL, ky, iv) <= 0)
+    if (EVP_DecryptInit_ex(ctx, cph, NULL, ky->data, iv) <= 0)
         goto egress;
 
-    if (EVP_DecryptUpdate(ctx, pt, &tmp, ct, ctl) <= 0)
+    if (EVP_DecryptUpdate(ctx, pt->data, &tmp, ct->data, ct->size) <= 0)
         goto egress;
-    ptl = tmp;
+    pt->size = tmp;
 
-    if (EVP_DecryptFinal(ctx, &pt[tmp], &tmp) <= 0)
+    if (EVP_DecryptFinal(ctx, &pt->data[tmp], &tmp) <= 0)
         goto egress;
-    ptl += tmp;
+    pt->size += tmp;
 
-    ret = json_object_set_new(cek, "k", jose_b64_encode_json(pt, ptl)) == 0;
+    ret = json_object_set_new(cek, "k",
+                              jose_b64_encode_json(pt->data, pt->size)) == 0;
 
 egress:
     EVP_CIPHER_CTX_free(ctx);
-    clear_free(ky, kyl);
-    clear_free(pt, ptl);
-    free(ct);
     return ret;
 }
 

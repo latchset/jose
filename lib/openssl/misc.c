@@ -36,16 +36,6 @@ str2enum(const char *str, ...)
     return i;
 }
 
-void
-clear_free(void *mem, size_t len)
-{
-    if (!mem)
-        return;
-
-    memset(mem, 0, len);
-    free(mem);
-}
-
 BIGNUM *
 bn_decode(const uint8_t buf[], size_t len)
 {
@@ -55,18 +45,13 @@ bn_decode(const uint8_t buf[], size_t len)
 BIGNUM *
 bn_decode_json(const json_t *json)
 {
-    uint8_t *buf = NULL;
-    BIGNUM *bn = NULL;
-    size_t len = 0;
+    jose_buf_auto_t *buf = NULL;
 
-    buf = jose_b64_decode_json(json, &len);
+    buf = jose_b64_decode_json(json);
     if (!buf)
         return NULL;
 
-    bn = bn_decode(buf, len);
-
-    clear_free(buf, len);
-    return bn;
+    return bn_decode(buf->data, buf->size);
 }
 
 bool
@@ -91,8 +76,7 @@ bn_encode(const BIGNUM *bn, uint8_t buf[], size_t len)
 json_t *
 bn_encode_json(const BIGNUM *bn, size_t len)
 {
-    uint8_t *buf = NULL;
-    json_t *out = NULL;
+    jose_buf_auto_t *buf = NULL;
 
     if (!bn)
         return false;
@@ -103,13 +87,11 @@ bn_encode_json(const BIGNUM *bn, size_t len)
     if ((int) len < BN_num_bytes(bn))
         return false;
 
-    buf = malloc(len);
+    buf = jose_buf(len, JOSE_BUF_FLAG_WIPE);
     if (buf) {
-        if (bn_encode(bn, buf, len))
-            out = jose_b64_encode_json(buf, len);
-
-        clear_free(buf, len);
+        if (bn_encode(bn, buf->data, len))
+            return jose_b64_encode_json(buf->data, len);
     }
 
-    return out;
+    return NULL;
 }
