@@ -150,8 +150,7 @@ resolve(json_t *jwk)
     const char *crv = NULL;
     const char *kty = NULL;
     const char *grp = NULL;
-    json_t *upd = NULL;
-    bool ret = false;
+    json_auto_t *upd = NULL;
 
     if (json_unpack(jwk, "{s?s,s?s,s?s}",
                     "kty", &kty, "alg", &alg, "crv", &crv) == -1)
@@ -180,9 +179,7 @@ resolve(json_t *jwk)
     if (!upd)
         return false;
 
-    ret = json_object_update_missing(jwk, upd) == 0;
-    json_decref(upd);
-    return ret;
+    return json_object_update_missing(jwk, upd) == 0;
 }
 
 static const char *
@@ -391,7 +388,15 @@ unwrap(const json_t *jwe, const json_t *jwk, const json_t *rcp,
     if ((apu && !pu) || (apv && !pv))
         goto egress;
 
-    tmp = exchange(jwk, epk);
+    /* If the JWK has a private key, perform the normal exchange. */
+    if (json_object_get(jwk, "d"))
+        tmp = exchange(jwk, epk);
+
+    /* Otherwise, allow external exchanges. */
+    else if (json_equal(json_object_get(jwk, "crv"),
+                        json_object_get(epk, "crv")))
+        tmp = json_deep_copy(jwk);
+
     ky = jose_b64_decode_json(json_object_get(tmp, "x"), &kyl);
     json_decref(tmp);
     if (!ky)
