@@ -33,9 +33,8 @@ static const struct option opts[] = {
 int
 jcmd_pub(int argc, char *argv[])
 {
-    int ret = EXIT_FAILURE;
+    json_auto_t *jwk = NULL;
     const char *out = "-";
-    json_t *jwk = NULL;
 
     for (int c; (c = getopt_long(argc, argv, "hi:o:", opts, NULL)) >= 0; ) {
         switch (c) {
@@ -58,19 +57,15 @@ jcmd_pub(int argc, char *argv[])
 
     if (!jose_jwk_clean(jwk)) {
         fprintf(stderr, "Error removing public keys!\n");
-        goto egress;
+        return EXIT_FAILURE;
     }
 
     if (!jcmd_dump_json(jwk, out, NULL)) {
         fprintf(stderr, "Error dumping JWK!\n");
-        goto egress;
+        return EXIT_FAILURE;
     }
 
-    ret = EXIT_SUCCESS;
-
-egress:
-    json_decref(jwk);
-    return ret;
+    return EXIT_SUCCESS;
 
 usage:
     fprintf(stderr,
@@ -92,5 +87,5 @@ usage:
 "\n    $ cat ec.jwk | jose pub -i-"
 "\n    " START PUB END
 "\n\n");
-    goto egress;
+    return EXIT_FAILURE;
 }

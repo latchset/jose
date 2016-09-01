@@ -207,6 +207,8 @@ static bool
 wrap(json_t *jwe, json_t *cek, const json_t *jwk, json_t *rcp,
      const char *alg)
 {
+    json_auto_t *tmp = NULL;
+    json_auto_t *hdr = NULL;
     const char *apu = NULL;
     const char *apv = NULL;
     const char *aes = NULL;
@@ -214,9 +216,7 @@ wrap(json_t *jwe, json_t *cek, const json_t *jwk, json_t *rcp,
     uint8_t *ky = NULL;
     uint8_t *pu = NULL;
     uint8_t *pv = NULL;
-    json_t *tmp = NULL;
     json_t *epk = NULL;
-    json_t *hd = NULL;
     json_t *h = NULL;
     bool ret = false;
     size_t kyl = 0;
@@ -244,11 +244,11 @@ wrap(json_t *jwe, json_t *cek, const json_t *jwk, json_t *rcp,
 
     uint8_t dk[kyl];
 
-    hd = jose_jwe_merge_header(jwe, rcp);
-    if (!hd)
+    hdr = jose_jwe_merge_header(jwe, rcp);
+    if (!hdr)
         goto egress;
 
-    if (json_unpack(hd, "{s?s,s?s,s?s}", "apu", &apu,
+    if (json_unpack(hdr, "{s?s,s?s,s?s}", "apu", &apu,
                     "apv", &apv, "enc", &enc) == -1)
         goto egress;
 
@@ -278,7 +278,6 @@ wrap(json_t *jwe, json_t *cek, const json_t *jwk, json_t *rcp,
         goto egress;
 
     ky = jose_b64_decode_json(json_object_get(tmp, "x"), &kyl);
-    json_decref(tmp);
     if (!ky)
         goto egress;
 
@@ -293,6 +292,7 @@ wrap(json_t *jwe, json_t *cek, const json_t *jwk, json_t *rcp,
                    pv ? pv : (uint8_t *) "", pvl, NULL))
         goto egress;
 
+    json_decref(tmp);
     tmp = json_pack("{s:s,s:o}", "kty", "oct", "k",
                     jose_b64_encode_json(dk, sizeof(dk)));
     if (!tmp)
@@ -306,8 +306,6 @@ wrap(json_t *jwe, json_t *cek, const json_t *jwk, json_t *rcp,
 egress:
     memset(dk, 0, sizeof(dk));
     clear_free(ky, kyl);
-    json_decref(tmp);
-    json_decref(hd);
     free(pu);
     free(pv);
     return ret;
@@ -316,40 +314,36 @@ egress:
 static size_t
 get_keyl(const json_t *jwe, const json_t *rcp)
 {
+    json_auto_t *head = NULL;
+    json_auto_t *jwk = NULL;
     const char *enc = NULL;
-    json_t *head = NULL;
-    json_t *jwk = NULL;
-    size_t len = 0;
 
     head = jose_jwe_merge_header(jwe, rcp);
     if (!head)
-        goto egress;
+        return 0;
 
     if (json_unpack(head, "{s:s}", "enc", &enc) == -1)
-        goto egress;
+        return 0;
 
     jwk = json_pack("{s:s}", "alg", enc);
     if (!jwk)
-        goto egress;
+        return 0;
 
     if (!jose_jwk_generate(jwk))
-        goto egress;
+        return 0;
 
     if (!json_is_string(json_object_get(jwk, "k")))
-        goto egress;
+        return 0;
 
-    len = jose_b64_dlen(json_string_length(json_object_get(jwk, "k")));
-
-egress:
-    json_decref(head);
-    json_decref(jwk);
-    return len;
+    return jose_b64_dlen(json_string_length(json_object_get(jwk, "k")));
 }
 
 static bool
 unwrap(const json_t *jwe, const json_t *jwk, const json_t *rcp,
        const char *alg, json_t *cek)
 {
+    json_auto_t *tmp = NULL;
+    json_auto_t *hdr = NULL;
     const char *apu = NULL;
     const char *apv = NULL;
     const char *aes = NULL;
@@ -357,9 +351,7 @@ unwrap(const json_t *jwe, const json_t *jwk, const json_t *rcp,
     uint8_t *ky = NULL;
     uint8_t *pu = NULL;
     uint8_t *pv = NULL;
-    json_t *tmp = NULL;
     json_t *epk = NULL;
-    json_t *hd = NULL;
     bool ret = false;
     size_t kyl = 0;
     size_t pul = 0;
@@ -375,8 +367,8 @@ unwrap(const json_t *jwe, const json_t *jwk, const json_t *rcp,
 
     uint8_t dk[kyl];
 
-    hd = jose_jwe_merge_header(jwe, rcp);
-    if (json_unpack(hd, "{s:o,s?s,s?s,s:s}", "epk", &epk, "apu", &apu,
+    hdr = jose_jwe_merge_header(jwe, rcp);
+    if (json_unpack(hdr, "{s:o,s?s,s?s,s:s}", "epk", &epk, "apu", &apu,
                     "apv", &apv, "enc", &enc) == -1)
         goto egress;
 
@@ -398,7 +390,6 @@ unwrap(const json_t *jwe, const json_t *jwk, const json_t *rcp,
         tmp = json_deep_copy(jwk);
 
     ky = jose_b64_decode_json(json_object_get(tmp, "x"), &kyl);
-    json_decref(tmp);
     if (!ky)
         goto egress;
 
@@ -408,6 +399,7 @@ unwrap(const json_t *jwe, const json_t *jwk, const json_t *rcp,
                    pv ? pv : (uint8_t *) "", pvl, NULL))
         goto egress;
 
+    json_decref(tmp);
     tmp = json_pack("{s:s,s:o}", "kty", "oct", "k",
                     jose_b64_encode_json(dk, sizeof(dk)));
     if (!tmp)
@@ -421,8 +413,6 @@ unwrap(const json_t *jwe, const json_t *jwk, const json_t *rcp,
 egress:
     memset(dk, 0, sizeof(dk));
     clear_free(ky, kyl);
-    json_decref(tmp);
-    json_decref(hd);
     free(pu);
     free(pv);
     return ret;

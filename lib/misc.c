@@ -24,7 +24,7 @@
 json_t *
 compact_to_obj(const char *compact, ...)
 {
-    json_t *out = NULL;
+    json_auto_t *out = NULL;
     size_t count = 0;
     size_t c = 0;
     va_list ap;
@@ -65,7 +65,6 @@ compact_to_obj(const char *compact, ...)
     for (size_t i = 0; i < count; i++) {
         json_t *val = json_stringn(&compact[c], len[i]);
         if (json_object_set_new(out, va_arg(ap, const char *), val) < 0) {
-            json_decref(out);
             va_end(ap);
             return NULL;
         }
@@ -74,44 +73,36 @@ compact_to_obj(const char *compact, ...)
     }
     va_end(ap);
 
-    if (json_object_size(out) == 0) {
-        json_decref(out);
+    if (json_object_size(out) == 0)
         return NULL;
-    }
 
-    return out;
+    return json_incref(out);
 }
 
 bool
 set_protected_new(json_t *obj, const char *key, json_t *val)
 {
-    json_t *p = NULL;
-    bool ret = false;
+    json_auto_t __attribute__((unused)) *scope = val; /* Steal reference */
+    json_auto_t *p = NULL;
 
     if (json_unpack(obj, "{s? O}", "protected", &p) == -1)
-        goto egress;
+        return false;
 
     if (!p)
         p = json_object();
 
     if (json_is_string(p)) {
         json_t *tmp = jose_b64_decode_json_load(p);
-        json_decref(p);
         p = tmp;
     }
 
     if (!json_is_object(p))
-        goto egress;
+        return false;
 
     if (json_object_set(p, key, val) == -1)
-        goto egress;
+        return false;
 
-    ret = json_object_set(obj, "protected", p) == 0;
-
-egress:
-    json_decref(val);
-    json_decref(p);
-    return ret;
+    return json_object_set(obj, "protected", p) == 0;
 }
 
 const char *

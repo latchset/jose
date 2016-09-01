@@ -43,7 +43,6 @@ pbkdf2(const json_t *jwk, const char *alg, int iter, uint8_t st[], size_t stl)
     const EVP_MD *md = NULL;
     uint8_t *salt = NULL;
     json_t *key = NULL;
-    json_t *p = NULL;
     size_t saltl = 0;
     size_t dkl = 0;
 
@@ -76,7 +75,6 @@ pbkdf2(const json_t *jwk, const char *alg, int iter, uint8_t st[], size_t stl)
 egress:
     memset(dk, 0, sizeof(dk));
     clear_free(salt, saltl);
-    json_decref(p);
     return key;
 }
 
@@ -84,12 +82,11 @@ static bool
 wrap(json_t *jwe, json_t *cek, const json_t *jwk, json_t *rcp,
      const char *alg)
 {
+    json_auto_t *key = NULL;
+    json_auto_t *hdr = NULL;
     const char *aes = NULL;
     json_t *p2c = NULL;
-    json_t *key = NULL;
-    json_t *jh = NULL;
     json_t *h = NULL;
-    bool ret = false;
     size_t stl = 0;
     int iter;
 
@@ -106,53 +103,50 @@ wrap(json_t *jwe, json_t *cek, const json_t *jwk, json_t *rcp,
     uint8_t st[stl];
 
     if (RAND_bytes(st, stl) <= 0)
-        goto egress;
+        return false;
 
     h = json_object_get(rcp, "header");
     if (!h && json_object_set_new(rcp, "header", h = json_object()) == -1)
-        goto egress;
+        return false;
 
-    jh = jose_jwe_merge_header(jwe, rcp);
-    if (!jh)
-        goto egress;
+    hdr = jose_jwe_merge_header(jwe, rcp);
+    if (!hdr)
+        return false;
 
-    p2c = json_object_get(jh, "p2c");
+    p2c = json_object_get(hdr, "p2c");
     if (p2c) {
         if (!json_is_integer(p2c))
-            goto egress;
+            return false;
 
         iter = json_integer_value(p2c);
         if (iter < 1000)
-            goto egress;
+            return false;
     } else {
         iter = 10000;
         if (json_object_set_new(h, "p2c", json_integer(iter)) == -1)
-            goto egress;
+            return false;
     }
 
     if (json_object_set_new(h, "p2s", jose_b64_encode_json(st, stl)) == -1)
-        goto egress;
+        return false;
 
     key = pbkdf2(jwk, alg, iter, st, stl);
-    if (key)
-        ret = aeskw_wrapper.wrap(jwe, cek, key, rcp, aes);
-    json_decref(key);
+    if (!key)
+        return false;
 
-egress:
-    json_decref(jh);
-    return ret;
+    return aeskw_wrapper.wrap(jwe, cek, key, rcp, aes);
 }
 
 static bool
 unwrap(const json_t *jwe, const json_t *jwk, const json_t *rcp,
        const char *alg, json_t *cek)
 {
+    json_auto_t *key = NULL;
+    json_auto_t *hdr = NULL;
     const char *aes = NULL;
     const char *p2s = NULL;
     json_int_t p2c = -1;
     uint8_t *st = NULL;
-    json_t *key = NULL;
-    json_t *jh = NULL;
     bool ret = false;
     size_t stl = 0;
 
@@ -163,11 +157,11 @@ unwrap(const json_t *jwe, const json_t *jwk, const json_t *rcp,
     default: return false;
     }
 
-    jh = jose_jwe_merge_header(jwe, rcp);
-    if (!jh)
+    hdr = jose_jwe_merge_header(jwe, rcp);
+    if (!hdr)
         goto egress;
 
-    if (json_unpack(jh, "{s:s,s:I}", "p2s", &p2s, "p2c", &p2c) == -1)
+    if (json_unpack(hdr, "{s:s,s:I}", "p2s", &p2s, "p2c", &p2c) == -1)
         goto egress;
 
     st = jose_b64_decode(p2s, &stl);
@@ -177,10 +171,8 @@ unwrap(const json_t *jwe, const json_t *jwk, const json_t *rcp,
     key = pbkdf2(jwk, alg, p2c, st, stl);
     if (key)
         ret = aeskw_wrapper.unwrap(jwe, key, rcp, aes, cek);
-    json_decref(key);
 
 egress:
-    json_decref(jh);
     free(st);
     return ret;
 }

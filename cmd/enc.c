@@ -60,14 +60,14 @@ static const struct option opts[] = {
 int
 jcmd_enc(int argc, char *argv[])
 {
+    json_auto_t *tmpl = NULL;
+    json_auto_t *rcps = NULL;
+    json_auto_t *jwks = NULL;
+    json_auto_t *cek = NULL;
     int ret = EXIT_FAILURE;
     const char *out = "-";
     bool compact = false;
-    json_t *tmpl = NULL;
-    json_t *rcps = NULL;
-    json_t *jwks = NULL;
     uint8_t *buf = NULL;
-    json_t *cek = NULL;
     size_t len = 0;
 
     tmpl = json_object();
@@ -143,7 +143,7 @@ jcmd_enc(int argc, char *argv[])
 
     for (size_t i = 0; i < json_array_size(jwks); i++) {
         if (!jose_jwe_wrap(tmpl, cek, json_array_get(jwks, i),
-                           json_incref(json_array_get(rcps, i)))) {
+                           json_array_get(rcps, i))) {
             fprintf(stderr, "Wrapping failed!\n");
             goto egress;
         }
@@ -188,10 +188,6 @@ jcmd_enc(int argc, char *argv[])
 egress:
     if (buf)
         memset(buf, 0, len);
-    json_decref(tmpl);
-    json_decref(rcps);
-    json_decref(jwks);
-    json_decref(cek);
     free(buf);
     return ret;
 

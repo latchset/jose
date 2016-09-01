@@ -24,7 +24,7 @@
 static RSA *
 mkrsa(const json_t *jwk)
 {
-    json_t *exp = NULL;
+    json_auto_t *exp = NULL;
     BIGNUM *bn = NULL;
     RSA *key = NULL;
     int bits = 2048;
@@ -33,10 +33,8 @@ mkrsa(const json_t *jwk)
                     "bits", &bits, "e", &exp) == -1)
         return NULL;
 
-    if (bits < 2048) {
-        json_decref(exp);
+    if (bits < 2048)
         return NULL;
-    }
 
     if (!exp)
         exp = json_integer(65537);
@@ -66,7 +64,6 @@ mkrsa(const json_t *jwk)
         break;
     }
 
-    json_decref(exp);
     BN_free(bn);
     return key;
 }
@@ -74,9 +71,8 @@ mkrsa(const json_t *jwk)
 static bool
 generate(json_t *jwk)
 {
-    json_t *tmp = NULL;
+    json_auto_t *tmp = NULL;
     RSA *rsa = NULL;
-    bool ret = false;
 
     rsa = mkrsa(jwk);
     if (!rsa)
@@ -88,16 +84,12 @@ generate(json_t *jwk)
         return false;
 
     if (json_object_get(jwk, "bits") && json_object_del(jwk, "bits") == -1)
-        goto egress;
+        return false;
 
     if (json_object_get(jwk, "e") && json_object_del(jwk, "e") == -1)
-        goto egress;
+        return false;
 
-    ret = json_object_update_missing(jwk, tmp) == 0;
-
-egress:
-    json_decref(tmp);
-    return ret;
+    return json_object_update_missing(jwk, tmp) == 0;
 }
 
 static void __attribute__((constructor))

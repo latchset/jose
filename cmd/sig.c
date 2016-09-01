@@ -56,14 +56,13 @@ static const struct option opts[] = {
 int
 jcmd_sig(int argc, char *argv[])
 {
-    int ret = EXIT_FAILURE;
+    json_auto_t *tmpl = NULL;
+    json_auto_t *sigs = NULL;
+    json_auto_t *jwks = NULL;
     const char *out = "-";
     const char *in = NULL;
     bool compact = false;
     bool detach = false;
-    json_t *tmpl = NULL;
-    json_t *sigs = NULL;
-    json_t *jwks = NULL;
     json_t *tmp = NULL;
 
     tmpl = json_object();
@@ -117,31 +116,25 @@ jcmd_sig(int argc, char *argv[])
     }
 
     if (!json_object_get(tmpl, "payload") && !load(in, tmpl))
-        goto egress;
+        return EXIT_FAILURE;
 
     for (size_t i = 0; i < json_array_size(jwks); i++) {
         if (!jose_jws_sign(tmpl, json_array_get(jwks, i),
-                           json_incref(json_array_get(sigs, i)))) {
+                           json_array_get(sigs, i))) {
             fprintf(stderr, "Error creating signature!\n");
-            goto egress;
+            return EXIT_FAILURE;
         }
     }
 
     if (detach && json_object_del(tmpl, "payload") == -1)
-        goto egress;
+        return EXIT_FAILURE;
 
     if (!jcmd_dump_json(tmpl, out, compact ? jose_jws_to_compact : NULL)) {
         fprintf(stderr, "Error dumping JWS!\n");
-        goto egress;
+        return EXIT_FAILURE;
     }
 
-    ret = EXIT_SUCCESS;
-
-egress:
-    json_decref(tmpl);
-    json_decref(sigs);
-    json_decref(jwks);
-    return ret;
+    return EXIT_SUCCESS;
 
 usage:
     fprintf(stderr,
@@ -194,5 +187,5 @@ usage:
 "\n    $ jose sig -i message.txt -k rsa.jwk"
 "\n    { \"payload\": \"aGkK\", \"protected\": \"...\", \"signature\": \"...\" }"
 "\n\n");
-    goto egress;
+    return EXIT_FAILURE;
 }

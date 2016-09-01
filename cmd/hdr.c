@@ -33,11 +33,10 @@ jcmd_hdr(int argc, char *argv[])
     const json_t *rcps = NULL;
     const json_t *sigs = NULL;
     const json_t *shrd = NULL;
-    int ret = EXIT_FAILURE;
+    json_auto_t *jose = NULL;
+    json_auto_t *hdr = NULL;
     const char *sig = NULL;
     const char *out = "-";
-    json_t *jose = NULL;
-    json_t *hdr = NULL;
     char *in = NULL;
     size_t len = 0;
     size_t n = 0;
@@ -73,14 +72,14 @@ jcmd_hdr(int argc, char *argv[])
     free(in);
     if (!jose) {
         fprintf(stderr, "Invalid JWS or JWE!\n");
-        goto egress;
+        return EXIT_FAILURE;
     }
 
     if (json_unpack(jose, "{s?o,s?o,s?o,s?s}",
                     "recipients", &rcps, "header", &shrd,
                     "signatures", &sigs, "signature", &sig) != 0) {
         fprintf(stderr, "Error unpacking JWS or JWE!\n");
-        goto egress;
+        return EXIT_FAILURE;
     }
 
     if (json_is_array(rcps)) {
@@ -97,15 +96,13 @@ jcmd_hdr(int argc, char *argv[])
 
     if (!hdr) {
         fprintf(stderr, "Error merging headers!\n");
-        goto egress;
+        return EXIT_FAILURE;
     }
 
-    jcmd_dump_json(hdr, out, NULL);
+    if (!jcmd_dump_json(hdr, out, NULL))
+        return EXIT_FAILURE;
 
-egress:
-    json_decref(jose);
-    json_decref(hdr);
-    return ret;
+    return EXIT_SUCCESS;
 
 usage:
     fprintf(stderr,
@@ -123,5 +120,5 @@ usage:
 "\n    -o FILE,   --output=FILE    JOSE Header output (file)"
 "\n    -o -,      --output=-       JOSE Header output (stdout; default)"
 "\n\n");
-    goto egress;
+    return EXIT_FAILURE;
 }

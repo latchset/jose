@@ -263,8 +263,8 @@ jose_jwk_thumbprint_buf(const json_t *jwk, const char *hash, char enc[])
 {
     jose_jwk_hasher_t *hasher = NULL;
     jose_jwk_type_t *type = NULL;
+    json_auto_t *key = NULL;
     const char *kty = NULL;
-    json_t *key = NULL;
     char *str = NULL;
     bool ret = false;
 
@@ -313,7 +313,6 @@ jose_jwk_thumbprint_buf(const json_t *jwk, const char *hash, char enc[])
 
 egress:
     memset(buf, 0, sizeof(buf));
-    json_decref(key);
     free(str);
     return ret;
 }

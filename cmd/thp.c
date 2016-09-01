@@ -31,10 +31,10 @@ int
 jcmd_thp(int argc, char *argv[])
 {
     const char *hsh = "sha256";
+    json_auto_t *jwk = NULL;
     int ret = EXIT_FAILURE;
     const char *out = "-";
     json_t *arr = NULL;
-    json_t *jwk = NULL;
     char *thp = NULL;
     size_t len = 0;
 
@@ -91,7 +91,6 @@ jcmd_thp(int argc, char *argv[])
     ret = EXIT_SUCCESS;
 
 egress:
-    json_decref(jwk);
     free(thp);
     return ret;
 

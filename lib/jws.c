@@ -91,60 +91,61 @@ jose_jws_sign(json_t *jws, const json_t *jwk, json_t *sig)
     const char *prot = NULL;
     const char *kalg = NULL;
     const char *alg = NULL;
-    json_t *p = NULL;
-    bool ret = false;
+    json_auto_t *s = NULL;
+    json_auto_t *p = NULL;
 
     if (!sig)
-        sig = json_object();
+        s = json_object();
+    else if (!json_is_object(sig))
+        return false;
+    else
+        s = json_deep_copy(sig);
 
     if (!jose_jwk_allowed(jwk, false, NULL, "sign"))
-        goto egress;
+        return false;
 
-    if (json_unpack(sig, "{s?o}", "protected", &p) == -1)
-        goto egress;
+    if (json_unpack(s, "{s?o}", "protected", &p) == -1)
+        return false;
 
     if (json_is_object(p))
         p = json_incref(p);
     else if (json_is_string(p))
         p = jose_b64_decode_json_load(p);
     else if (p)
-        goto egress;
+        return false;
 
     if (json_unpack((json_t *) jwk, "{s?s}", "alg", &kalg) == -1)
-        goto egress;
+        return false;
 
     if (json_unpack(p, "{s:s}", "alg", &alg) == -1 &&
-        json_unpack(sig, "{s:{s:s}}", "header", "alg", &alg) == -1) {
+        json_unpack(s, "{s:{s:s}}", "header", "alg", &alg) == -1) {
         alg = kalg;
         for (signer = signers; signer && !alg; signer = signer->next)
             alg = signer->suggest(jwk);
 
-        if (!set_protected_new(sig, "alg", json_string(alg)))
-            goto egress;
+        if (!set_protected_new(s, "alg", json_string(alg)))
+            return false;
     }
 
     if (kalg && strcmp(alg, kalg) != 0)
-        goto egress;
+        return false;
 
     if (json_unpack(jws, "{s:s}", "payload", &payl) == -1)
-        goto egress;
+        return false;
 
-    prot = encode_protected(sig);
+    prot = encode_protected(s);
     if (!prot)
-        goto egress;
+        return false;
 
     signer = find(alg);
     if (!signer)
-        goto egress;
+        return false;
 
-    if (signer->sign(sig, jwk, alg, prot, payl))
-        ret = add_entity(jws, sig, "signatures", "signature", "protected",
+    if (signer->sign(s, jwk, alg, prot, payl))
+        return add_entity(jws, s, "signatures", "signature", "protected",
                          "header", NULL);
 
-egress:
-    json_decref(sig);
-    json_decref(p);
-    return ret;
+    return false;
 }
 
 static bool
@@ -156,8 +157,7 @@ verify_sig(const char *payl, const json_t *sig, const json_t *jwk)
     const char *kalg = NULL;
     const char *palg = NULL;
     const char *halg = NULL;
-    json_t *p = NULL;
-    bool ret = false;
+    json_auto_t *p = NULL;
 
     if (json_unpack((json_t *) sig, "{s:s,s?o,s?s,s?{s?s}}",
                     "signature", &sign, "protected", &p, "protected", &prot,
@@ -170,33 +170,29 @@ verify_sig(const char *payl, const json_t *sig, const json_t *jwk)
 
         p = jose_b64_decode_json_load(p);
         if (json_unpack(p, "{s:s}", "alg", &palg) == -1)
-            goto egress;
+            return false;
     }
 
     if (json_unpack((json_t *) jwk, "{s?s}", "alg", &kalg) == -1)
-        goto egress;
+        return false;
 
     if (palg && halg)
-        goto egress;
+        return false;
 
     if (!palg && !halg) {
         if (!kalg)
-            goto egress;
+            return false;
         halg = kalg;
     }
 
     if (kalg && strcmp(palg ? palg : halg, kalg) != 0)
-        goto egress;
+        return false;
 
     signer = find(palg ? palg : halg);
     if (!signer)
-        goto egress;
+        return false;
 
-    ret = signer->verify(sig, jwk, palg ? palg : halg, prot ? prot : "", payl);
-
-egress:
-    json_decref(p);
-    return ret;
+    return signer->verify(sig, jwk, palg ? palg : halg, prot ? prot : "", payl);
 }
 
 bool
@@ -229,7 +225,7 @@ jose_jws_verify(const json_t *jws, const json_t *jwk)
 json_t *
 jose_jws_merge_header(const json_t *sig)
 {
-    json_t *p = NULL;
+    json_auto_t *p = NULL;
     json_t *h = NULL;
 
     p = json_object_get(sig, "protected");
@@ -240,18 +236,14 @@ jose_jws_merge_header(const json_t *sig)
     else if (json_is_string(p))
         p = jose_b64_decode_json_load(p);
 
-    if (!json_is_object(p)) {
-        json_decref(p);
+    if (!json_is_object(p))
         return NULL;
-    }
 
     h = json_object_get(sig, "header");
     if (h) {
-        if (json_object_update_missing(p, h) == -1) {
-            json_decref(p);
+        if (json_object_update_missing(p, h) == -1)
             return NULL;
-        }
     }
 
-    return p;
+    return json_incref(p);
 }

@@ -82,12 +82,11 @@ error:
 static bool
 resolve(json_t *jwk)
 {
+    json_auto_t *upd = NULL;
     const char *alg = NULL;
     const char *crv = NULL;
     const char *kty = NULL;
     const char *grp = NULL;
-    json_t *upd = NULL;
-    bool ret = false;
 
     if (json_unpack(jwk, "{s?s,s?s,s?s}",
                     "kty", &kty, "alg", &alg, "crv", &crv) == -1)
@@ -115,9 +114,7 @@ resolve(json_t *jwk)
     if (!upd)
         return false;
 
-    ret = json_object_update_missing(jwk, upd) == 0;
-    json_decref(upd);
-    return ret;
+    return json_object_update_missing(jwk, upd) == 0;
 }
 
 static const char *

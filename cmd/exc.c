@@ -31,12 +31,11 @@ static const struct option opts[] = {
 int
 jcmd_exc(int argc, char *argv[])
 {
-    int ret = EXIT_FAILURE;
+    json_auto_t *tmpl = NULL;
+    json_auto_t *lcl = NULL;
+    json_auto_t *rem = NULL;
+    json_auto_t *key = NULL;
     const char *out = "-";
-    json_t *tmpl = NULL;
-    json_t *lcl = NULL;
-    json_t *rem = NULL;
-    json_t *key = NULL;
 
     tmpl = json_object();
 
@@ -87,23 +86,18 @@ jcmd_exc(int argc, char *argv[])
     key = jose_jwk_exchange(lcl, rem);
     if (!key) {
         fprintf(stderr, "Error performing exchange!\n");
-        goto egress;
+        return EXIT_FAILURE;
     }
 
     if (json_object_update(tmpl, key) < 0)
-        goto egress;
+        return EXIT_FAILURE;
 
-    if (jcmd_dump_json(tmpl, out, NULL))
-        ret = EXIT_SUCCESS;
-    else
+    if (!jcmd_dump_json(tmpl, out, NULL)) {
         fprintf(stderr, "Error dumping JWK!\n");
+        return EXIT_FAILURE;
+    }
 
-egress:
-    json_decref(tmpl);
-    json_decref(lcl);
-    json_decref(rem);
-    json_decref(key);
-    return ret;
+    return EXIT_SUCCESS;
 
 usage:
     fprintf(stderr,
@@ -124,5 +118,5 @@ usage:
 "\n    -o FILE, --output=FILE      JWK output (file)"
 "\n    -o -,    --output=-         JWK output (stdout; default)"
 "\n\n");
-    goto egress;
+    return EXIT_FAILURE;
 }

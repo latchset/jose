@@ -57,11 +57,10 @@ static const struct option opts[] = {
 int
 jcmd_ver(int argc, char *argv[])
 {
-    int ret = EXIT_FAILURE;
+    json_auto_t *jwks = NULL;
+    json_auto_t *jws = NULL;
     const char *det = NULL;
     const char *out = NULL;
-    json_t *jwks = NULL;
-    json_t *jws = NULL;
     bool all = false;
 
     jwks = json_array();
@@ -98,7 +97,7 @@ jcmd_ver(int argc, char *argv[])
 
     if (!jws) {
         fprintf(stderr, "Invalid JWS!\n");
-        goto egress;
+        return EXIT_FAILURE;
     }
 
     if (det) {
@@ -109,14 +108,14 @@ jcmd_ver(int argc, char *argv[])
         py = jcmd_load_data(det, &pyl);
         if (!py) {
             fprintf(stderr, "Unable to load detatched payload: %s!\n", det);
-            goto egress;
+            return EXIT_FAILURE;
         }
 
         r = json_object_set_new(jws, "payload", jose_b64_encode_json(py, pyl));
         memset(py, 0, pyl);
         free(py);
         if (r < 0)
-            goto egress;
+            return EXIT_FAILURE;
     }
 
     for (size_t i = 0; i < json_array_size(jwks); i++) {
@@ -130,7 +129,7 @@ jcmd_ver(int argc, char *argv[])
 
         if (!valid && all) {
             fprintf(stderr, "Signature validation failed!\n");
-            goto egress;
+            return EXIT_FAILURE;
         }
     }
 
@@ -139,12 +138,9 @@ jcmd_ver(int argc, char *argv[])
     else if ((out || !det) && !dump(out ? out : "-", jws))
         fprintf(stderr, "Error dumping payload!\n");
     else
-        ret = EXIT_SUCCESS;
+        return EXIT_SUCCESS;
 
-egress:
-    json_decref(jwks);
-    json_decref(jws);
-    return ret;
+    return EXIT_FAILURE;
 
 usage:
     fprintf(stderr,
@@ -193,5 +189,5 @@ usage:
 "\n    $ jose ver -a -i /tmp/msg.jws -k rsa.jwk -k oct.jwk"
 "\n    Signature validation failed!"
 "\n\n");
-    goto egress;
+    return EXIT_FAILURE;
 }

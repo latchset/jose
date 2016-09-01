@@ -51,16 +51,9 @@ suggest(const json_t *jwk)
 static bool
 copy(json_t *to, const json_t *from)
 {
-    json_t *cpy = NULL;
-    bool ret = false;
-
+    json_auto_t *cpy = NULL;
     cpy = json_deep_copy(from);
-    if (!cpy)
-        return false;
-
-    ret = json_object_update(to, cpy) == 0;
-    json_decref(cpy);
-    return ret;
+    return json_object_update(to, cpy) == 0;
 }
 
 static bool

@@ -22,18 +22,15 @@
 static bool
 header_has_pbes2(const json_t *jwe, const json_t *rcp)
 {
+    json_auto_t *hdr = NULL;
     const char *alg = NULL;
-    json_t *jh = NULL;
-    int cmp = 0;
 
-    jh = jose_jwe_merge_header(jwe, rcp);
-    if (!jh)
+    hdr = jose_jwe_merge_header(jwe, rcp);
+    if (!hdr)
         return false;
 
-    json_unpack(jh, "{s:s}", "alg", &alg);
-    cmp = strncmp(alg, "PBES2", strlen("PBES2"));
-    json_decref(jh);
-    return cmp == 0;
+    json_unpack(hdr, "{s:s}", "alg", &alg);
+    return strncmp(alg, "PBES2", strlen("PBES2")) == 0;
 }
 
 static bool
@@ -67,9 +64,13 @@ decrypt(const json_t *jwe, const json_t *cek, const char *to)
 
     if (!jcmd_dump_data(to, out, len)) {
         fprintf(stderr, "Error dumping JWE!\n");
+        memset(out, 0, len);
+        free(out);
         return EXIT_FAILURE;
     }
 
+    memset(out, 0, len);
+    free(out);
     return EXIT_SUCCESS;
 }
 
@@ -86,11 +87,10 @@ static const struct option opts[] = {
 int
 jcmd_dec(int argc, char *argv[])
 {
-    int ret = EXIT_FAILURE;
+    json_auto_t *jwks = NULL;
+    json_auto_t *jwe = NULL;
     const char *out = "-";
-    json_t *jwks = NULL;
     bool nonint = false;
-    json_t *jwe = NULL;
 
     jwks = json_array();
 
@@ -129,15 +129,11 @@ jcmd_dec(int argc, char *argv[])
     }
 
     for (size_t i = 0; i < json_array_size(jwks); i++) {
-        json_t *cek = NULL;
+        json_auto_t *cek = NULL;
 
         cek = jose_jwe_unwrap(jwe, NULL, json_array_get(jwks, i));
-        if (!cek)
-            continue;
-
-        ret = decrypt(jwe, cek, out);
-        json_decref(cek);
-        goto egress;
+        if (cek)
+            return decrypt(jwe, cek, out);
     }
 
     if (jwe_has_pbes2(jwe) && !nonint) {
@@ -145,25 +141,17 @@ jcmd_dec(int argc, char *argv[])
 
         pwd = getpass("Please enter password: ");
         if (pwd) {
-            json_t *jwk = json_string(pwd);
-            json_t *cek = NULL;
+            json_auto_t *jwk = json_string(pwd);
+            json_auto_t *cek = NULL;
 
             cek = jose_jwe_unwrap(jwe, NULL, jwk);
-            json_decref(jwk);
-            if (cek) {
-                ret = decrypt(jwe, cek, out);
-                json_decref(cek);
-                goto egress;
-            }
+            if (cek)
+                return decrypt(jwe, cek, out);
         }
     }
 
     fprintf(stderr, "Decryption failed!\n");
-
-egress:
-    json_decref(jwks);
-    json_decref(jwe);
-    return ret;
+    return EXIT_FAILURE;
 
 usage:
     fprintf(stderr,
@@ -207,5 +195,5 @@ usage:
 "\n    $ jose dec -n -i /tmp/msg.jwe -k ec.jwk"
 "\n    Decryption failed!"
 "\n\n");
-    goto egress;
+    return EXIT_FAILURE;
 }

@@ -22,9 +22,9 @@
 static bool
 generate(json_t *jwk)
 {
+    json_auto_t *tmp = NULL;
     const char *crv = NULL;
     int nid = NID_undef;
-    json_t *tmp = NULL;
     EC_KEY *key = NULL;
 
     if (json_unpack(jwk, "{s:s}", "crv", &crv) == -1)
@@ -49,13 +49,7 @@ generate(json_t *jwk)
     tmp = jose_openssl_jwk_from_EC_KEY(key);
     EC_KEY_free(key);
 
-    if (json_object_update(jwk, tmp) == -1) {
-        json_decref(tmp);
-        return false;
-    }
-
-    json_decref(tmp);
-    return true;
+    return json_object_update(jwk, tmp) == 0;
 }
 
 static void __attribute__((constructor))

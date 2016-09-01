@@ -31,14 +31,13 @@
 static bool
 resolve(json_t *jwk)
 {
+    json_auto_t *upd = NULL;
     const char *kty = NULL;
     const char *alg = NULL;
     const char *opa = NULL;
     const char *opb = NULL;
     json_t *bytes = NULL;
-    json_t *upd = NULL;
     json_int_t len = 0;
-    bool ret = false;
 
     if (json_unpack(jwk, "{s?s,s?s,s?o}",
                     "kty", &kty, "alg", &alg, "bytes", &bytes) == -1)
@@ -68,9 +67,7 @@ resolve(json_t *jwk)
     if (!upd)
         return false;
 
-    ret = json_object_update_missing(jwk, upd) == 0;
-    json_decref(upd);
-    return ret;
+    return json_object_update_missing(jwk, upd) == 0;
 }
 
 static const char *
@@ -346,12 +343,12 @@ static bool
 unwrap(const json_t *jwe, const json_t *jwk, const json_t *rcp,
        const char *alg, json_t *cek)
 {
+    json_auto_t *obj = NULL;
+    json_auto_t *p = NULL;
     uint8_t *pt = NULL;
-    json_t *obj = NULL;
     json_t *iv = NULL;
     json_t *ct = NULL;
     json_t *tg = NULL;
-    json_t *p = NULL;
     bool ret = false;
     size_t ptl = 0;
 
@@ -387,7 +384,6 @@ unwrap(const json_t *jwe, const json_t *jwk, const json_t *rcp,
         goto egress;
 
     pt = decrypt(obj, jwk, alg, "", NULL, &ptl);
-    json_decref(obj);
     if (!pt)
         goto egress;
 
@@ -398,7 +394,6 @@ unwrap(const json_t *jwe, const json_t *jwk, const json_t *rcp,
 
 egress:
     clear_free(pt, ptl);
-    json_decref(p);
     return ret;
 }
 

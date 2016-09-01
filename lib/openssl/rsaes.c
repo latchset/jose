@@ -37,10 +37,9 @@ static const char *algs[] = { NAMES, NULL };
 static bool
 resolve(json_t *jwk)
 {
+    json_auto_t *upd = NULL;
     const char *kty = NULL;
     const char *alg = NULL;
-    json_t *upd = NULL;
-    bool ret = false;
 
     if (json_unpack(jwk, "{s?s,s?s}", "kty", &kty, "alg", &alg) == -1)
         return false;
@@ -58,9 +57,7 @@ resolve(json_t *jwk)
     if (!upd)
         return false;
 
-    ret = json_object_update_missing(jwk, upd) == 0;
-    json_decref(upd);
-    return ret;
+    return json_object_update_missing(jwk, upd) == 0;
 }
 
 static const char *

@@ -32,9 +32,8 @@ static const struct option opts[] = {
 int
 jcmd_gen(int argc, char *argv[])
 {
-    int ret = EXIT_FAILURE;
+    json_auto_t *jwks = NULL;
     const char *out = "-";
-    json_t *jwks = NULL;
 
     jwks = json_array();
 
@@ -71,23 +70,19 @@ jcmd_gen(int argc, char *argv[])
 
     if (json_array_size(jwks) == 1) {
         if (jcmd_dump_json(json_array_get(jwks, 0), out, NULL))
-            ret = EXIT_SUCCESS;
-        else
-            fprintf(stderr, "Error dumping JWK!\n");
+            return EXIT_SUCCESS;
+        fprintf(stderr, "Error dumping JWK!\n");
     } else {
         jwks = json_pack("{s:o}", "keys", jwks);
         if (!jwks)
-            goto egress;
+            return EXIT_FAILURE;
 
         if (jcmd_dump_json(jwks, out, NULL))
-            ret = EXIT_SUCCESS;
-        else
-            fprintf(stderr, "Error dumping JWKSet!\n");
+            return EXIT_SUCCESS;
+        fprintf(stderr, "Error dumping JWKSet!\n");
     }
 
-egress:
-    json_decref(jwks);
-    return ret;
+    return EXIT_FAILURE;
 
 usage:
     fprintf(stderr,
@@ -130,5 +125,5 @@ usage:
 "\n    $ jose gen -t '{\"alg\":\"A128GCM\"}' -t '{\"alg\":\"RSA1_5\"}'"
 "\n    { \"keys\": [...] }"
 "\n\n");
-    goto egress;
+    return EXIT_FAILURE;
 }

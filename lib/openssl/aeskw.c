@@ -30,12 +30,11 @@
 static bool
 resolve(json_t *jwk)
 {
+    json_auto_t *upd = NULL;
     const char *kty = NULL;
     const char *alg = NULL;
     json_t *bytes = NULL;
-    json_t *upd = NULL;
     json_int_t len = 0;
-    bool ret = false;
 
     if (json_unpack(jwk, "{s?s,s?s,s?o}",
                     "kty", &kty, "alg", &alg, "bytes", &bytes) == -1)
@@ -63,9 +62,7 @@ resolve(json_t *jwk)
     if (!upd)
         return false;
 
-    ret = json_object_update_missing(jwk, upd) == 0;
-    json_decref(upd);
-    return ret;
+    return json_object_update_missing(jwk, upd) == 0;
 }
 
 static const char *
