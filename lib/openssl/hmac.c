@@ -31,29 +31,26 @@
 static bool
 hmac(const EVP_MD *md, const jose_buf_t *key, uint8_t hsh[], ...)
 {
+    HMAC_CTX __attribute__((cleanup(HMAC_CTX_cleanup))) ctx = {};
     unsigned int ign = 0;
-    HMAC_CTX ctx = {};
-    bool ret = false;
     va_list ap;
-
-    va_start(ap, hsh);
 
     HMAC_CTX_init(&ctx);
 
     if (HMAC_Init(&ctx, key->data, key->size, md) <= 0)
-        goto egress;
+        return false;
+
+    va_start(ap, hsh);
 
     for (const char *data = NULL; (data = va_arg(ap, const char *)); ) {
-        if (HMAC_Update(&ctx, (uint8_t *) data, strlen(data)) <= 0)
-            goto egress;
+        if (HMAC_Update(&ctx, (uint8_t *) data, strlen(data)) <= 0) {
+            va_end(ap);
+            return false;
+        }
     }
 
-    ret = HMAC_Final(&ctx, hsh, &ign) > 0;
-
-egress:
-    HMAC_CTX_cleanup(&ctx);
     va_end(ap);
-    return ret;
+    return HMAC_Final(&ctx, hsh, &ign) > 0;
 }
 
 static bool
@@ -152,9 +149,9 @@ static bool
 verify(const json_t *sig, const json_t *jwk,
        const char *alg, const char *prot, const char *payl)
 {
+    jose_buf_auto_t *key = NULL;
+    jose_buf_auto_t *sgn = NULL;
     const EVP_MD *md = NULL;
-    jose_buf_t *key = NULL;
-    jose_buf_t *sgn = NULL;
 
     switch (str2enum(alg, NAMES, NULL)) {
     case 0: md = EVP_sha256(); break;

@@ -34,6 +34,9 @@
 
 static const char *algs[] = { NAMES, NULL };
 
+declare_cleanup(EVP_PKEY_CTX)
+declare_cleanup(EVP_PKEY)
+
 static bool
 resolve(json_t *jwk)
 {
@@ -78,12 +81,11 @@ static bool
 wrap(json_t *jwe, json_t *cek, const json_t *jwk, json_t *rcp,
      const char *alg)
 {
+    openssl_auto(EVP_PKEY_CTX) *ctx = NULL;
+    openssl_auto(EVP_PKEY) *key = NULL;
     jose_buf_auto_t *pt = NULL;
     jose_buf_auto_t *ct = NULL;
-    EVP_PKEY_CTX *ctx = NULL;
     const EVP_MD *md = NULL;
-    EVP_PKEY *key = NULL;
-    bool ret = false;
     size_t len = 0;
     int tmp = 0;
     int pad = 0;
@@ -100,62 +102,56 @@ wrap(json_t *jwe, json_t *cek, const json_t *jwk, json_t *rcp,
 
     key = jose_openssl_jwk_to_EVP_PKEY(jwk);
     if (!key || EVP_PKEY_base_id(key) != EVP_PKEY_RSA)
-        goto egress;
+        return false;
 
     pt = jose_b64_decode_json(json_object_get(cek, "k"));
     if (!pt)
-        goto egress;
+        return false;
 
     if ((int) pt->size >= RSA_size(key->pkey.rsa) - tmp)
-        goto egress;
+        return false;
 
     ctx = EVP_PKEY_CTX_new(key, NULL);
     if (!ctx)
-        goto egress;
+        return false;
 
     if (EVP_PKEY_encrypt_init(ctx) <= 0)
-        goto egress;
+        return false;
 
     if (EVP_PKEY_CTX_set_rsa_padding(ctx, pad) <= 0)
-        goto egress;
+        return false;
 
     if (pad == RSA_PKCS1_OAEP_PADDING) {
         if (EVP_PKEY_CTX_set_rsa_oaep_md(ctx, md) <= 0)
-            goto egress;
+            return false;
 
         if (EVP_PKEY_CTX_set_rsa_mgf1_md(ctx, md) <= 0)
-            goto egress;
+            return false;
     }
 
     if (EVP_PKEY_encrypt(ctx, NULL, &len, pt->data, pt->size) <= 0)
-        goto egress;
+        return false;
 
     ct = jose_buf(len, JOSE_BUF_FLAG_NONE);
     if (!ct)
-        goto egress;
+        return false;
 
     if (EVP_PKEY_encrypt(ctx, ct->data, &ct->size, pt->data, pt->size) <= 0)
-        goto egress;
+        return false;
 
-    ret = json_object_set_new(rcp, "encrypted_key",
-                              jose_b64_encode_json(ct->data, ct->size)) == 0;
-
-egress:
-    EVP_PKEY_CTX_free(ctx);
-    EVP_PKEY_free(key);
-    return ret;
+    return json_object_set_new(rcp, "encrypted_key",
+                               jose_b64_encode_json(ct->data, ct->size)) == 0;
 }
 
 static bool
 unwrap(const json_t *jwe, const json_t *jwk, const json_t *rcp,
        const char *alg, json_t *cek)
 {
+    openssl_auto(EVP_PKEY_CTX) *ctx = NULL;
+    openssl_auto(EVP_PKEY) *key = NULL;
     jose_buf_auto_t *pt = NULL;
     jose_buf_auto_t *ct = NULL;
-    EVP_PKEY_CTX *ctx = NULL;
     const EVP_MD *md = NULL;
-    EVP_PKEY *key = NULL;
-    bool ret = false;
     int pad = 0;
 
     switch (str2enum(alg, NAMES, NULL)) {
@@ -167,44 +163,39 @@ unwrap(const json_t *jwe, const json_t *jwk, const json_t *rcp,
 
     key = jose_openssl_jwk_to_EVP_PKEY(jwk);
     if (!key || EVP_PKEY_base_id(key) != EVP_PKEY_RSA)
-        goto egress;
+        return false;
 
     ct = jose_b64_decode_json(json_object_get(rcp, "encrypted_key"));
     if (!ct)
-        goto egress;
+        return false;
 
     pt = jose_buf(ct->size, JOSE_BUF_FLAG_WIPE);
     if (!pt)
-        goto egress;
+        return false;
 
     ctx = EVP_PKEY_CTX_new(key, NULL);
     if (!ctx)
-        goto egress;
+        return false;
 
     if (EVP_PKEY_decrypt_init(ctx) <= 0)
-        goto egress;
+        return false;
 
     if (EVP_PKEY_CTX_set_rsa_padding(ctx, pad) <= 0)
-        goto egress;
+        return false;
 
     if (pad == RSA_PKCS1_OAEP_PADDING) {
         if (EVP_PKEY_CTX_set_rsa_oaep_md(ctx, md) <= 0)
-            goto egress;
+            return false;
 
         if (EVP_PKEY_CTX_set_rsa_mgf1_md(ctx, md) <= 0)
-            goto egress;
+            return false;
     }
 
     if (EVP_PKEY_decrypt(ctx, pt->data, &pt->size, ct->data, ct->size) <= 0)
-        goto egress;
+        return false;
 
-    ret = json_object_set_new(cek, "k",
-                              jose_b64_encode_json(pt->data, pt->size)) == 0;
-
-egress:
-    EVP_PKEY_CTX_free(ctx);
-    EVP_PKEY_free(key);
-    return ret;
+    return json_object_set_new(cek, "k",
+                               jose_b64_encode_json(pt->data, pt->size)) == 0;
 }
 
 static void __attribute__((constructor))

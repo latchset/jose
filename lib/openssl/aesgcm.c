@@ -115,11 +115,10 @@ do_encrypt(const json_t *cek, const uint8_t pt[], size_t ptl,
            const char *enc, const char *prot, const char *aad,
            json_t *ivtgobj, json_t *ctobj, const char *ctn)
 {
+    openssl_auto(EVP_CIPHER_CTX) ctx = {};
     const EVP_CIPHER *cph = NULL;
-    EVP_CIPHER_CTX *ctx = NULL;
     jose_buf_auto_t *ky = NULL;
     jose_buf_auto_t *ct = NULL;
-    bool ret = false;
     int len;
 
     switch (str2enum(enc, CRYPT_NAMES, NULL)) {
@@ -134,75 +133,69 @@ do_encrypt(const json_t *cek, const uint8_t pt[], size_t ptl,
 
     ct = jose_buf(ptl + EVP_CIPHER_block_size(cph) - 1, JOSE_BUF_FLAG_NONE);
     if (!ct)
-        goto egress;
+        return false;
 
     ky = jose_b64_decode_json(json_object_get(cek, "k"));
     if (!ky)
-        goto egress;
+        return false;
 
     if ((int) ky->size != EVP_CIPHER_key_length(cph))
-        goto egress;
+        return false;
 
     if (RAND_bytes(iv, sizeof(iv)) <= 0)
-        goto egress;
+        return false;
 
-    ctx = EVP_CIPHER_CTX_new();
-    if (!ctx)
-        goto egress;
+    EVP_CIPHER_CTX_init(&ctx);
 
-    if (EVP_EncryptInit(ctx, cph, NULL, NULL) <= 0)
-        goto egress;
+    if (EVP_EncryptInit(&ctx, cph, NULL, NULL) <= 0)
+        return false;
 
-    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN,
+    if (EVP_CIPHER_CTX_ctrl(&ctx, EVP_CTRL_GCM_SET_IVLEN,
                             sizeof(iv), NULL) <= 0)
-        goto egress;
+        return false;
 
-    if (EVP_EncryptInit(ctx, NULL, ky->data, iv) <= 0)
-        goto egress;
+    if (EVP_EncryptInit(&ctx, NULL, ky->data, iv) <= 0)
+        return false;
 
     if (prot) {
-        if (EVP_EncryptUpdate(ctx, NULL, &len, (uint8_t *) prot,
+        if (EVP_EncryptUpdate(&ctx, NULL, &len, (uint8_t *) prot,
                               strlen(prot)) <= 0)
-            goto egress;
+            return false;
     }
 
     if (aad) {
-        if (EVP_EncryptUpdate(ctx, NULL, &len, (uint8_t *) ".", 1) <= 0)
-            goto egress;
+        if (EVP_EncryptUpdate(&ctx, NULL, &len, (uint8_t *) ".", 1) <= 0)
+            return false;
 
-        if (EVP_EncryptUpdate(ctx, NULL, &len, (uint8_t *) aad,
+        if (EVP_EncryptUpdate(&ctx, NULL, &len, (uint8_t *) aad,
                               strlen(aad)) <= 0)
-            goto egress;
+            return false;
     }
 
-    if (EVP_EncryptUpdate(ctx, ct->data, &len, pt, ptl) <= 0)
-        goto egress;
+    if (EVP_EncryptUpdate(&ctx, ct->data, &len, pt, ptl) <= 0)
+        return false;
     ct->size = len;
 
-    if (EVP_EncryptFinal(ctx, &ct->data[len], &len) <= 0)
-        goto egress;
+    if (EVP_EncryptFinal(&ctx, &ct->data[len], &len) <= 0)
+        return false;
     ct->size += len;
 
-    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG, sizeof(tg), tg) <= 0)
-        goto egress;
+    if (EVP_CIPHER_CTX_ctrl(&ctx, EVP_CTRL_GCM_GET_TAG, sizeof(tg), tg) <= 0)
+        return false;
 
     if (json_object_set_new(ivtgobj, "iv",
                             jose_b64_encode_json(iv, sizeof(iv))) == -1)
-        goto egress;
+        return false;
 
     if (json_object_set_new(ctobj, ctn,
                             jose_b64_encode_json(ct->data, ct->size)) == -1)
-        goto egress;
+        return false;
 
     if (json_object_set_new(ivtgobj, "tag",
                             jose_b64_encode_json(tg, sizeof(tg))) == -1)
-        goto egress;
+        return false;
 
-    ret = true;
-
-egress:
-    EVP_CIPHER_CTX_free(ctx);
-    return ret;
+    return true;
 }
 
 static bool
@@ -216,8 +209,8 @@ static jose_buf_t *
 decrypt(const json_t *jwe, const json_t *cek, const char *enc,
         const char *prot, const char *aad)
 {
+    openssl_auto(EVP_CIPHER_CTX) ctx = {};
     const EVP_CIPHER *cph = NULL;
-    EVP_CIPHER_CTX *ctx = NULL;
     jose_buf_auto_t *ky = NULL;
     jose_buf_auto_t *iv = NULL;
     jose_buf_auto_t *ct = NULL;
@@ -240,52 +233,45 @@ decrypt(const json_t *jwe, const json_t *cek, const char *enc,
     if (!ky || ky->size != (size_t) EVP_CIPHER_key_length(cph) ||
         !iv || iv->size != (size_t) EVP_CIPHER_iv_length(cph) ||
         !tg || tg->size != 16 || !ct)
-        goto error;
+        return NULL;
 
     pt = jose_buf(ct->size, JOSE_BUF_FLAG_WIPE);
     if (!pt)
-        goto error;
+        return NULL;
 
-    ctx = EVP_CIPHER_CTX_new();
-    if (!ctx)
-        goto error;
+    EVP_CIPHER_CTX_init(&ctx);
 
-    if (EVP_DecryptInit(ctx, cph, ky->data, iv->data) <= 0)
-        goto error;
+    if (EVP_DecryptInit(&ctx, cph, ky->data, iv->data) <= 0)
+        return NULL;
 
     if (prot) {
-        if (EVP_DecryptUpdate(ctx, NULL, &len,
+        if (EVP_DecryptUpdate(&ctx, NULL, &len,
                               (uint8_t *) prot, strlen(prot)) <= 0)
-            goto error;
+            return NULL;
     }
 
     if (aad) {
-        if (EVP_DecryptUpdate(ctx, NULL, &len, (uint8_t *) ".", 1) <= 0)
-            goto error;
+        if (EVP_DecryptUpdate(&ctx, NULL, &len, (uint8_t *) ".", 1) <= 0)
+            return NULL;
 
-        if (EVP_DecryptUpdate(ctx, NULL, &len,
+        if (EVP_DecryptUpdate(&ctx, NULL, &len,
                               (uint8_t *) aad, strlen(aad)) <= 0)
-            goto error;
+            return NULL;
     }
 
-    if (EVP_DecryptUpdate(ctx, pt->data, &len, ct->data, ct->size) <= 0)
-        goto error;
+    if (EVP_DecryptUpdate(&ctx, pt->data, &len, ct->data, ct->size) <= 0)
+        return NULL;
     pt->size = len;
 
-    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG,
+    if (EVP_CIPHER_CTX_ctrl(&ctx, EVP_CTRL_GCM_SET_TAG,
                             tg->size, tg->data) <= 0)
-        goto error;
+        return NULL;
 
-    if (EVP_DecryptFinal(ctx, &pt->data[len], &len) <= 0)
-        goto error;
+    if (EVP_DecryptFinal(&ctx, &pt->data[len], &len) <= 0)
+        return NULL;
+
     pt->size += len;
-
-    EVP_CIPHER_CTX_free(ctx);
     return jose_buf_incref(pt);
-
-error:
-    EVP_CIPHER_CTX_free(ctx);
-    return NULL;
 }
 
 static bool

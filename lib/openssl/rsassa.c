@@ -28,6 +28,8 @@
 
 #define NAMES "RS256", "RS384", "RS512", "PS256", "PS384", "PS512"
 
+declare_cleanup(EVP_PKEY)
+
 static bool
 resolve(json_t *jwk)
 {
@@ -81,12 +83,11 @@ static bool
 sign(json_t *sig, const json_t *jwk,
      const char *alg, const char *prot, const char *payl)
 {
+    openssl_auto(EVP_PKEY) *key = NULL;
+    openssl_auto(EVP_MD_CTX) ctx = {};
+    jose_buf_auto_t *sg = NULL;
     EVP_PKEY_CTX *pctx = NULL;
     const EVP_MD *md = NULL;
-    EVP_MD_CTX *ctx = NULL;
-    EVP_PKEY *key = NULL;
-    uint8_t *sg = NULL;
-    bool ret = false;
     size_t sgl = 0;
     int pad = 0;
 
@@ -102,61 +103,52 @@ sign(json_t *sig, const json_t *jwk,
 
     key = jose_openssl_jwk_to_EVP_PKEY(jwk);
     if (!key || EVP_PKEY_base_id(key) != EVP_PKEY_RSA)
-        goto egress;
+        return false;
 
     /* Don't use small keys. RFC 7518 3.3 */
     if (RSA_size(key->pkey.rsa) < 2048 / 8)
-        goto egress;
+        return false;
 
-    ctx = EVP_MD_CTX_create();
-    if (!ctx)
-        goto egress;
+    EVP_MD_CTX_init(&ctx);
 
-    if (EVP_DigestSignInit(ctx, &pctx, md, NULL, key) < 0)
-        goto egress;
+    if (EVP_DigestSignInit(&ctx, &pctx, md, NULL, key) < 0)
+        return false;
 
     if (EVP_PKEY_CTX_set_rsa_padding(pctx, pad) < 0)
-        goto egress;
+        return false;
 
-    if (EVP_DigestSignUpdate(ctx, prot, strlen(prot)) < 0)
-        goto egress;
+    if (EVP_DigestSignUpdate(&ctx, prot, strlen(prot)) < 0)
+        return false;
 
-    if (EVP_DigestSignUpdate(ctx, ".", 1) < 0)
-        goto egress;
+    if (EVP_DigestSignUpdate(&ctx, ".", 1) < 0)
+        return false;
 
-    if (EVP_DigestSignUpdate(ctx, payl, strlen(payl)) < 0)
-        goto egress;
+    if (EVP_DigestSignUpdate(&ctx, payl, strlen(payl)) < 0)
+        return false;
 
-    if (EVP_DigestSignFinal(ctx, NULL, &sgl) < 0)
-        goto egress;
+    if (EVP_DigestSignFinal(&ctx, NULL, &sgl) < 0)
+        return false;
 
-    sg = malloc(sgl);
+    sg = jose_buf(sgl, JOSE_BUF_FLAG_WIPE);
     if (!sg)
-        goto egress;
+        return false;
 
-    if (EVP_DigestSignFinal(ctx, sg, &sgl) < 0)
-        goto egress;
+    if (EVP_DigestSignFinal(&ctx, sg->data, &sg->size) < 0)
+        return false;
 
-    ret = json_object_set_new(sig, "signature",
-                              jose_b64_encode_json(sg, sgl)) == 0;
-
-egress:
-    EVP_MD_CTX_destroy(ctx);
-    EVP_PKEY_free(key);
-    free(sg);
-    return ret;
+    return json_object_set_new(sig, "signature",
+                               jose_b64_encode_json(sg->data, sg->size)) == 0;
 }
 
 static bool
 verify(const json_t *sig, const json_t *jwk,
        const char *alg, const char *prot, const char *payl)
 {
+    openssl_auto(EVP_PKEY) *key = NULL;
+    openssl_auto(EVP_MD_CTX) ctx = {};
     jose_buf_auto_t *sgn = NULL;
     EVP_PKEY_CTX *pctx = NULL;
     const EVP_MD *md = NULL;
-    EVP_MD_CTX *ctx = NULL;
-    EVP_PKEY *key = NULL;
-    bool ret = false;
     int pad = 0;
 
     switch (str2enum(alg, NAMES, NULL)) {
@@ -171,41 +163,34 @@ verify(const json_t *sig, const json_t *jwk,
 
     key = jose_openssl_jwk_to_EVP_PKEY(jwk);
     if (!key || EVP_PKEY_base_id(key) != EVP_PKEY_RSA)
-        goto egress;
+        return false;
 
     /* Don't use small keys. RFC 7518 3.3 */
     if (RSA_size(key->pkey.rsa) < 2048 / 8)
-        goto egress;
+        return false;
 
     sgn = jose_b64_decode_json(json_object_get(sig, "signature"));
     if (!sgn)
-        goto egress;
+        return false;
 
-    ctx = EVP_MD_CTX_create();
-    if (!ctx)
-        goto egress;
+    EVP_MD_CTX_init(&ctx);
 
-    if (EVP_DigestVerifyInit(ctx, &pctx, md, NULL, key) < 0)
-        goto egress;
+    if (EVP_DigestVerifyInit(&ctx, &pctx, md, NULL, key) < 0)
+        return false;
 
     if (EVP_PKEY_CTX_set_rsa_padding(pctx, pad) < 0)
-        goto egress;
+        return false;
 
-    if (EVP_DigestVerifyUpdate(ctx, prot, strlen(prot)) < 0)
-        goto egress;
+    if (EVP_DigestVerifyUpdate(&ctx, prot, strlen(prot)) < 0)
+        return false;
 
-    if (EVP_DigestVerifyUpdate(ctx, ".", 1) < 0)
-        goto egress;
+    if (EVP_DigestVerifyUpdate(&ctx, ".", 1) < 0)
+        return false;
 
-    if (EVP_DigestVerifyUpdate(ctx, payl, strlen(payl)) < 0)
-        goto egress;
+    if (EVP_DigestVerifyUpdate(&ctx, payl, strlen(payl)) < 0)
+        return false;
 
-    ret = EVP_DigestVerifyFinal(ctx, sgn->data, sgn->size) == 1;
-
-egress:
-    EVP_MD_CTX_destroy(ctx);
-    EVP_PKEY_free(key);
-    return ret;
+    return EVP_DigestVerifyFinal(&ctx, sgn->data, sgn->size) == 1;
 }
 
 static void __attribute__((constructor))

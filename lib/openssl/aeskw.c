@@ -89,12 +89,11 @@ static bool
 wrap(json_t *jwe, json_t *cek, const json_t *jwk, json_t *rcp,
      const char *alg)
 {
+    openssl_auto(EVP_CIPHER_CTX) ctx = {};
     const EVP_CIPHER *cph = NULL;
-    EVP_CIPHER_CTX *ctx = NULL;
     jose_buf_auto_t *ky = NULL;
     jose_buf_auto_t *pt = NULL;
     jose_buf_auto_t *ct = NULL;
-    bool ret = false;
     int tmp;
 
     if (!json_object_get(cek, "k") && !jose_jwk_generate(cek))
@@ -112,55 +111,48 @@ wrap(json_t *jwe, json_t *cek, const json_t *jwk, json_t *rcp,
 
     ky = jose_b64_decode_json(json_object_get(jwk, "k"));
     if (!ky)
-        goto egress;
+        return false;
 
     if ((int) ky->size != EVP_CIPHER_key_length(cph))
-        goto egress;
+        return false;
 
     pt = jose_b64_decode_json(json_object_get(cek, "k"));
     if (!pt)
-        goto egress;
+        return false;
 
     ct = jose_buf(pt->size + EVP_CIPHER_block_size(cph) * 2 - 1,
                   JOSE_BUF_FLAG_NONE);
     if (!ct)
-        goto egress;
+        return false;
 
-    ctx = EVP_CIPHER_CTX_new();
-    if (!ctx)
-        goto egress;
+    EVP_CIPHER_CTX_init(&ctx);
 
-    EVP_CIPHER_CTX_set_flags(ctx, EVP_CIPHER_CTX_FLAG_WRAP_ALLOW);
+    EVP_CIPHER_CTX_set_flags(&ctx, EVP_CIPHER_CTX_FLAG_WRAP_ALLOW);
 
-    if (EVP_EncryptInit_ex(ctx, cph, NULL, ky->data, iv) <= 0)
-        goto egress;
+    if (EVP_EncryptInit_ex(&ctx, cph, NULL, ky->data, iv) <= 0)
+        return false;
 
-    if (EVP_EncryptUpdate(ctx, ct->data, &tmp, pt->data, pt->size) <= 0)
-        goto egress;
+    if (EVP_EncryptUpdate(&ctx, ct->data, &tmp, pt->data, pt->size) <= 0)
+        return false;
     ct->size = tmp;
 
-    if (EVP_EncryptFinal(ctx, &ct->data[tmp], &tmp) <= 0)
-        goto egress;
+    if (EVP_EncryptFinal(&ctx, &ct->data[tmp], &tmp) <= 0)
+        return false;
     ct->size += tmp;
 
-    ret = json_object_set_new(rcp, "encrypted_key",
-                              jose_b64_encode_json(ct->data, ct->size)) == 0;
-
-egress:
-    EVP_CIPHER_CTX_free(ctx);
-    return ret;
+    return json_object_set_new(rcp, "encrypted_key",
+                               jose_b64_encode_json(ct->data, ct->size)) == 0;
 }
 
 static bool
 unwrap(const json_t *jwe, const json_t *jwk, const json_t *rcp,
        const char *alg, json_t *cek)
 {
+    openssl_auto(EVP_CIPHER_CTX) ctx = {};
     const EVP_CIPHER *cph = NULL;
-    EVP_CIPHER_CTX *ctx = NULL;
     jose_buf_auto_t *ky = NULL;
     jose_buf_auto_t *pt = NULL;
     jose_buf_auto_t *ct = NULL;
-    bool ret = false;
     int tmp = 0;
 
     switch (str2enum(alg, NAMES, NULL)) {
@@ -175,42 +167,36 @@ unwrap(const json_t *jwe, const json_t *jwk, const json_t *rcp,
 
     ky = jose_b64_decode_json(json_object_get(jwk, "k"));
     if (!ky)
-        goto egress;
+        return false;
 
     if ((int) ky->size != EVP_CIPHER_key_length(cph))
-        goto egress;
+        return false;
 
     ct = jose_b64_decode_json(json_object_get(rcp, "encrypted_key"));
     if (!ct)
-        goto egress;
+        return false;
 
     pt = jose_buf(ct->size, JOSE_BUF_FLAG_WIPE);
     if (!pt)
-        goto egress;
+        return false;
 
-    ctx = EVP_CIPHER_CTX_new();
-    if (!ctx)
-        goto egress;
+    EVP_CIPHER_CTX_init(&ctx);
 
-    EVP_CIPHER_CTX_set_flags(ctx, EVP_CIPHER_CTX_FLAG_WRAP_ALLOW);
+    EVP_CIPHER_CTX_set_flags(&ctx, EVP_CIPHER_CTX_FLAG_WRAP_ALLOW);
 
-    if (EVP_DecryptInit_ex(ctx, cph, NULL, ky->data, iv) <= 0)
-        goto egress;
+    if (EVP_DecryptInit_ex(&ctx, cph, NULL, ky->data, iv) <= 0)
+        return false;
 
-    if (EVP_DecryptUpdate(ctx, pt->data, &tmp, ct->data, ct->size) <= 0)
-        goto egress;
+    if (EVP_DecryptUpdate(&ctx, pt->data, &tmp, ct->data, ct->size) <= 0)
+        return false;
     pt->size = tmp;
 
-    if (EVP_DecryptFinal(ctx, &pt->data[tmp], &tmp) <= 0)
-        goto egress;
+    if (EVP_DecryptFinal(&ctx, &pt->data[tmp], &tmp) <= 0)
+        return false;
     pt->size += tmp;
 
-    ret = json_object_set_new(cek, "k",
-                              jose_b64_encode_json(pt->data, pt->size)) == 0;
-
-egress:
-    EVP_CIPHER_CTX_free(ctx);
-    return ret;
+    return json_object_set_new(cek, "k",
+                               jose_b64_encode_json(pt->data, pt->size)) == 0;
 }
 
 /* This is purposefully not static so that it can be reused for ECDH-ES. */

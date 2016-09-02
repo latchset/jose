@@ -30,15 +30,18 @@
 
 extern jose_jwe_wrapper_t aeskw_wrapper;
 
+declare_cleanup(EC_POINT)
+declare_cleanup(EC_KEY)
+declare_cleanup(BN_CTX)
+
 static json_t *
 exchange(const json_t *prv, const json_t *pub)
 {
+    openssl_auto(EC_KEY) *lcl = NULL;
+    openssl_auto(EC_KEY) *rem = NULL;
+    openssl_auto(BN_CTX) *bnc = NULL;
+    openssl_auto(EC_POINT) *p = NULL;
     const EC_GROUP *grp = NULL;
-    json_t *key = NULL;
-    EC_KEY *lcl = NULL;
-    EC_KEY *rem = NULL;
-    BN_CTX *bnc = NULL;
-    EC_POINT *p = NULL;
 
     bnc = BN_CTX_new();
     if (!bnc)
@@ -46,101 +49,86 @@ exchange(const json_t *prv, const json_t *pub)
 
     lcl = jose_openssl_jwk_to_EC_KEY(prv);
     if (!lcl)
-        goto egress;
+        return NULL;
 
     rem = jose_openssl_jwk_to_EC_KEY(pub);
     if (!rem)
-        goto egress;
+        return NULL;
 
     grp = EC_KEY_get0_group(lcl);
     if (EC_GROUP_cmp(grp, EC_KEY_get0_group(rem), bnc) != 0)
-        goto egress;
+        return NULL;
 
     p = EC_POINT_new(grp);
     if (!p)
-        goto egress;
+        return NULL;
 
     if (EC_POINT_mul(grp, p, NULL, EC_KEY_get0_public_key(rem),
                      EC_KEY_get0_private_key(lcl), bnc) <= 0)
-        goto egress;
+        return NULL;
 
-    key = jose_openssl_jwk_from_EC_POINT(EC_KEY_get0_group(rem), p, NULL);
-
-egress:
-    EC_POINT_free(p);
-    EC_KEY_free(lcl);
-    EC_KEY_free(rem);
-    BN_CTX_free(bnc);
-    return key;
+    return jose_openssl_jwk_from_EC_POINT(EC_KEY_get0_group(rem), p, NULL);
 }
 
 static bool
 concatkdf(const EVP_MD *md, uint8_t dk[], size_t dkl,
           const uint8_t z[], size_t zl, ...)
 {
-    EVP_MD_CTX *ctx = NULL;
-    bool ret = false;
-    size_t size = 0;
+    openssl_auto(EVP_MD_CTX) ctx = {};
+    jose_buf_auto_t *hsh = NULL;
     size_t reps = 0;
     size_t left = 0;
     va_list ap;
 
-    size = EVP_MD_size(md);
-    reps = dkl / size;
-    left = dkl % size;
-
-    uint8_t hsh[size];
-
-    ctx = EVP_MD_CTX_create();
-    if (!ctx)
+    hsh = jose_buf(EVP_MD_size(md), JOSE_BUF_FLAG_WIPE);
+    if (!hsh)
         return false;
+
+    EVP_MD_CTX_init(&ctx);
+    reps = dkl / hsh->size;
+    left = dkl % hsh->size;
 
     for (uint32_t c = 0; c <= reps; c++) {
         uint32_t cnt = htobe32(c + 1);
 
-        if (EVP_DigestInit_ex(ctx, md, NULL) <= 0)
-            goto egress;
+        if (EVP_DigestInit_ex(&ctx, md, NULL) <= 0)
+            return false;
 
-        if (EVP_DigestUpdate(ctx, &cnt, sizeof(cnt)) <= 0)
-            goto egress;
+        if (EVP_DigestUpdate(&ctx, &cnt, sizeof(cnt)) <= 0)
+            return false;
 
-        if (EVP_DigestUpdate(ctx, z, zl) <= 0)
-            goto egress;
+        if (EVP_DigestUpdate(&ctx, z, zl) <= 0)
+            return false;
 
         va_start(ap, zl);
         for (void *b = va_arg(ap, void *); b; b = va_arg(ap, void *)) {
             size_t l = va_arg(ap, size_t);
             uint32_t e = htobe32(l);
 
-            if (EVP_DigestUpdate(ctx, &e, sizeof(e)) <= 0) {
+            if (EVP_DigestUpdate(&ctx, &e, sizeof(e)) <= 0) {
                 va_end(ap);
-                goto egress;
+                return false;
             }
 
-            if (EVP_DigestUpdate(ctx, b, l) <= 0) {
+            if (EVP_DigestUpdate(&ctx, b, l) <= 0) {
                 va_end(ap);
-                goto egress;
+                return false;
             }
         }
         va_end(ap);
 
-        if (EVP_DigestUpdate(ctx, &(uint32_t) { htobe32(dkl * 8) }, 4) <= 0) {
+        if (EVP_DigestUpdate(&ctx, &(uint32_t) { htobe32(dkl * 8) }, 4) <= 0) {
             va_end(ap);
-            goto egress;
+            return false;
         }
 
-        if (EVP_DigestFinal_ex(ctx, hsh, NULL) <= 0)
-            goto egress;
+        if (EVP_DigestFinal_ex(&ctx, hsh->data, NULL) <= 0)
+            return false;
 
-        memcpy(&dk[c * size], hsh, c == reps ? left : size);
+        memcpy(&dk[c * hsh->size], hsh->data, c == reps ? left : hsh->size);
     }
 
-    ret = true;
-
-egress:
-    memset(hsh, 0, sizeof(hsh));
-    EVP_MD_CTX_destroy(ctx);
-    return ret;
+    return true;
 }
 
 static bool

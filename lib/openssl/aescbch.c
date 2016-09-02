@@ -36,42 +36,39 @@ mktag(const EVP_MD *md, const char *prot, const char *aad,
       uint8_t tg[])
 {
     uint8_t hsh[EVP_MD_size(md)];
-    HMAC_CTX hctx = {};
+    HMAC_CTX __attribute__((cleanup(HMAC_CTX_cleanup))) hctx = {};
     bool ret = false;
     uint64_t al = 0;
 
     if (HMAC_Init(&hctx, ky, kyl, md) <= 0)
-        goto egress;
+        return false;
 
     al += strlen(prot);
     if (HMAC_Update(&hctx, (uint8_t *) prot, strlen(prot)) <= 0)
-        goto egress;
+        return false;
 
     if (aad) {
         al++;
         if (HMAC_Update(&hctx, (uint8_t *) ".", 1) <= 0)
-            goto egress;
+            return false;
 
         al += strlen(aad);
         if (HMAC_Update(&hctx, (uint8_t *) aad, strlen(aad)) <= 0)
-            goto egress;
+            return false;
     }
 
     if (HMAC_Update(&hctx, iv, ivl) <= 0)
-        goto egress;
+        return false;
 
     if (HMAC_Update(&hctx, ct, ctl) <= 0)
-        goto egress;
+        return false;
 
     al = htobe64(al * 8);
     if (HMAC_Update(&hctx, (uint8_t *) &al, sizeof(al)) <= 0)
-        goto egress;
+        return false;
 
     ret = HMAC_Final(&hctx, hsh, NULL) > 0;
     memcpy(tg, hsh, sizeof(hsh) / 2);
-
-egress:
-    HMAC_CTX_cleanup(&hctx);
     return ret;
 }
 
@@ -144,19 +141,18 @@ static bool
 encrypt(json_t *jwe, const json_t *cek, const uint8_t pt[], size_t ptl,
         const char *enc, const char *prot, const char *aad)
 {
+    openssl_auto(EVP_CIPHER_CTX) ctx = {};
     const EVP_CIPHER *cph = NULL;
-    EVP_CIPHER_CTX *ctx = NULL;
     jose_buf_auto_t *ct = NULL;
     jose_buf_auto_t *ky = NULL;
     const EVP_MD *md = NULL;
-    bool ret = false;
     int len;
 
     switch (str2enum(enc, NAMES, NULL)) {
     case 0: cph = EVP_aes_128_cbc(); md = EVP_sha256(); break;
     case 1: cph = EVP_aes_192_cbc(); md = EVP_sha384(); break;
     case 2: cph = EVP_aes_256_cbc(); md = EVP_sha512(); break;
-    default: return NULL;
+    default: return false;
     }
 
     uint8_t iv[EVP_CIPHER_iv_length(cph)];
@@ -164,62 +160,56 @@ encrypt(json_t *jwe, const json_t *cek, const uint8_t pt[], size_t ptl,
 
     ky = jose_b64_decode_json(json_object_get(cek, "k"));
     if (!ky)
-        return NULL;
+        return false;
 
     if ((int) ky->size != EVP_CIPHER_key_length(cph) * 2)
-        goto egress;
+        return false;
 
     ct = jose_buf(ptl + EVP_CIPHER_block_size(cph) - 1, JOSE_BUF_FLAG_NONE);
     if (!ct)
-        goto egress;
+        return false;
 
     if (RAND_bytes(iv, sizeof(iv)) <= 0)
-        goto egress;
+        return false;
 
-    ctx = EVP_CIPHER_CTX_new();
-    if (!ctx)
-        goto egress;
+    EVP_CIPHER_CTX_init(&ctx);
 
-    if (EVP_EncryptInit(ctx, cph, &ky->data[ky->size / 2], iv) <= 0)
-        goto egress;
+    if (EVP_EncryptInit(&ctx, cph, &ky->data[ky->size / 2], iv) <= 0)
+        return false;
 
-    if (EVP_EncryptUpdate(ctx, ct->data, &len, pt, ptl) <= 0)
-        goto egress;
+    if (EVP_EncryptUpdate(&ctx, ct->data, &len, pt, ptl) <= 0)
+        return false;
     ct->size = len;
 
-    if (EVP_EncryptFinal(ctx, &ct->data[ct->size], &len) <= 0)
-        goto egress;
+    if (EVP_EncryptFinal(&ctx, &ct->data[ct->size], &len) <= 0)
+        return false;
     ct->size += len;
 
     if (!mktag(md, prot, aad, ky->data, ky->size / 2,
                iv, sizeof(iv), ct->data, ct->size, tg))
-        goto egress;
+        return false;
 
     if (json_object_set_new(jwe, "iv",
                             jose_b64_encode_json(iv, sizeof(iv))) == -1)
-        goto egress;
+        return false;
 
     if (json_object_set_new(jwe, "ciphertext",
                             jose_b64_encode_json(ct->data, ct->size)) == -1)
-        goto egress;
+        return false;
 
     if (json_object_set_new(jwe, "tag",
                             jose_b64_encode_json(tg, sizeof(tg))) == -1)
-        goto egress;
+        return false;
 
-    ret = true;
-
-egress:
-    EVP_CIPHER_CTX_free(ctx);
-    return ret;
+    return true;
 }
 
 static jose_buf_t *
 decrypt(const json_t *jwe, const json_t *cek, const char *enc,
         const char *prot, const char *aad)
 {
+    openssl_auto(EVP_CIPHER_CTX) ctx = {};
     const EVP_CIPHER *cph = NULL;
-    EVP_CIPHER_CTX *ctx = NULL;
     jose_buf_auto_t *ky = NULL;
     jose_buf_auto_t *iv = NULL;
     jose_buf_auto_t *ct = NULL;
@@ -243,44 +233,39 @@ decrypt(const json_t *jwe, const json_t *cek, const char *enc,
     ct = jose_b64_decode_json(json_object_get(jwe, "ciphertext"));
     tg = jose_b64_decode_json(json_object_get(jwe, "tag"));
     if (!ky || !iv || !ct || !tg)
-        goto egress;
+        return NULL;
 
     if (ky->size != (size_t) EVP_CIPHER_key_length(cph) * 2)
-        goto egress;
+        return NULL;
 
     if (iv->size != (size_t) EVP_CIPHER_iv_length(cph))
-        goto egress;
+        return NULL;
 
     if (tg->size != sizeof(tag))
-        goto egress;
+        return NULL;
 
     if (!mktag(md, prot, aad, ky->data, ky->size / 2,
                iv->data, iv->size, ct->data, ct->size, tag))
-        goto egress;
+        return NULL;
 
     if (CRYPTO_memcmp(tag, tg->data, tg->size) != 0)
-        goto egress;
+        return NULL;
 
     pt = jose_buf(ct->size, JOSE_BUF_FLAG_WIPE);
     if (!pt)
-        goto egress;
+        return NULL;
 
-    ctx = EVP_CIPHER_CTX_new();
-    if (!ctx)
-        goto egress;
+    EVP_CIPHER_CTX_init(&ctx);
 
-    if (EVP_DecryptInit(ctx, cph, &ky->data[ky->size / 2], iv->data) <= 0)
-        goto egress;
+    if (EVP_DecryptInit(&ctx, cph, &ky->data[ky->size / 2], iv->data) <= 0)
+        return NULL;
 
-    if (EVP_DecryptUpdate(ctx, pt->data, &len, ct->data, ct->size) <= 0)
-        goto egress;
+    if (EVP_DecryptUpdate(&ctx, pt->data, &len, ct->data, ct->size) <= 0)
+        return NULL;
     pt->size = len;
 
-    vfy = EVP_DecryptFinal(ctx, &pt->data[len], &len) > 0;
+    vfy = EVP_DecryptFinal(&ctx, &pt->data[len], &len) > 0;
     pt->size += len;
-
-egress:
-    EVP_CIPHER_CTX_free(ctx);
     return vfy ? jose_buf_incref(pt) : NULL;
 }
 

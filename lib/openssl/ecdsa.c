@@ -27,15 +27,20 @@
 
 #define NAMES "ES256", "ES384", "ES512"
 
+declare_cleanup(ECDSA_SIG)
+declare_cleanup(EC_POINT)
+declare_cleanup(EC_KEY)
+declare_cleanup(BN_CTX)
+
 static EC_KEY *
 setup(const json_t *jwk, const char *alg, const char *prot, const char *payl,
       uint8_t hsh[], size_t *hl)
 {
+    openssl_auto(EVP_MD_CTX) ctx = {};
+    openssl_auto(EC_KEY) *key = NULL;
     const EVP_MD *md = NULL;
-    EVP_MD_CTX *ctx = NULL;
     const char *req = NULL;
     unsigned int ign = 0;
-    EC_KEY *key = NULL;
 
     *hl = 0;
 
@@ -47,36 +52,31 @@ setup(const json_t *jwk, const char *alg, const char *prot, const char *payl,
     case NID_X9_62_prime256v1: req = "ES256"; md = EVP_sha256(); break;
     case NID_secp384r1:        req = "ES384"; md = EVP_sha384(); break;
     case NID_secp521r1:        req = "ES512"; md = EVP_sha512(); break;
-    default: goto error;
+    default: return NULL;
     }
 
     if (strcmp(alg, req) != 0)
-        goto error;
+        return NULL;
 
-    ctx = EVP_MD_CTX_create();
-    if (!ctx)
-        goto error;
+    EVP_MD_CTX_init(&ctx);
 
-    if (EVP_DigestInit(ctx, md) <= 0)
-        goto error;
+    if (EVP_DigestInit(&ctx, md) <= 0)
+        return NULL;
 
-    if (EVP_DigestUpdate(ctx, (const uint8_t *) prot, strlen(prot)) <= 0)
-        goto error;
+    if (EVP_DigestUpdate(&ctx, (const uint8_t *) prot, strlen(prot)) <= 0)
+        return NULL;
 
-    if (EVP_DigestUpdate(ctx, (const uint8_t *) ".", 1) <= 0)
-        goto error;
+    if (EVP_DigestUpdate(&ctx, (const uint8_t *) ".", 1) <= 0)
+        return NULL;
 
-    if (EVP_DigestUpdate(ctx, (const uint8_t *) payl, strlen(payl)) <= 0)
-        goto error;
+    if (EVP_DigestUpdate(&ctx, (const uint8_t *) payl, strlen(payl)) <= 0)
+        return NULL;
 
-    if (EVP_DigestFinal(ctx, hsh, &ign) > 0)
-        *hl = EVP_MD_size(md);
+    if (EVP_DigestFinal(&ctx, hsh, &ign) <= 0)
+        return NULL;
 
-error:
-    EVP_MD_CTX_destroy(ctx);
-    if (*hl == 0)
-        EC_KEY_free(key);
-    return *hl != 0 ? key : NULL;
+    *hl = EVP_MD_size(md);
+    return EC_KEY_up_ref(key) > 0 ? key : NULL;
 }
 
 static bool
@@ -142,10 +142,9 @@ static bool
 sign(json_t *sig, const json_t *jwk,
      const char *alg, const char *prot, const char *payl)
 {
+    openssl_auto(ECDSA_SIG) *ecdsa = NULL;
+    openssl_auto(EC_KEY) *key = NULL;
     uint8_t hsh[EVP_MAX_MD_SIZE];
-    ECDSA_SIG *ecdsa = NULL;
-    EC_KEY *key = NULL;
-    bool ret = false;
     size_t hl = 0;
 
     key = setup(jwk, alg, prot, payl, hsh, &hl);
@@ -156,21 +155,16 @@ sign(json_t *sig, const json_t *jwk,
 
     ecdsa = ECDSA_do_sign(hsh, hl, key);
     if (!ecdsa)
-        goto egress;
+        return false;
 
     if (!bn_encode(ecdsa->r, s, sizeof(s) / 2))
-        goto egress;
+        return false;
 
     if (!bn_encode(ecdsa->s, &s[sizeof(s) / 2], sizeof(s) / 2))
-        goto egress;
+        return false;
 
-    ret = json_object_set_new(sig, "signature",
-                              jose_b64_encode_json(s, sizeof(s))) == 0;
-
-egress:
-    ECDSA_SIG_free(ecdsa);
-    EC_KEY_free(key);
-    return ret;
+    return json_object_set_new(sig, "signature",
+                               jose_b64_encode_json(s, sizeof(s))) == 0;
 }
 
 static bool

@@ -30,6 +30,16 @@
 #define htobe64(x) OSSwapHostToBigInt64(x)
 #endif
 
+#define declare_cleanup(type) \
+    static inline void \
+    type ## _cleanup(type **p) { \
+        if (!p) return; \
+        type ## _free(*p); \
+        *p = NULL; \
+    }
+
+#define openssl_auto(type) type __attribute__((cleanup(type ## _cleanup)))
+
 size_t
 str2enum(const char *str, ...);
 

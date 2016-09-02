@@ -27,6 +27,22 @@
 
 #include <string.h>
 
+declare_cleanup(EVP_PKEY)
+declare_cleanup(EC_POINT)
+declare_cleanup(EC_KEY)
+declare_cleanup(BN_CTX)
+declare_cleanup(RSA)
+
+static inline void
+BIGNUM_cleanup(BIGNUM **bn)
+{
+    if (!bn)
+        return;
+
+    BN_free(*bn);
+    *bn = NULL;
+}
+
 /*
  * This really doesn't belong here, but OpenSSL doesn't (yet) help us.
  *
@@ -49,45 +65,35 @@ EVP_PKEY_get0_hmac(EVP_PKEY *pkey, size_t *len)
 static EC_POINT *
 mkpub(const EC_GROUP *grp, const json_t *x, const json_t *y, const BIGNUM *D)
 {
-    EC_POINT *pub = NULL;
-    BN_CTX *ctx = NULL;
-    BIGNUM *X = NULL;
-    BIGNUM *Y = NULL;
+    openssl_auto(EC_POINT) *pub = NULL;
+    openssl_auto(BN_CTX) *ctx = NULL;
+    openssl_auto(BIGNUM) *X = NULL;
+    openssl_auto(BIGNUM) *Y = NULL;
 
     ctx = BN_CTX_new();
     if (!ctx)
-        goto error;
+        return NULL;
 
     pub = EC_POINT_new(grp);
     if (!pub)
-        goto error;
+        return NULL;
 
     if (x && y) {
         X = bn_decode_json(x);
         Y = bn_decode_json(y);
         if (!X || !Y)
-            goto error;
+            return NULL;
 
         if (EC_POINT_set_affine_coordinates_GFp(grp, pub, X, Y, ctx) < 0)
-            goto error;
+            return NULL;
     } else if (D) {
         if (EC_POINT_mul(grp, pub, D, NULL, NULL, ctx) < 0)
-            goto error;
+            return NULL;
     } else {
-        goto error;
+        return NULL;
     }
 
-    BN_CTX_free(ctx);
-    BN_free(X);
-    BN_free(Y);
-    return pub;
-
-error:
-    EC_POINT_free(pub);
-    BN_CTX_free(ctx);
-    BN_free(X);
-    BN_free(Y);
-    return NULL;
+    return EC_POINT_dup(pub, grp);
 }
 
 json_t *
@@ -164,12 +170,12 @@ json_t *
 jose_openssl_jwk_from_EC_POINT(const EC_GROUP *grp, const EC_POINT *pub,
                                const BIGNUM *prv)
 {
+    openssl_auto(EC_POINT) *p = NULL;
+    openssl_auto(BN_CTX) *ctx = NULL;
+    openssl_auto(BIGNUM) *x = NULL;
+    openssl_auto(BIGNUM) *y = NULL;
+    json_auto_t *jwk = NULL;
     const char *crv = NULL;
-    json_t *jwk = NULL;
-    EC_POINT *p = NULL;
-    BN_CTX *ctx = NULL;
-    BIGNUM *x = NULL;
-    BIGNUM *y = NULL;
     int len = 0;
 
     if (!grp || !pub)
@@ -181,56 +187,49 @@ jose_openssl_jwk_from_EC_POINT(const EC_GROUP *grp, const EC_POINT *pub,
     case NID_X9_62_prime256v1: crv = "P-256"; break;
     case NID_secp384r1: crv = "P-384"; break;
     case NID_secp521r1: crv = "P-521"; break;
-    default: goto egress;
+    default: return NULL;
     }
 
     ctx = BN_CTX_new();
     if (!ctx)
-        goto egress;
+        return NULL;
 
     if (!pub) {
         if (!prv)
-            goto egress;
+            return NULL;
 
         pub = p = EC_POINT_new(grp);
         if (!pub)
-            goto egress;
+            return NULL;
 
         if (EC_POINT_mul(grp, p, prv, NULL, NULL, ctx) < 0)
-            goto egress;
+            return NULL;
     }
 
     x = BN_new();
     y = BN_new();
     if (!x || !y)
-        goto egress;
+        return NULL;
 
     if (EC_POINT_get_affine_coordinates_GFp(grp, pub, x, y, ctx) < 0)
-        goto egress;
+        return NULL;
 
     jwk = json_pack("{s:s,s:s,s:o,s:o}", "kty", "EC", "crv", crv,
                     "x", bn_encode_json(x, len), "y", bn_encode_json(y, len));
-    if (prv && json_object_set_new(jwk, "d", bn_encode_json(prv, len)) == -1) {
-        json_decref(jwk);
-        jwk = NULL;
-    }
+    if (prv && json_object_set_new(jwk, "d", bn_encode_json(prv, len)) == -1)
+        return NULL;
 
-egress:
-    EC_POINT_free(p);
-    BN_CTX_free(ctx);
-    BN_free(x);
-    BN_free(y);
-    return jwk;
+    return json_incref(jwk);
 }
 
 EVP_PKEY *
 jose_openssl_jwk_to_EVP_PKEY(const json_t *jwk)
 {
+    openssl_auto(EC_KEY) *ec = NULL;
+    openssl_auto(RSA) *rsa = NULL;
     jose_buf_auto_t *buf = NULL;
     const char *kty = NULL;
     EVP_PKEY *key = NULL;
-    EC_KEY *ec = NULL;
-    RSA *rsa = NULL;
 
     if (json_unpack((json_t *) jwk, "{s:s}", "kty", &kty) == -1)
         return NULL;
@@ -242,16 +241,14 @@ jose_openssl_jwk_to_EVP_PKEY(const json_t *jwk)
             return NULL;
 
         key = EVP_PKEY_new();
-        if (key) {
-            if (EVP_PKEY_set1_EC_KEY(key, ec) <= 0) {
-                EVP_PKEY_free(key);
-                EC_KEY_free(ec);
-                return NULL;
-            }
-        }
+        if (!key)
+            return NULL;
 
-        EC_KEY_free(ec);
-        return key;
+        if (EVP_PKEY_set1_EC_KEY(key, ec) > 0)
+            return key;
+
+        EVP_PKEY_free(key);
+        return NULL;
 
     case 1:
         rsa = jose_openssl_jwk_to_RSA(jwk);
@@ -259,16 +256,14 @@ jose_openssl_jwk_to_EVP_PKEY(const json_t *jwk)
             return NULL;
 
         key = EVP_PKEY_new();
-        if (key) {
-            if (EVP_PKEY_set1_RSA(key, rsa) <= 0) {
-                EVP_PKEY_free(key);
-                RSA_free(rsa);
-                return NULL;
-            }
-        }
+        if (!key)
+            return NULL;
 
-        RSA_free(rsa);
-        return key;
+        if (EVP_PKEY_set1_RSA(key, rsa) > 0)
+            return key;
+
+        EVP_PKEY_free(key);
+        return NULL;
 
     case 2:
         buf = jose_b64_decode_json(json_object_get(jwk, "k"));
@@ -284,6 +279,7 @@ jose_openssl_jwk_to_EVP_PKEY(const json_t *jwk)
 RSA *
 jose_openssl_jwk_to_RSA(const json_t *jwk)
 {
+    openssl_auto(RSA) *rsa = NULL;
     const json_t *dp = NULL;
     const json_t *dq = NULL;
     const json_t *qi = NULL;
@@ -293,7 +289,6 @@ jose_openssl_jwk_to_RSA(const json_t *jwk)
     const json_t *p = NULL;
     const json_t *q = NULL;
     const char *kty = NULL;
-    RSA *rsa = NULL;
 
     if (json_unpack(
             (json_t *) jwk, "{s:s,s:o,s:o,s?o,s?o,s?o,s?o,s?o,s?o}",
@@ -309,7 +304,7 @@ jose_openssl_jwk_to_RSA(const json_t *jwk)
     rsa->n = bn_decode_json(n);
     rsa->e = bn_decode_json(e);
     if (!rsa->n || !rsa->e)
-        goto error;
+        return NULL;
 
     if (d && p && q && dp && dq && qi) {
         rsa->d = bn_decode_json(d);
@@ -321,28 +316,24 @@ jose_openssl_jwk_to_RSA(const json_t *jwk)
 
         if (!rsa->d || !rsa->p || !rsa->q || !rsa->dmp1 || !rsa->dmq1 ||
             !rsa->iqmp || RSA_blinding_on(rsa, NULL) <= 0)
-            goto error;
+            return NULL;
     }
 
-    return rsa;
-
-error:
-    RSA_free(rsa);
-    return NULL;
+    return RSA_up_ref(rsa) <= 0 ? NULL : rsa;
 }
 
 EC_KEY *
 jose_openssl_jwk_to_EC_KEY(const json_t *jwk)
 {
+    openssl_auto(EC_POINT) *pub = NULL;
+    openssl_auto(EC_KEY) *key = NULL;
+    openssl_auto(BIGNUM) *D = NULL;
     const char *kty = NULL;
     const char *crv = NULL;
     const json_t *x = NULL;
     const json_t *y = NULL;
     const json_t *d = NULL;
-    EC_POINT *pub = NULL;
     int nid = NID_undef;
-    EC_KEY *key = NULL;
-    BIGNUM *D = NULL;
 
     if (json_unpack((json_t *) jwk, "{s:s,s:s,s:o,s:o,s?o}", "kty", &kty,
                     "crv", &crv, "x", &x, "y", &y, "d", &d) == -1)
@@ -365,30 +356,22 @@ jose_openssl_jwk_to_EC_KEY(const json_t *jwk)
     if (d) {
         D = bn_decode_json(d);
         if (!D)
-            goto error;
+            return NULL;
 
         if (EC_KEY_set_private_key(key, D) < 0)
-            goto error;
+            return NULL;
     }
 
     pub = mkpub(EC_KEY_get0_group(key), x, y, D);
     if (!pub)
-        goto error;
+        return NULL;
 
     if (EC_KEY_set_public_key(key, pub) < 0)
-        goto error;
+        return NULL;
 
     if (EC_KEY_check_key(key) == 0)
-        goto error;
+        return NULL;
 
-    EC_POINT_free(pub);
-    BN_free(D);
-    return key;
-
-error:
-    EC_POINT_free(pub);
-    EC_KEY_free(key);
-    BN_free(D);
-    return NULL;
+    return EC_KEY_up_ref(key) <= 0 ? NULL : key;
 }
 
