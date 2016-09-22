@@ -10,7 +10,7 @@ AM_PROG_CC_C_O
 LT_INIT([disable-static])
 
 PKG_PROG_PKG_CONFIG([0.25])
-PKG_CHECK_MODULES([jansson], [jansson])
+PKG_CHECK_MODULES([jansson], [jansson >= 2.9])
 
 AC_ARG_WITH(
     [openssl],
