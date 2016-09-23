@@ -21,62 +21,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-typedef struct jose_jwk_type {
-    struct jose_jwk_type *next;
-    bool sym;
-    const char *kty;
-    const char **req;
-    const char **prv;
-} jose_jwk_type_t;
-
-typedef struct jose_jwk_op {
-    struct jose_jwk_op *next;
-    const char *pub;
-    const char *prv;
-    const char *use;
-} jose_jwk_op_t;
-
-typedef struct jose_jwk_resolver {
-    struct jose_jwk_resolver *next;
-    bool (*resolve)(json_t *jwk);
-} jose_jwk_resolver_t;
-
-typedef struct jose_jwk_generator {
-    struct jose_jwk_generator *next;
-    const char *kty;
-    bool (*generate)(json_t *jwk);
-} jose_jwk_generator_t;
-
-typedef struct jose_jwk_hasher {
-    struct jose_jwk_hasher *next;
-    const char *name;
-    size_t size;
-    bool (*hash)(const uint8_t in[], size_t inl, uint8_t out[]);
-} jose_jwk_hasher_t;
-
-typedef struct jose_jwk_exchanger {
-    struct jose_jwk_exchanger *next;
-    json_t *(*exchange)(const json_t *prv, const json_t *pub);
-} jose_jwk_exchanger_t;
-
-void
-jose_jwk_register_type(jose_jwk_type_t *type);
-
-void
-jose_jwk_register_op(jose_jwk_op_t *op);
-
-void
-jose_jwk_register_resolver(jose_jwk_resolver_t *resolver);
-
-void
-jose_jwk_register_generator(jose_jwk_generator_t *generator);
-
-void
-jose_jwk_register_hasher(jose_jwk_hasher_t *hasher);
-
-void
-jose_jwk_register_exchanger(jose_jwk_exchanger_t *exchanger);
-
 bool
 jose_jwk_generate(json_t *jwk);
 

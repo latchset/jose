@@ -16,6 +16,7 @@
  */
 
 #include <jose/jwk.h>
+#include <jose/hooks.h>
 #include <openssl/sha.h>
 
 static bool

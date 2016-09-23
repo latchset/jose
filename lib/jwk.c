@@ -17,6 +17,7 @@
 
 #include <jose/b64.h>
 #include <jose/jwk.h>
+#include <jose/hooks.h>
 
 #include <stddef.h>
 #include <stdlib.h>

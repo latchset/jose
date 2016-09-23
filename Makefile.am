@@ -4,7 +4,7 @@ EXTRA_DIST = tests/vectors
 incdir = $(includedir)/$(PACKAGE_NAME)
 pkgconfigdir = $(libdir)/pkgconfig
 
-inc_HEADERS = jose/buf.h jose/b64.h jose/jwk.h jose/jws.h jose/jwe.h
+inc_HEADERS = jose/buf.h jose/b64.h jose/jwk.h jose/jws.h jose/jwe.h jose/hooks.h
 pkgconfig_DATA = jose.pc
 lib_LTLIBRARIES = libjose.la
 libjose_la_LIBADD = @jansson_LIBS@

@@ -21,6 +21,7 @@
 #include <jose/b64.h>
 #include <jose/jwk.h>
 #include <jose/jws.h>
+#include <jose/hooks.h>
 
 #include <string.h>
 

@@ -16,6 +16,7 @@
  */
 
 #include <jose/jwe.h>
+#include <jose/hooks.h>
 #include <zlib.h>
 #include <string.h>
 

@@ -22,57 +22,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-typedef struct jose_jwe_crypter {
-    struct jose_jwe_crypter *next;
-    const char **encs;
-
-    const char *
-    (*suggest)(const json_t *jwk);
-
-    bool
-    (*encrypt)(json_t *jwe, const json_t *cek, const uint8_t pt[], size_t ptl,
-               const char *enc, const char *prot, const char *aad);
-
-    jose_buf_t *
-    (*decrypt)(const json_t *jwe, const json_t *cek, const char *enc,
-               const char *prot, const char *aad);
-} jose_jwe_crypter_t;
-
-typedef struct jose_jwe_wrapper {
-    struct jose_jwe_wrapper *next;
-    const char **algs;
-
-    const char *
-    (*suggest)(const json_t *jwk);
-
-    bool
-    (*wrap)(json_t *jwe, json_t *cek, const json_t *jwk, json_t *rcp,
-            const char *alg);
-    bool
-    (*unwrap)(const json_t *jwe, const json_t *jwk, const json_t *rcp,
-              const char *alg, json_t *cek);
-} jose_jwe_wrapper_t;
-
-typedef struct jose_jwe_zipper {
-    struct jose_jwe_zipper *next;
-    const char *zip;
-
-    jose_buf_t *
-    (*deflate)(const uint8_t val[], size_t len);
-
-    jose_buf_t *
-    (*inflate)(const uint8_t val[], size_t len);
-} jose_jwe_zipper_t;
-
-void
-jose_jwe_register_crypter(jose_jwe_crypter_t *crypter);
-
-void
-jose_jwe_register_wrapper(jose_jwe_wrapper_t *wrapper);
-
-void
-jose_jwe_register_zipper(jose_jwe_zipper_t *zipper);
-
 /**
  * Converts a JWE from compact format into JSON format.
  */
