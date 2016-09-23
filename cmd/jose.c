@@ -223,7 +223,6 @@ main(int argc, char *argv[])
         { "ver", jcmd_ver },
         { "enc", jcmd_enc },
         { "dec", jcmd_dec },
-        { "hdr", jcmd_hdr },
         {}
     };
 
@@ -256,7 +255,6 @@ main(int argc, char *argv[])
 "\n  jose " VER_USE
 "\n  jose " ENC_USE
 "\n  jose " DEC_USE
-"\n  jose " HDR_USE
 "\n");
     return EXIT_FAILURE;
 }

@@ -42,9 +42,6 @@
 #define DEC_USE \
     "dec -i JWE [-n] [-k JWK(Set) ...] [-o PLD]"
 
-#define HDR_USE \
-    "hdr -i JWE|JWS [-o HDR]"
-
 void *
 jcmd_load_data(const char *file, size_t *len);
 
@@ -85,6 +82,3 @@ jcmd_enc(int argc, char *argv[]);
 
 int
 jcmd_dec(int argc, char *argv[]);
-
-int
-jcmd_hdr(int argc, char *argv[]);
