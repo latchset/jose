@@ -97,7 +97,7 @@ jcmd_dec(int argc, char *argv[])
 
         case 'i':
             json_decref(jwe);
-            jwe = jcmd_load_json(optarg, NULL, jose_jwe_from_compact);
+            jwe = jcmd_load_json(optarg, NULL, jose_from_compact);
             break;
 
         case 'k':

@@ -17,9 +17,7 @@
 
 #pragma once
 
-#include "buf.h"
-#include <jansson.h>
-#include <stdbool.h>
+#include "jose.h"
 
 typedef struct jose_jwk_type {
     struct jose_jwk_type *next;

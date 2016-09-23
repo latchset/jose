@@ -16,9 +16,7 @@
  */
 
 #include "misc.h"
-#include <jose/b64.h>
-#include <jose/jwk.h>
-#include <jose/jwe.h>
+#include <jose/jose.h>
 #include <jose/hooks.h>
 
 #include <string.h>

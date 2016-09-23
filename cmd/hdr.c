@@ -62,9 +62,9 @@ jcmd_hdr(int argc, char *argv[])
         goto usage;
     }
 
-    jose = jose_jwe_from_compact(in);
+    jose = jose_from_compact(in);
     if (!jose) {
-        jose = jose_jws_from_compact(in);
+        jose = jose_from_compact(in);
         if (!jose)
             jose = json_loadb(in, len, 0, NULL);
     }

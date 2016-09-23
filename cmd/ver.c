@@ -68,7 +68,7 @@ jcmd_ver(int argc, char *argv[])
 
         case 'i':
             json_decref(jws);
-            jws = jcmd_load_json(optarg, NULL, jose_jws_from_compact);
+            jws = jcmd_load_json(optarg, NULL, jose_from_compact);
             break;
 
         case 'k':

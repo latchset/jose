@@ -17,15 +17,24 @@
 
 #pragma once
 
-#include <jansson.h>
-#include <stdbool.h>
-#include <stdint.h>
+#include "b64.h"
+#include "jwk.h"
+#include "jws.h"
+#include "jwe.h"
 
-bool
-set_protected_new(json_t *obj, const char *key, json_t *val);
+/**
+ * Converts a JWS or JWE from compact format into JSON format.
+ */
+json_t *
+jose_from_compact(const char *cmpct);
 
-const char *
-encode_protected(json_t *obj);
-
-bool
-add_entity(json_t *root, json_t *obj, const char *plural, ...);
+/**
+ * Converts a JWS or JWE from JSON format into compact format.
+ *
+ * If more than one signature/recipient exists or if an unprotected header is
+ * found, this operation will fail.
+ *
+ * Free with free().
+ */
+char *
+jose_to_compact(const json_t *jose);

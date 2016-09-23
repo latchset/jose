@@ -23,23 +23,6 @@
 #include <stdint.h>
 
 /**
- * Converts a JWE from compact format into JSON format.
- */
-json_t *
-jose_jwe_from_compact(const char *jwe);
-
-/**
- * Converts a JWS from JSON format into compact format.
- *
- * If more than one recipient exists or if an unprotected header is found,
- * this operation will fail.
- *
- * Free with free().
- */
-char *
-jose_jwe_to_compact(const json_t *jwe);
-
-/**
  * Encrypts the specified plaintext bytes into the JWE using the specified CEK.
  *
  * Please note that this DOES NOT wrap the CEK. You need to also call

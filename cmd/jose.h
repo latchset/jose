@@ -15,10 +15,7 @@
  * limitations under the License.
  */
 
-#include <jose/b64.h>
-#include <jose/jwk.h>
-#include <jose/jws.h>
-#include <jose/jwe.h>
+#include <jose/jose.h>
 #include <getopt.h>
 
 #define GEN_USE \

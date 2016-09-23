@@ -96,7 +96,7 @@ jcmd_enc(int argc, char *argv[])
 
         case 't':
             json_decref(tmpl);
-            tmpl = jcmd_load_json(optarg, optarg, jose_jwe_from_compact);
+            tmpl = jcmd_load_json(optarg, optarg, jose_from_compact);
             if (!tmpl) {
                 fprintf(stderr, "Invalid JWE template: %s!\n", optarg);
                 goto usage;
@@ -178,7 +178,7 @@ jcmd_enc(int argc, char *argv[])
         goto egress;
     }
 
-    if (!jcmd_dump_json(tmpl, out, compact ? jose_jwe_to_compact : NULL)) {
+    if (!jcmd_dump_json(tmpl, out, compact ? jose_to_compact : NULL)) {
         fprintf(stderr, "Error dumping JWS!\n");
         goto egress;
     }

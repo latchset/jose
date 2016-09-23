@@ -16,9 +16,6 @@
  */
 
 #include "misc.h"
-#include <jose/b64.h>
-#include <jose/jwk.h>
-#include <jose/jws.h>
 #include <jose/hooks.h>
 #include <jose/openssl.h>
 

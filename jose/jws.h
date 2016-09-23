@@ -22,23 +22,6 @@
 #include <stdint.h>
 
 /**
- * Converts a JWS from compact format into JSON format.
- */
-json_t *
-jose_jws_from_compact(const char *jws);
-
-/**
- * Converts a JWS from JSON format into compact format.
- *
- * If more than one signature exists or if an unprotected header is found,
- * this operation will fail.
- *
- * Free with free().
- */
-char *
-jose_jws_to_compact(const json_t *jws);
-
-/**
  * Adds an additional signature to the JWS using the specified JWK.
  *
  * The jws parameter is modified to contain the new signature.
