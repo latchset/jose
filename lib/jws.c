@@ -84,7 +84,7 @@ find(const char *alg)
 }
 
 bool
-jose_jws_sign(json_t *jws, const json_t *jwk, json_t *sig)
+jose_jws_sign(json_t *jws, const json_t *jwk, const json_t *sig)
 {
     const jose_jws_signer_t *signer = NULL;
     const char *payl = NULL;
@@ -148,14 +148,36 @@ jose_jws_sign(json_t *jws, const json_t *jwk, json_t *sig)
     return false;
 }
 
-static bool
-verify_sig(const char *payl, const json_t *sig, const json_t *jwk)
+bool
+jose_jws_verify(const json_t *jws, const json_t *jwk, const json_t *sig)
 {
     const jose_jws_signer_t *signer = NULL;
     const char *prot = NULL;
+    const char *payl = NULL;
     const char *kalg = NULL;
     const char *halg = NULL;
     json_auto_t *hdr = NULL;
+
+    if (!sig) {
+        const json_t *array = NULL;
+
+        array = json_object_get(jws, "signatures");
+        if (!json_is_array(array))
+            return jose_jws_verify(jws, jwk, jws);
+
+        for (size_t i = 0; i < json_array_size(array); i++) {
+            if (jose_jws_verify(jws, jwk, json_array_get(array, i)))
+                return true;
+        }
+
+        return false;
+    }
+
+    if (!jose_jwk_allowed(jwk, false, NULL, "verify"))
+        return false;
+
+    if (json_unpack((json_t *) jws, "{s: s}", "payload", &payl) == -1)
+        return false;
 
     if (json_unpack((json_t *) sig, "{s?s}", "protected", &prot) != 0)
         return false;
@@ -182,33 +204,6 @@ verify_sig(const char *payl, const json_t *sig, const json_t *jwk)
         return false;
 
     return signer->verify(sig, jwk, halg, prot ? prot : "", payl);
-}
-
-bool
-jose_jws_verify(const json_t *jws, const json_t *jwk)
-{
-    const json_t *array = NULL;
-    const char *payl = NULL;
-
-    if (!jose_jwk_allowed(jwk, false, NULL, "verify"))
-        return false;
-
-    if (json_unpack((json_t *) jws, "{s: s}", "payload", &payl) == -1)
-        return false;
-
-    /* Verify signatures in general format. */
-    array = json_object_get(jws, "signatures");
-    if (json_is_array(array) && json_array_size(array) > 0) {
-        for (size_t i = 0; i < json_array_size(array); i++) {
-            if (verify_sig(payl, json_array_get(array, i), jwk))
-                return true;
-        }
-
-        return false;
-    }
-
-    /* Verify the signature in flattened format. */
-    return verify_sig(payl, jws, jwk);
 }
 
 json_t *

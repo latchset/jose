@@ -52,11 +52,32 @@ jose_jws_from_compact(const char *jws);
 char *
 jose_jws_to_compact(const json_t *jws);
 
+/**
+ * Adds an additional signature to the JWS using the specified JWK.
+ *
+ * The jws parameter is modified to contain the new signature.
+ *
+ * The sig parameter optionally contains a template to use for the signature.
+ */
 bool
-jose_jws_sign(json_t *jws, const json_t *jwk, json_t *sig);
+jose_jws_sign(json_t *jws, const json_t *jwk, const json_t *sig);
 
+/**
+ * Verififes a signature in a JWS using the specified JWK.
+ *
+ * If you would like to verify a particular signature object, you may specify
+ * it in the sig parameter. Otherwise, simply pass NULL to find out if any
+ * signature verifies.
+ */
 bool
-jose_jws_verify(const json_t *jws, const json_t *jwk);
+jose_jws_verify(const json_t *jws, const json_t *jwk, const json_t *sig);
 
+/**
+ * Merges the protected and unprotected headers into the single JOSE header.
+ *
+ * WARNING: This function does not verify the protected header. You MUST call
+ * jose_jws_verify() with the specific signature object containing the header
+ * you want to merge to ensure that the protected header has not been modified.
+ */
 json_t *
 jose_jws_merge_header(const json_t *sig);

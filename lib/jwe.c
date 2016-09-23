@@ -310,7 +310,7 @@ jose_jwe_wrap(json_t *jwe, json_t *cek, const json_t *jwk, json_t *rcp)
 }
 
 json_t *
-jose_jwe_unwrap(const json_t *jwe, const json_t *rcp, const json_t *jwk)
+jose_jwe_unwrap(const json_t *jwe, const json_t *jwk, const json_t *rcp)
 {
     const jose_jwe_wrapper_t *wrapper = NULL;
     const char *halg = NULL;
@@ -325,9 +325,9 @@ jose_jwe_unwrap(const json_t *jwe, const json_t *rcp, const json_t *jwk)
         rcps = json_object_get(jwe, "recipients");
         if (json_is_array(rcps)) {
             for (size_t i = 0; i < json_array_size(rcps) && !cek; i++)
-                cek = jose_jwe_unwrap(jwe, json_array_get(rcps, i), jwk);
+                cek = jose_jwe_unwrap(jwe, jwk, json_array_get(rcps, i));
         } else if (!rcps) {
-            cek = jose_jwe_unwrap(jwe, jwe, jwk);
+            cek = jose_jwe_unwrap(jwe, jwk, jwe);
         }
 
         return json_incref(cek);
