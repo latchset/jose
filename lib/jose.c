@@ -23,6 +23,8 @@
 #include <ctype.h>
 #include <string.h>
 
+#include <dlfcn.h>
+
 static json_t *
 compact_to_obj(const char *compact, ...)
 {
@@ -179,4 +181,65 @@ jose_to_compact(const json_t *jose)
         cmpct = jws_to_compact(jose);
 
     return cmpct;
+}
+
+static jose_plugin_t plugins[] = {
+    { .name = "openssl",
+      .lib = "libjose-openssl.so",
+      .load_all = true,
+      .state = JOSE_PLUGIN_NOT_LOADED },
+    { .name = "zlib",
+      .lib = "libjose-zlib.so",
+      .load_all = true,
+      .state = JOSE_PLUGIN_NOT_LOADED },
+    {}
+};
+
+#define JOSE_DL_FLAGS (RTLD_NOW | RTLD_NODELETE | RTLD_GLOBAL)
+
+static void
+load_plugin(jose_plugin_t *plugin) {
+    void *lib;
+
+    if (plugin->state == JOSE_PLUGIN_LOADED)
+        return;
+
+    lib = dlopen(plugin->lib, JOSE_DL_FLAGS);
+    if (lib) {
+        plugin->state = JOSE_PLUGIN_LOADED;
+        plugin->handle = lib;
+    } else
+        plugin->state = JOSE_PLUGIN_FAILED;
+}
+
+bool
+jose_load_all_plugins(void)
+{
+    int errors = 0;
+    for (size_t i = 0; plugins[i].name; i++) {
+        jose_plugin_t *plugin = &plugins[i];
+        if (plugin->load_all) {
+            load_plugin(plugin);
+            if (plugin->state != JOSE_PLUGIN_LOADED)
+                errors++;
+        }
+    }
+    return errors ? false : true;
+}
+
+enum jose_plugin_state
+jose_load_plugin(const char *name)
+{
+    for (size_t i = 0; plugins[i].name; i++) {
+        if (strcmp(name, plugins[i].name) == 0) {
+            load_plugin(&plugins[i]);
+            return plugins[i].state;
+        }
+    }
+    return JOSE_PLUGIN_NOT_FOUND;
+}
+
+jose_plugin_t*
+jose_get_plugins(void) {
+    return plugins;
 }

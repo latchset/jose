@@ -21,6 +21,7 @@
 #include "jwk.h"
 #include "jws.h"
 #include "jwe.h"
+#include "hooks.h"
 
 /**
  * Converts a JWS or JWE from compact format into JSON format.
