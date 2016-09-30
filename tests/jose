@@ -135,3 +135,9 @@ for alg in $AWRAP $SWRAP; do
         cmd/jose dec -i $tmpdir/$enc.$alg.jwe -k $tmpdir/$alg.jwk
     done
 done
+
+##
+### Test supported algorithms
+##
+cmd/jose sup
+

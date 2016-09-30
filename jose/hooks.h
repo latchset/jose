@@ -113,29 +113,59 @@ typedef struct jose_jwe_zipper {
 void
 jose_jwk_register_type(jose_jwk_type_t *type);
 
+jose_jwk_type_t *
+jose_jwk_types(void);
+
 void
 jose_jwk_register_op(jose_jwk_op_t *op);
+
+jose_jwk_op_t *
+jose_jwk_ops(void);
 
 void
 jose_jwk_register_resolver(jose_jwk_resolver_t *resolver);
 
+jose_jwk_resolver_t *
+jose_jwk_resolvers(void);
+
 void
 jose_jwk_register_generator(jose_jwk_generator_t *generator);
+
+jose_jwk_generator_t *
+jose_jwk_generators(void);
 
 void
 jose_jwk_register_hasher(jose_jwk_hasher_t *hasher);
 
+jose_jwk_hasher_t *
+jose_jwk_hashers(void);
+
 void
 jose_jwk_register_exchanger(jose_jwk_exchanger_t *exchanger);
+
+jose_jwk_exchanger_t *
+jose_jwk_exchangers(void);
 
 void
 jose_jws_register_signer(jose_jws_signer_t *signer);
 
+jose_jws_signer_t *
+jose_jws_signers(void);
+
 void
 jose_jwe_register_crypter(jose_jwe_crypter_t *crypter);
+
+jose_jwe_crypter_t *
+jose_jwe_crypters(void);
 
 void
 jose_jwe_register_wrapper(jose_jwe_wrapper_t *wrapper);
 
+jose_jwe_wrapper_t *
+jose_jwe_wrappers(void);
+
 void
 jose_jwe_register_zipper(jose_jwe_zipper_t *zipper);
+
+jose_jwe_zipper_t *
+jose_jwe_zippers(void);

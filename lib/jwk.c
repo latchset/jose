@@ -23,54 +23,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-static jose_jwk_type_t *types;
-static jose_jwk_op_t *ops;
-static jose_jwk_resolver_t *resolvers;
-static jose_jwk_generator_t *generators;
-static jose_jwk_hasher_t *hashers;
-static jose_jwk_exchanger_t *exchangers;
-
-void
-jose_jwk_register_type(jose_jwk_type_t *type)
-{
-    type->next = types;
-    types = type;
-}
-
-void
-jose_jwk_register_op(jose_jwk_op_t *op)
-{
-    op->next = ops;
-    ops = op;
-}
-
-void
-jose_jwk_register_resolver(jose_jwk_resolver_t *resolver)
-{
-    resolver->next = resolvers;
-    resolvers = resolver;
-}
-
-void
-jose_jwk_register_generator(jose_jwk_generator_t *generator)
-{
-    generator->next = generators;
-    generators = generator;
-}
-
-void
-jose_jwk_register_hasher(jose_jwk_hasher_t *hasher)
-{
-    hasher->next = hashers;
-    hashers = hasher;
-}
-
-void
-jose_jwk_register_exchanger(jose_jwk_exchanger_t *exchanger)
-{
-    exchanger->next = exchangers;
-    exchangers = exchanger;
-}
 
 bool
 jose_jwk_generate(json_t *jwk)
@@ -78,7 +30,7 @@ jose_jwk_generate(json_t *jwk)
     jose_jwk_type_t *type = NULL;
     const char *kty = NULL;
 
-    for (jose_jwk_resolver_t *r = resolvers; r; r = r->next) {
+    for (jose_jwk_resolver_t *r = jose_jwk_resolvers(); r; r = r->next) {
         if (!r->resolve(jwk))
             return false;
     }
@@ -86,13 +38,13 @@ jose_jwk_generate(json_t *jwk)
     if (json_unpack(jwk, "{s:s}", "kty", &kty) == -1)
         return false;
 
-    for (type = types; type && strcmp(kty, type->kty) != 0; type = type->next)
+    for (type = jose_jwk_types(); type && strcmp(kty, type->kty) != 0; type = type->next)
         continue;
 
     if (!type)
         return false;
 
-    for (jose_jwk_generator_t *g = generators; g; g = g->next) {
+    for (jose_jwk_generator_t *g = jose_jwk_generators(); g; g = g->next) {
         if (strcmp(g->kty, kty) != 0)
             continue;
 
@@ -119,7 +71,7 @@ jwk_clean(json_t *jwk)
     if (json_unpack(jwk, "{s:s}", "kty", &kty) == -1)
         return false;
 
-    for (type = types; type; type = type->next) {
+    for (type = jose_jwk_types(); type; type = type->next) {
         if (strcasecmp(kty, type->kty) == 0)
             break;
     }
@@ -135,7 +87,7 @@ jwk_clean(json_t *jwk)
             return false;
     }
 
-    for (jose_jwk_op_t *o = ops; o; o = o->next) {
+    for (jose_jwk_op_t *o = jose_jwk_ops(); o; o = o->next) {
         json_t *arr = NULL;
 
         if (!o->prv && (!type->sym || !o->pub))
@@ -189,7 +141,7 @@ jose_jwk_allowed(const json_t *jwk, bool req, const char *use, const char *op)
     json_t *ko = NULL;
     json_t *u = NULL;
 
-    for (jose_jwk_op_t *o = ops; o && !use && op; o = o->next) {
+    for (jose_jwk_op_t *o = jose_jwk_ops(); o && !use && op; o = o->next) {
         if (o->pub && strcmp(o->pub, op) == 0)
             use = o->use;
 
@@ -248,7 +200,7 @@ jose_jwk_thumbprint_len(const char *hash)
 {
     jose_jwk_hasher_t *hasher = NULL;
 
-    for (hasher = hashers; hasher; hasher = hasher->next) {
+    for (hasher = jose_jwk_hashers(); hasher; hasher = hasher->next) {
         if (strcasecmp(hash, hasher->name) == 0)
             break;
     }
@@ -269,7 +221,7 @@ jose_jwk_thumbprint_buf(const json_t *jwk, const char *hash, char enc[])
     char *str = NULL;
     bool ret = false;
 
-    for (hasher = hashers; hasher; hasher = hasher->next) {
+    for (hasher = jose_jwk_hashers(); hasher; hasher = hasher->next) {
         if (strcasecmp(hash, hasher->name) == 0)
             break;
     }
@@ -277,7 +229,7 @@ jose_jwk_thumbprint_buf(const json_t *jwk, const char *hash, char enc[])
     if (json_unpack((json_t *) jwk, "{s:s}", "kty", &kty) == -1)
         return false;
 
-    for (type = types; type; type = type->next) {
+    for (type = jose_jwk_types(); type; type = type->next) {
         if (strcasecmp(kty, type->kty) == 0)
             break;
     }
@@ -379,7 +331,7 @@ jose_jwk_exchange(const json_t *prv, const json_t *pub)
         !jose_jwk_allowed(pub, false, NULL, "deriveBits"))
         return NULL;
 
-    for (jose_jwk_exchanger_t *e = exchangers; e; e = e->next) {
+    for (jose_jwk_exchanger_t *e = jose_jwk_exchangers(); e; e = e->next) {
         json_t *key = NULL;
 
         key = e->exchange(prv, pub);

@@ -25,19 +25,10 @@
 
 #include <string.h>
 
-static jose_jws_signer_t *signers;
-
-void
-jose_jws_register_signer(jose_jws_signer_t *signer)
-{
-    signer->next = signers;
-    signers = signer;
-}
-
 static const jose_jws_signer_t *
 find(const char *alg)
 {
-    for (const jose_jws_signer_t *s = signers; s; s = s->next) {
+    for (const jose_jws_signer_t *s = jose_jws_signers(); s; s = s->next) {
         for (size_t i = 0; s->algs[i]; i++) {
             if (strcmp(alg, s->algs[i]) == 0)
                 return s;
@@ -84,7 +75,7 @@ jose_jws_sign(json_t *jws, const json_t *jwk, const json_t *sig)
     if (json_unpack(p, "{s:s}", "alg", &alg) == -1 &&
         json_unpack(s, "{s:{s:s}}", "header", "alg", &alg) == -1) {
         alg = kalg;
-        for (signer = signers; signer && !alg; signer = signer->next)
+        for (signer = jose_jws_signers(); signer && !alg; signer = signer->next)
             alg = signer->suggest(jwk);
 
         if (!set_protected_new(s, "alg", json_string(alg)))
