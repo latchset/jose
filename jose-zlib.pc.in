@@ -8,5 +8,5 @@ Description: Library for managing JOSE objects using zlib
 Requires: jose
 Requires.private: zlib
 Version: @VERSION@
-Libs: -L${libdir} -ljose-zlib
+Libs: -Wl,--push-state -Wl,--no-as-needed -L${libdir} -ljose-zlib -Wl,--pop-state
 Cflags: -I${includedir}

@@ -8,5 +8,5 @@ Description: Library for managing JOSE objects using OpenSSL
 Requires: jose
 Requires.private: libcrypto >= 1.0.2
 Version: @VERSION@
-Libs: -L${libdir} -ljose-openssl
+Libs: -Wl,--push-state -Wl,--no-as-needed -L${libdir} -ljose-openssl -Wl,--pop-state
 Cflags: -I${includedir}
