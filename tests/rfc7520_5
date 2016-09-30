@@ -1,4 +1,4 @@
-#!/bin/sh -ex
+#!/bin/bash -ex
 
 prfx=tests/vectors/rfc7520_5
 
