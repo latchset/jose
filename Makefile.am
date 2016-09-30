@@ -1,4 +1,5 @@
 AM_CFLAGS = @JOSE_CFLAGS@ @jansson_CFLAGS@
+LDFLAGS += -Wl,--no-as-needed
 EXTRA_DIST = tests/vectors
 
 incdir = $(includedir)/$(PACKAGE_NAME)
@@ -22,14 +23,14 @@ libjose_la_SOURCES = \
 
 TESTS = tests/jwk
 check_PROGRAMS = tests/jwk
-tests_jwk_LDADD = libjose.la
+tests_jwk_LDADD = libjose.la @jansson_LIBS@
 
 if USE_OPENSSL
 inc_HEADERS += jose/openssl.h
 pkgconfig_DATA += jose-openssl.pc
 lib_LTLIBRARIES += libjose-openssl.la
 libjose_openssl_la_CFLAGS = $(AM_CFLAGS) @libcrypto_CFLAGS@ -pthread
-libjose_openssl_la_LIBADD = libjose.la @libcrypto_LIBS@
+libjose_openssl_la_LIBADD = libjose.la @libcrypto_LIBS@ @jansson_LIBS@
 libjose_openssl_la_LDFLAGS = -export-symbols-regex '^jose_openssl_' -pthread
 libjose_openssl_la_SOURCES = \
     lib/openssl/misc.c lib/openssl/misc.h \
@@ -50,8 +51,8 @@ libjose_openssl_la_SOURCES = \
     lib/openssl/lock.c
 
 bin_PROGRAMS = cmd/jose
-cmd_jose_CFLAGS = $(AM_CFLAGS) @libcrypto_CFLAGS@
-cmd_jose_LDADD = libjose-openssl.la
+cmd_jose_CFLAGS = $(AM_CFLAGS) @libcrypto_CFLAGS@ @jansson_LIBS@
+cmd_jose_LDADD = libjose.la libjose-openssl.la
 cmd_jose_SOURCES = \
     cmd/gen.c \
     cmd/pub.c \
