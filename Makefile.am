@@ -8,7 +8,7 @@ pkgconfigdir = $(libdir)/pkgconfig
 inc_HEADERS = jose/buf.h jose/b64.h jose/jwk.h jose/jws.h jose/jwe.h jose/jose.h jose/hooks.h
 pkgconfig_DATA = jose.pc
 lib_LTLIBRARIES = libjose.la
-libjose_la_LIBADD = @jansson_LIBS@
+libjose_la_LIBADD = @jansson_LIBS@ -ldl
 libjose_la_LDFLAGS = -export-symbols-regex '^jose_'
 libjose_la_SOURCES = \
     lib/misc.c lib/misc.h \
@@ -51,7 +51,7 @@ libjose_openssl_la_SOURCES = \
     lib/openssl/lock.c
 
 bin_PROGRAMS = cmd/jose
-cmd_jose_CFLAGS = $(AM_CFLAGS) @libcrypto_CFLAGS@ @jansson_LIBS@
+cmd_jose_CFLAGS = $(AM_CFLAGS) @libcrypto_CFLAGS@ @jansson_CFLAGS@
 cmd_jose_LDADD = libjose.la libjose-openssl.la @jansson_LIBS@
 cmd_jose_SOURCES = \
     cmd/gen.c \

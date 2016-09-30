@@ -16,6 +16,9 @@
  */
 
 #include <jose/hooks.h>
+#include <dlfcn.h>
+#include <stdlib.h>
+#include <string.h>
 
 static jose_jwk_type_t *types;
 static jose_jwk_op_t *ops;
@@ -27,6 +30,13 @@ static jose_jws_signer_t *signers;
 static jose_jwe_crypter_t *crypters;
 static jose_jwe_wrapper_t *wrappers;
 static jose_jwe_zipper_t *zippers;
+static jose_plugin_t *plugins;
+
+static const char* builtin_plugins[] = {
+    "openssl",
+    "zlib",
+    NULL
+};
 
 void
 jose_jwk_register_type(jose_jwk_type_t *type)
@@ -156,4 +166,71 @@ jose_jwe_zipper_t *
 jose_jwe_zippers(void)
 {
     return zippers;
+}
+
+jose_plugin_t*
+jose_plugins()
+{
+    return plugins;
+}
+
+static jose_plugin_t*
+jose_get_plugin(const char *name)
+{
+    jose_plugin_t *plugin;
+
+    if (!name)
+        return NULL;
+
+    for (plugin = plugins; plugin; plugin = plugin->next) {
+        if (strcmp(plugin->name, name) == 0)
+            return plugin;
+    }
+    return NULL;
+}
+
+enum jose_plugin_state
+jose_load_plugin(const char *name)
+{
+    jose_plugin_t *plugin;
+    char soname[8 + 64 + 3 + 1] = {0}; /* libjose-NAME.so\x00 */
+
+    if (!name || strlen(name) > 64)
+        return JOSE_PLUGIN_FAILED;
+
+    plugin = jose_get_plugin(name);
+    if (plugin)
+        return plugin->state;
+
+    plugin = calloc(1, sizeof(jose_plugin_t));
+    if (plugin == NULL)
+        return JOSE_PLUGIN_FAILED;
+
+    snprintf(soname, sizeof(soname), "libjose-%s.so", name);
+    plugin->handle = dlopen(soname, RTLD_NOW | RTLD_NODELETE | RTLD_GLOBAL);
+
+    if (plugin->handle)
+         plugin->state = JOSE_PLUGIN_LOADED;
+    else
+         plugin->state = JOSE_PLUGIN_FAILED;
+
+    plugin->name = strdup(name);
+
+    plugin->next = plugins;
+    plugins = plugin;
+
+    return plugin->state;
+}
+
+bool
+jose_load_all_plugins(void)
+{
+    const char **p;
+    size_t errors = 0;
+
+    for (p = builtin_plugins; p && *p; p++) {
+        if (jose_load_plugin(*p) != JOSE_PLUGIN_LOADED)
+            errors++;
+    }
+    return errors ? false : true;
 }
