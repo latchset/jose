@@ -51,7 +51,7 @@ libjose_openssl_la_SOURCES = \
     lib/openssl/lock.c
 
 bin_PROGRAMS = cmd/jose
-cmd_jose_CFLAGS = $(AM_CFLAGS) @libcrypto_CFLAGS@
+cmd_jose_CFLAGS = $(AM_CFLAGS) @libcrypto_CFLAGS@ @jansson_LIBS@
 cmd_jose_LDADD = libjose.la libjose-openssl.la @jansson_LIBS@
 cmd_jose_SOURCES = \
     cmd/gen.c \
