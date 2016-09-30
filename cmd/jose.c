@@ -16,8 +16,8 @@
  */
 
 #include <cmd/jose.h>
-
-#include <openssl/rand.h>
+#include <jose/openssl.h>
+#include <jose/zlib.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -229,7 +229,8 @@ main(int argc, char *argv[])
 
     const char *cmd = NULL;
 
-    RAND_poll();
+    jose_openssl_hooks_register();
+    jose_zlib_hooks_register();
 
     if (argc >= 2) {
         char argv0[strlen(argv[0]) + strlen(argv[1]) + 2];

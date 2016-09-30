@@ -75,6 +75,7 @@ dist_check_SCRIPTS = \
 endif
 
 if USE_ZLIB
+inc_HEADERS += jose/zlib.h
 pkgconfig_DATA += jose-zlib.pc
 lib_LTLIBRARIES += libjose-zlib.la
 libjose_zlib_la_CFLAGS = $(AM_CFLAGS) @zlib_CFLAGS@
