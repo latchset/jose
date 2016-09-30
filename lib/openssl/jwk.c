@@ -374,3 +374,9 @@ jose_openssl_jwk_to_EC_KEY(const json_t *jwk)
     return EC_KEY_up_ref(key) <= 0 ? NULL : key;
 }
 
+static void __attribute__((constructor))
+constructor(void)
+{
+    /* init CPRNG */
+    RAND_poll();
+}

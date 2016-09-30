@@ -110,6 +110,21 @@ typedef struct jose_jwe_zipper {
     (*inflate)(const uint8_t val[], size_t len);
 } jose_jwe_zipper_t;
 
+enum jose_plugin_state {
+    JOSE_PLUGIN_NOT_FOUND = -2,
+    JOSE_PLUGIN_FAILED = -1,
+    JOSE_PLUGIN_NOT_LOADED,
+    JOSE_PLUGIN_LOADED,
+};
+
+typedef struct jose_plugin {
+    const char *name;
+    const char *lib;
+    bool load_all;
+    enum jose_plugin_state state;
+    void *handle;
+} jose_plugin_t;
+
 void
 jose_jwk_register_type(jose_jwk_type_t *type);
 
@@ -169,3 +184,12 @@ jose_jwe_register_zipper(jose_jwe_zipper_t *zipper);
 
 jose_jwe_zipper_t *
 jose_jwe_zippers(void);
+
+bool
+jose_load_all_plugins(void);
+
+enum jose_plugin_state
+jose_load_plugin(const char *name);
+
+jose_plugin_t*
+jose_get_plugins(void);
