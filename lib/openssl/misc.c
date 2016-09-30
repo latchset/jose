@@ -19,6 +19,8 @@
 #include <jose/b64.h>
 #include <string.h>
 
+#include <openssl/rand.h>
+
 size_t
 str2enum(const char *str, ...)
 {
@@ -94,4 +96,12 @@ bn_encode_json(const BIGNUM *bn, size_t len)
     }
 
     return NULL;
+}
+
+void
+jose_openssl_hooks_register(void)
+{
+    /* All actual hooks are loaded through constructors. */
+    OpenSSL_add_all_algorithms();
+    RAND_poll();
 }

@@ -101,8 +101,8 @@ comp_inflate(const uint8_t *buf, size_t len)
     return jose_buf_incref(out);
 }
 
-static void __attribute__((constructor))
-constructor(void)
+void
+jose_zlib_hooks_register(void)
 {
     static jose_jwe_zipper_t zipper = {
         .zip = "DEF",
