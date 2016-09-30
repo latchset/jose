@@ -13,6 +13,7 @@ libjose_la_SOURCES = \
     lib/misc.c lib/misc.h \
     lib/buf.c \
     lib/b64.c \
+    lib/hooks.c \
     lib/jwk.c \
     lib/jws.c \
     lib/jwe.c \
@@ -59,6 +60,7 @@ cmd_jose_SOURCES = \
     cmd/ver.c \
     cmd/enc.c \
     cmd/dec.c \
+    cmd/sup.c \
     cmd/jose.c \
     cmd/jose.h
 

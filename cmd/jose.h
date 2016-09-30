@@ -42,6 +42,9 @@
 #define DEC_USE \
     "dec -i JWE [-n] [-k JWK(Set) ...] [-o PLD]"
 
+#define SUP_USE \
+    "sup"
+
 void *
 jcmd_load_data(const char *file, size_t *len);
 
@@ -82,3 +85,6 @@ jcmd_enc(int argc, char *argv[]);
 
 int
 jcmd_dec(int argc, char *argv[]);
+
+int
+jcmd_sup(int argc, char *argv[]);

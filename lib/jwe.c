@@ -25,14 +25,10 @@
 
 #include <string.h>
 
-static jose_jwe_crypter_t *crypters;
-static jose_jwe_wrapper_t *wrappers;
-static jose_jwe_zipper_t *zippers;
-
 static const jose_jwe_crypter_t *
 find_crypter(const char *enc)
 {
-    for (const jose_jwe_crypter_t *c = crypters; c && enc; c = c->next) {
+    for (const jose_jwe_crypter_t *c = jose_jwe_crypters(); c && enc; c = c->next) {
         for (size_t i = 0; c->encs[i]; i++) {
             if (strcmp(enc, c->encs[i]) == 0)
                 return c;
@@ -45,7 +41,7 @@ find_crypter(const char *enc)
 static const jose_jwe_wrapper_t *
 find_wrapper(const char *alg)
 {
-    for (const jose_jwe_wrapper_t *s = wrappers; s && alg; s = s->next) {
+    for (const jose_jwe_wrapper_t *s = jose_jwe_wrappers(); s && alg; s = s->next) {
         for (size_t i = 0; s->algs[i]; i++) {
             if (strcmp(alg, s->algs[i]) == 0)
                 return s;
@@ -58,33 +54,12 @@ find_wrapper(const char *alg)
 static const jose_jwe_zipper_t *
 find_zipper(const char *zip)
 {
-    for (const jose_jwe_zipper_t *z = zippers; z && zip; z = z->next) {
+    for (const jose_jwe_zipper_t *z = jose_jwe_zippers(); z && zip; z = z->next) {
         if (strcmp(zip, z->zip) == 0)
             return z;
     }
 
     return NULL;
-}
-
-void
-jose_jwe_register_crypter(jose_jwe_crypter_t *crypter)
-{
-    crypter->next = crypters;
-    crypters = crypter;
-}
-
-void
-jose_jwe_register_wrapper(jose_jwe_wrapper_t *wrapper)
-{
-    wrapper->next = wrappers;
-    wrappers = wrapper;
-}
-
-void
-jose_jwe_register_zipper(jose_jwe_zipper_t *zipper)
-{
-    zipper->next = zippers;
-    zippers = zipper;
 }
 
 bool
@@ -129,7 +104,7 @@ jose_jwe_encrypt(json_t *jwe, const json_t *cek,
     if (!penc && !senc) {
         senc = kalg;
 
-        for (crypter = crypters; crypter && !senc; crypter = crypter->next)
+        for (crypter = jose_jwe_crypters(); crypter && !senc; crypter = crypter->next)
             senc = crypter->suggest(cek);
 
         if (!senc || !set_protected_new(jwe, "enc", json_string(senc)))
@@ -232,7 +207,7 @@ jose_jwe_wrap(json_t *jwe, json_t *cek, const json_t *jwk, json_t *rcp)
         json_t *h = NULL;
 
         halg = kalg;
-        for (const jose_jwe_wrapper_t *s = wrappers; s && !halg; s = s->next)
+        for (const jose_jwe_wrapper_t *s = jose_jwe_wrappers(); s && !halg; s = s->next)
             halg = s->suggest(jwk);
 
         if (!halg)
