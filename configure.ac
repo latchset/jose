@@ -20,9 +20,9 @@ AC_ARG_WITH(
 )
 AS_CASE(
     ["$with_openssl"],
-    [yes], [PKG_CHECK_MODULES([libcrypto], [libcrypto], [HAVE_OPENSSL=1])],
+    [yes], [PKG_CHECK_MODULES([libcrypto], [libcrypto >= 1.0.2], [HAVE_OPENSSL=1])],
     [no], [HAVE_OPENSSL=0],
-    [PKG_CHECK_MODULES([libcrypto], [libcrypto], [HAVE_OPENSSL=1], [HAVE_OPENSSL=0])]
+    [PKG_CHECK_MODULES([libcrypto], [libcrypto >= 1.0.2], [HAVE_OPENSSL=1], [HAVE_OPENSSL=0])]
 )
 AM_CONDITIONAL([USE_OPENSSL], [test "$with_openssl" != no -a "$HAVE_OPENSSL" -eq 1])
 
