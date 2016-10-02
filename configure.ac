@@ -25,6 +25,10 @@ AS_CASE(
     [PKG_CHECK_MODULES([libcrypto], [libcrypto], [HAVE_OPENSSL=1], [HAVE_OPENSSL=0])]
 )
 AM_CONDITIONAL([USE_OPENSSL], [test "$with_openssl" != no -a "$HAVE_OPENSSL" -eq 1])
+AM_COND_IF(
+    [USE_OPENSSL],
+    [AC_CHECK_LIB([pthread], [pthread_mutex_lock], [], [AC_MSG_ERROR([no pthread])])]
+)
 
 AC_ARG_WITH(
     [zlib],

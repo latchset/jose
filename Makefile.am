@@ -28,9 +28,9 @@ if USE_OPENSSL
 inc_HEADERS += jose/openssl.h
 pkgconfig_DATA += jose-openssl.pc
 lib_LTLIBRARIES += libjose-openssl.la
-libjose_openssl_la_CFLAGS = $(AM_CFLAGS) @libcrypto_CFLAGS@
+libjose_openssl_la_CFLAGS = $(AM_CFLAGS) @libcrypto_CFLAGS@ -pthread
 libjose_openssl_la_LIBADD = libjose.la @libcrypto_LIBS@
-libjose_openssl_la_LDFLAGS = -export-symbols-regex '^jose_openssl_'
+libjose_openssl_la_LDFLAGS = -export-symbols-regex '^jose_openssl_' -pthread
 libjose_openssl_la_SOURCES = \
     lib/openssl/misc.c lib/openssl/misc.h \
     lib/openssl/jwk.c \
@@ -46,7 +46,8 @@ libjose_openssl_la_SOURCES = \
     lib/openssl/oct.c \
     lib/openssl/rsa.c \
     lib/openssl/ec.c \
-    lib/openssl/sha.c
+    lib/openssl/sha.c \
+    lib/openssl/lock.c
 
 bin_PROGRAMS = cmd/jose
 cmd_jose_CFLAGS = $(AM_CFLAGS) @libcrypto_CFLAGS@
