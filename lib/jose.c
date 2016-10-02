@@ -180,3 +180,9 @@ jose_to_compact(const json_t *jose)
 
     return cmpct;
 }
+
+static void __attribute__((constructor))
+constructor(void)
+{
+    json_object_seed(0);
+}

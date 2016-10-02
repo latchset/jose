@@ -18,6 +18,7 @@
 #include "misc.h"
 #include <jose/b64.h>
 #include <string.h>
+#include <openssl/rand.h>
 
 size_t
 str2enum(const char *str, ...)
@@ -94,4 +95,11 @@ bn_encode_json(const BIGNUM *bn, size_t len)
     }
 
     return NULL;
+}
+
+static void __attribute__((constructor))
+constructor(void)
+{
+    OpenSSL_add_all_algorithms();
+    RAND_poll();
 }
