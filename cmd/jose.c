@@ -17,8 +17,6 @@
 
 #include <cmd/jose.h>
 
-#include <openssl/rand.h>
-
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <string.h>
@@ -228,8 +226,6 @@ main(int argc, char *argv[])
     };
 
     const char *cmd = NULL;
-
-    RAND_poll();
 
     if (argc >= 2) {
         char argv0[strlen(argv[0]) + strlen(argv[1]) + 2];
