@@ -26,9 +26,7 @@
 #define NAMES "ES256", "ES384", "ES512"
 
 declare_cleanup(ECDSA_SIG)
-declare_cleanup(EC_POINT)
 declare_cleanup(EC_KEY)
-declare_cleanup(BN_CTX)
 
 static EC_KEY *
 setup(const json_t *jwk, const char *alg, const char *prot, const char *payl,

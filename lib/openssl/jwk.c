@@ -26,7 +26,6 @@
 
 #include <string.h>
 
-declare_cleanup(EVP_PKEY)
 declare_cleanup(EC_POINT)
 declare_cleanup(EC_KEY)
 declare_cleanup(BN_CTX)
