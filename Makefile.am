@@ -67,7 +67,6 @@ cmd_jose_SOURCES = \
     cmd/jose.h
 
 TESTS += $(dist_check_SCRIPTS)
-check_PROGRAMS += tests/rsa_oaep
 dist_check_SCRIPTS = \
     tests/rfc7515_A \
     tests/rfc7520_4 \
