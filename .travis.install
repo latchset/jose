@@ -1,18 +1,18 @@
 case "$TRAVIS_OS_NAME" in
   linux)
-    sudo apt-get update
-    sudo dpkg --clear-selections
-    sudo dpkg --set-selections < .travis.selections
-    sudo apt-get -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confnew" dselect-upgrade
+    # PPA for NGINX with a separate OpenSSL 1.0.2 package
+    sudo add-apt-repository -y ppa:ondrej/nginx-mainline
+    # PPA with recent autoconf and automake
+    sudo add-apt-repository -y ppa:ondrej/autotools
+    sudo apt-get update -qq
+    # update openssl
+    sudo apt-get install -y libssl-dev openssl
+    sudo apt-get install -y autoconf automake build-essential clang zlib1g-dev
 
-    sudo sed -i 's|trusty|xenial|g' /etc/apt/sources.list
-    sudo apt-get update
-    sudo apt-get -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confnew" dist-upgrade
-    sudo apt-get -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confnew" install build-essential automake autoconf libtool clang pkg-config libssl-dev zlib1g-dev wget
-
-    wget http://www.digip.org/jansson/releases/jansson-2.9.tar.bz2
-    tar xvjf jansson-2.9.tar.bz2
-    cd jansson-2.9
+    rm -rf /tmp/jansson
+    mkdir /tmp/jansson
+    cd /tmp/jansson
+    curl http://www.digip.org/jansson/releases/jansson-2.9.tar.gz | tar -xz --strip-components=1
     ./configure --prefix=/usr
     make -j8
     sudo make install
