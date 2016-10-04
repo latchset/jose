@@ -1,21 +1,32 @@
 sudo: required
-dist: trusty
+
 language: c
+
+services:
+  - docker
+
 #osx_image: xcode8
 #os:
 #  - linux
 #  - osx
+
 compiler:
   - clang
   - gcc
 
-install:
-  - bash -ex .travis.install
-before_script:
-  - autoreconf -if
+env:
+  - DISTRO=debian:jessie
+  - DISTRO=ubuntu:xenial
+  - DISTRO=ubuntu:wily
+  - DISTRO=ubuntu:vivid
+  - DISTRO=fedora:latest
+  - DISTRO=fedora:24
+  - DISTRO=fedora:23
+
 script:
-  - CFLAGS=-coverage LDFLAGS=-lgcov ./configure --prefix=/usr
-  - make -k check V=1 TESTS=
-  - if ! sudo make check; then cat ./test-suite.log ; exit 1; fi
-after_success:
-  - bash <(curl -s https://codecov.io/bash)
+  - >
+    docker run
+    -v `pwd`:/tmp/build
+    -w /tmp/build
+    -e CC=$CC
+    $DISTRO /bin/bash -ex .travis.test $DISTRO
