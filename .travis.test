@@ -2,6 +2,9 @@
 
 case "$1" in
   debian:*|ubuntu:*)
+    # This solves an intermittant error when fetching packages on debian
+    sed -i 's|httpredir.debian.org|ftp.us.debian.org|g' /etc/apt/sources.list
+
     apt-get clean
     apt-get update
     apt-get -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confnew" dist-upgrade
@@ -14,17 +17,28 @@ case "$1" in
     make install
     popd
     ;;
+
   fedora:*)
     [ "$1" != "fedora:23" ] && rt=compiler-rt
     dnf -y clean all
-    dnf -y update
+    dnf -y --setopt=deltarpm=0 update
     dnf -y install automake autoconf libtool pkgconfig openssl-devel zlib-devel jansson-devel curl git gcc make file clang $rt
+    ;;
+
+  centos:*)
+    curl \
+      -o /etc/yum.repos.d/npmccallum-jansson-epel-7.repo \
+      https://copr.fedorainfracloud.org/coprs/npmccallum/jansson/repo/epel-7/npmccallum-jansson-epel-7.repo
+    yum -y clean all
+    yum -y --setopt=deltarpm=0 update
+    yum -y install automake autoconf libtool pkgconfig openssl-devel zlib-devel jansson-devel curl git gcc make file clang
+    sed -i 's|libcrypto >= 1\.0\.2|libcrypto >= 1\.0\.1|' configure.ac
     ;;
 esac
 
 autoreconf -if
 
-if ! CFLAGS=-coverage LDFLAGS=-lgcov ./configure --prefix=/usr; then
+if ! CFLAGS=-coverage LDFLAGS=-lgcov ./configure --prefix=/usr --with-openssl=yes --with-zlib=yes; then
   cat ./config.log
   exit 1
 fi
