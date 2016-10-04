@@ -15,15 +15,15 @@ compiler:
   - gcc
 
 env:
+  - DISTRO=fedora:rawhide
+  - DISTRO=fedora:24
+  - DISTRO=fedora:23
+  - DISTRO=centos:7
   - DISTRO=debian:unstable
   - DISTRO=debian:testing
   - DISTRO=ubuntu:devel
   - DISTRO=ubuntu:xenial
   - DISTRO=ubuntu:wily
-  - DISTRO=fedora:rawhide
-  - DISTRO=fedora:24
-  - DISTRO=fedora:23
-  - DISTRO=centos:7
 
 script:
   - >
