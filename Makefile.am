@@ -88,3 +88,11 @@ if USE_OPENSSL
 cmd_jose_LDADD += libjose-zlib.la
 endif
 endif
+
+.PHONY: html
+html:
+	$(MAKE) -C docs $@
+
+.PHONY: clean-local
+clean-local:
+	$(MAKE) -C docs clean
