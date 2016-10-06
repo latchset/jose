@@ -29,10 +29,8 @@ static const jose_jwe_crypter_t *
 find_crypter(const char *enc)
 {
     for (const jose_jwe_crypter_t *c = jose_jwe_crypters(); c && enc; c = c->next) {
-        for (size_t i = 0; c->encs[i]; i++) {
-            if (strcmp(enc, c->encs[i]) == 0)
-                return c;
-        }
+        if (strcmp(enc, c->enc) == 0)
+            return c;
     }
 
     return NULL;
@@ -42,10 +40,8 @@ static const jose_jwe_wrapper_t *
 find_wrapper(const char *alg)
 {
     for (const jose_jwe_wrapper_t *s = jose_jwe_wrappers(); s && alg; s = s->next) {
-        for (size_t i = 0; s->algs[i]; i++) {
-            if (strcmp(alg, s->algs[i]) == 0)
-                return s;
-        }
+        if (strcmp(alg, s->alg) == 0)
+            return s;
     }
 
     return NULL;

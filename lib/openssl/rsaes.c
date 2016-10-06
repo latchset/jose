@@ -26,6 +26,7 @@
 
 #ifdef EVP_PKEY_CTX_set_rsa_oaep_md
 #define NAMES "RSA1_5", "RSA-OAEP", "RSA-OAEP-256"
+#define HAVE_OAEP
 #else
 #define NAMES "RSA1_5"
 #define EVP_PKEY_CTX_set_rsa_oaep_md(ctx, md) (-1)
@@ -223,13 +224,17 @@ constructor(void)
         .resolve = resolve
     };
 
-    static jose_jwe_wrapper_t wrapper = {
-        .algs = algs,
-        .suggest = suggest,
-        .wrap = wrap,
-        .unwrap = unwrap,
+    static jose_jwe_wrapper_t wrappers[] = {
+        { NULL, "RSA1_5", suggest, wrap, unwrap },
+#ifdef HAVE_OAEP
+        { NULL, "RSA-OAEP", suggest, wrap, unwrap },
+        { NULL, "RSA-OAEP-256", suggest, wrap, unwrap },
+#endif
+        {}
     };
 
     jose_jwk_register_resolver(&resolver);
-    jose_jwe_register_wrapper(&wrapper);
+
+    for (size_t i = 0; wrappers[i].alg; i++)
+        jose_jwe_register_wrapper(&wrappers[i]);
 }

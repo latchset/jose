@@ -361,29 +361,29 @@ unwrap(const json_t *jwe, const json_t *jwk, const json_t *rcp,
 static void __attribute__((constructor))
 constructor(void)
 {
-    static const char *encs[] = { CRYPT_NAMES, NULL };
-
-    static const char *algs[] = { WRAP_NAMES, NULL };
-
     static jose_jwk_resolver_t resolver = {
         .resolve = resolve
     };
 
-    static jose_jwe_crypter_t crypter = {
-        .encs = encs,
-        .suggest = suggest_crypt,
-        .encrypt = encrypt,
-        .decrypt = decrypt,
+    static jose_jwe_crypter_t crypters[] = {
+        { NULL, "A128GCM", suggest_crypt, encrypt, decrypt },
+        { NULL, "A192GCM", suggest_crypt, encrypt, decrypt },
+        { NULL, "A256GCM", suggest_crypt, encrypt, decrypt },
+        {}
     };
 
-    static jose_jwe_wrapper_t wrapper = {
-        .algs = algs,
-        .suggest = suggest_wrap,
-        .wrap = wrap,
-        .unwrap = unwrap,
+    static jose_jwe_wrapper_t wrappers[] = {
+        { NULL, "A128GCMKW", suggest_wrap, wrap, unwrap },
+        { NULL, "A192GCMKW", suggest_wrap, wrap, unwrap },
+        { NULL, "A256GCMKW", suggest_wrap, wrap, unwrap },
+        {}
     };
 
     jose_jwk_register_resolver(&resolver);
-    jose_jwe_register_crypter(&crypter);
-    jose_jwe_register_wrapper(&wrapper);
+
+    for (size_t i = 0; crypters[i].enc; i++)
+        jose_jwe_register_crypter(&crypters[i]);
+
+    for (size_t i = 0; wrappers[i].alg; i++)
+        jose_jwe_register_wrapper(&wrappers[i]);
 }

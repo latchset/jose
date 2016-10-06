@@ -29,10 +29,8 @@ static const jose_jws_signer_t *
 find(const char *alg)
 {
     for (const jose_jws_signer_t *s = jose_jws_signers(); s; s = s->next) {
-        for (size_t i = 0; s->algs[i]; i++) {
-            if (strcmp(alg, s->algs[i]) == 0)
-                return s;
-        }
+        if (strcmp(alg, s->alg) == 0)
+            return s;
     }
 
     return NULL;

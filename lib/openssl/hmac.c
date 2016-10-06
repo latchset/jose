@@ -177,19 +177,19 @@ verify(const json_t *sig, const json_t *jwk,
 static void __attribute__((constructor))
 constructor(void)
 {
-    static const char *algs[] = { NAMES, NULL };
-
     static jose_jwk_resolver_t resolver = {
         .resolve = resolve
     };
 
-    static jose_jws_signer_t signer = {
-        .algs = algs,
-        .suggest = suggest,
-        .verify = verify,
-        .sign = sign,
+    static jose_jws_signer_t signers[] = {
+        { NULL, "HS256", suggest, sign, verify },
+        { NULL, "HS384", suggest, sign, verify },
+        { NULL, "HS512", suggest, sign, verify },
+        {}
     };
 
     jose_jwk_register_resolver(&resolver);
-    jose_jws_register_signer(&signer);
+
+    for (size_t i = 0; signers[i].alg; i++)
+        jose_jws_register_signer(&signers[i]);
 }

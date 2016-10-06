@@ -270,19 +270,19 @@ decrypt(const json_t *jwe, const json_t *cek, const char *enc,
 static void __attribute__((constructor))
 constructor(void)
 {
-    static const char *encs[] = { NAMES, NULL };
-
     static jose_jwk_resolver_t resolver = {
         .resolve = resolve
     };
 
-    static jose_jwe_crypter_t crypter = {
-        .encs = encs,
-        .suggest = suggest,
-        .encrypt = encrypt,
-        .decrypt = decrypt,
+    static jose_jwe_crypter_t crypters[] = {
+        { NULL, "A128CBC-HS256", suggest, encrypt, decrypt },
+        { NULL, "A192CBC-HS384", suggest, encrypt, decrypt },
+        { NULL, "A256CBC-HS512", suggest, encrypt, decrypt },
+        {}
     };
 
     jose_jwk_register_resolver(&resolver);
-    jose_jwe_register_crypter(&crypter);
+
+    for (size_t i = 0; crypters[i].enc; i++)
+        jose_jwe_register_crypter(&crypters[i]);
 }

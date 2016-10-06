@@ -60,7 +60,7 @@ typedef struct jose_jwk_exchanger {
 typedef struct jose_jws_signer {
     struct jose_jws_signer *next;
 
-    const char **algs;
+    const char *alg;
     const char *(*suggest)(const json_t *jwk);
     bool (*sign)(json_t *sig, const json_t *jwk,
                  const char *alg, const char *prot, const char *payl);
@@ -70,7 +70,7 @@ typedef struct jose_jws_signer {
 
 typedef struct jose_jwe_crypter {
     struct jose_jwe_crypter *next;
-    const char **encs;
+    const char *enc;
 
     const char *
     (*suggest)(const json_t *jwk);
@@ -86,7 +86,7 @@ typedef struct jose_jwe_crypter {
 
 typedef struct jose_jwe_wrapper {
     struct jose_jwe_wrapper *next;
-    const char **algs;
+    const char *alg;
 
     const char *
     (*suggest)(const json_t *jwk);

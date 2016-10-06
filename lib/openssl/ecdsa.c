@@ -23,8 +23,6 @@
 
 #include <string.h>
 
-#define NAMES "ES256", "ES384", "ES512"
-
 declare_cleanup(ECDSA_SIG)
 declare_cleanup(EC_KEY)
 
@@ -88,7 +86,7 @@ resolve(json_t *jwk)
                     "kty", &kty, "alg", &alg, "crv", &crv) == -1)
         return false;
 
-    switch (str2enum(alg, NAMES, NULL)) {
+    switch (str2enum(alg, "ES256", "ES384", "ES512", NULL)) {
     case 0: grp = "P-256"; break;
     case 1: grp = "P-384"; break;
     case 2: grp = "P-521"; break;
@@ -195,19 +193,19 @@ verify(const json_t *sig, const json_t *jwk,
 static void __attribute__((constructor))
 constructor(void)
 {
-    static const char *algs[] = { NAMES, NULL };
-
     static jose_jwk_resolver_t resolver = {
         .resolve = resolve
     };
 
-    static jose_jws_signer_t signer = {
-        .algs = algs,
-        .suggest = suggest,
-        .verify = verify,
-        .sign = sign,
+    static jose_jws_signer_t signers[] = {
+        { NULL, "ES256", suggest, sign, verify },
+        { NULL, "ES384", suggest, sign, verify },
+        { NULL, "ES512", suggest, sign, verify },
+        {}
     };
 
     jose_jwk_register_resolver(&resolver);
-    jose_jws_register_signer(&signer);
+
+    for (size_t i = 0; signers[i].alg; i++)
+        jose_jws_register_signer(&signers[i]);
 }

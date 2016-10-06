@@ -200,19 +200,19 @@ unwrap(const json_t *jwe, const json_t *jwk, const json_t *rcp,
 static void __attribute__((constructor))
 constructor(void)
 {
-    static const char *algs[] = { NAMES, NULL };
-
-    static jose_jwe_wrapper_t wrapper = {
-        .algs = algs,
-        .suggest = suggest,
-        .wrap = wrap,
-        .unwrap = unwrap,
-    };
-
     static jose_jwk_resolver_t resolver = {
         .resolve = resolve
     };
 
+    static jose_jwe_wrapper_t wrappers[] = {
+        { NULL, "A128KW", suggest, wrap, unwrap },
+        { NULL, "A192KW", suggest, wrap, unwrap },
+        { NULL, "A256KW", suggest, wrap, unwrap },
+        {}
+    };
+
     jose_jwk_register_resolver(&resolver);
-    jose_jwe_register_wrapper(&wrapper);
+
+    for (size_t i = 0; wrappers[i].alg; i++)
+        jose_jwe_register_wrapper(&wrappers[i]);
 }

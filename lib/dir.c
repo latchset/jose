@@ -75,14 +75,12 @@ unwrap(const json_t *jwe, const json_t *jwk, const json_t *rcp,
 static void __attribute__((constructor))
 constructor(void)
 {
-    static const char *names[] = { "dir", NULL };
-
-    static jose_jwe_wrapper_t aeskw_wrapper = {
-        .algs = names,
+    static jose_jwe_wrapper_t dir_wrapper = {
+        .alg = "dir",
         .suggest = suggest,
         .wrap = wrap,
         .unwrap = unwrap,
     };
 
-    jose_jwe_register_wrapper(&aeskw_wrapper);
+    jose_jwe_register_wrapper(&dir_wrapper);
 }

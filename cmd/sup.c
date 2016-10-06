@@ -34,7 +34,6 @@ jcmd_sup(int argc, char *argv[])
     jose_jwe_crypter_t *crypter;
     jose_jwe_wrapper_t *wrapper;
     jose_jwe_zipper_t *zipper;
-    char **p;
 
     for (int c; (c = getopt_long(argc, argv, "h", opts, NULL)) >= 0; ) {
         switch (c) {
@@ -47,7 +46,6 @@ jcmd_sup(int argc, char *argv[])
 
 #define FMT(t) ((t)->next ?  " %s," : " %s")
 #define FMTOP(t) ((t)->next ? " [%s]%s/%s," : " [%s]%s/%s")
-#define FMTP(t, p) (((t)->next || *((p)+1)) ? " %s," : " %s")
 
     fprintf(stdout, "jwk_type:");
     for (type = jose_jwk_types(); type; type = type->next)
@@ -74,24 +72,18 @@ jcmd_sup(int argc, char *argv[])
     fprintf(stdout, "\n");
 
     fprintf(stdout, "jws_signer:");
-    for (signer = jose_jws_signers(); signer; signer = signer->next) {
-        for (p = (char **)signer->algs; p && *p; p++)
-            fprintf(stdout, FMTP(signer, p), *p);
-    }
+    for (signer = jose_jws_signers(); signer; signer = signer->next)
+        fprintf(stdout, FMT(signer), signer->alg);
     fprintf(stdout, "\n");
 
     fprintf(stdout, "jwe_crypter:");
-    for (crypter = jose_jwe_crypters(); crypter; crypter = crypter->next) {
-        for (p = (char **)crypter->encs; p && *p; p++)
-            fprintf(stdout, FMTP(crypter, p), *p);
-    }
+    for (crypter = jose_jwe_crypters(); crypter; crypter = crypter->next)
+        fprintf(stdout, FMT(crypter), crypter->enc);
     fprintf(stdout, "\n");
 
     fprintf(stdout, "jwe_wrapper:");
-    for (wrapper = jose_jwe_wrappers(); wrapper; wrapper = wrapper->next) {
-        for (p = (char **)wrapper->algs; p && *p; p++)
-            fprintf(stdout, FMTP(wrapper, p), *p);
-    }
+    for (wrapper = jose_jwe_wrappers(); wrapper; wrapper = wrapper->next)
+        fprintf(stdout, FMT(wrapper), wrapper->alg);
     fprintf(stdout, "\n");
 
     fprintf(stdout, "jwe_zipper:");
