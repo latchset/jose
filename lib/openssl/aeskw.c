@@ -197,21 +197,22 @@ unwrap(const json_t *jwe, const json_t *jwk, const json_t *rcp,
                                jose_b64_encode_json(pt->data, pt->size)) == 0;
 }
 
-/* This is purposefully not static so that it can be reused for ECDH-ES. */
-jose_jwe_wrapper_t aeskw_wrapper = {
-    .algs = (const char *[]) { NAMES, NULL },
-    .suggest = suggest,
-    .wrap = wrap,
-    .unwrap = unwrap,
-};
-
 static void __attribute__((constructor))
 constructor(void)
 {
+    static const char *algs[] = { NAMES, NULL };
+
+    static jose_jwe_wrapper_t wrapper = {
+        .algs = algs,
+        .suggest = suggest,
+        .wrap = wrap,
+        .unwrap = unwrap,
+    };
+
     static jose_jwk_resolver_t resolver = {
         .resolve = resolve
     };
 
     jose_jwk_register_resolver(&resolver);
-    jose_jwe_register_wrapper(&aeskw_wrapper);
+    jose_jwe_register_wrapper(&wrapper);
 }

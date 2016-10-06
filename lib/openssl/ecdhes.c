@@ -26,8 +26,6 @@
 
 #define NAMES "ECDH-ES", "ECDH-ES+A128KW", "ECDH-ES+A192KW", "ECDH-ES+A256KW"
 
-extern jose_jwe_wrapper_t aeskw_wrapper;
-
 declare_cleanup(EC_POINT)
 declare_cleanup(EC_KEY)
 declare_cleanup(BN_CTX)
@@ -279,8 +277,16 @@ wrap(json_t *jwe, json_t *cek, const json_t *jwk, json_t *rcp,
     if (!tmp)
         return false;
 
-    if (aes)
-        return aeskw_wrapper.wrap(jwe, cek, tmp, rcp, aes);
+    if (aes) {
+        for (jose_jwe_wrapper_t *w = jose_jwe_wrappers(); w; w = w->next) {
+            for (size_t i = 0; w->algs[i]; i++) {
+                if (strcmp(aes, w->algs[i]) == 0)
+                    return w->wrap(jwe, cek, tmp, rcp, aes);
+            }
+        }
+
+        return false;
+    }
 
     return json_object_update(cek, tmp) == 0;
 }
@@ -378,8 +384,16 @@ unwrap(const json_t *jwe, const json_t *jwk, const json_t *rcp,
     if (!tmp)
         return false;
 
-    if (aes)
-        return aeskw_wrapper.unwrap(jwe, tmp, rcp, aes, cek);
+    if (aes) {
+        for (jose_jwe_wrapper_t *w = jose_jwe_wrappers(); w; w = w->next) {
+            for (size_t i = 0; w->algs[i]; i++) {
+                if (strcmp(aes, w->algs[i]) == 0)
+                    return w->unwrap(jwe, tmp, rcp, aes, cek);
+            }
+        }
+
+        return false;
+    }
 
     return json_object_update_missing(cek, tmp) == 0;
 }

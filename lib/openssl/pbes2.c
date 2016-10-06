@@ -24,8 +24,6 @@
 
 #define NAMES "PBES2-HS256+A128KW", "PBES2-HS384+A192KW", "PBES2-HS512+A256KW"
 
-extern jose_jwe_wrapper_t aeskw_wrapper;
-
 static const char *
 suggest(const json_t *jwk)
 {
@@ -127,7 +125,14 @@ wrap(json_t *jwe, json_t *cek, const json_t *jwk, json_t *rcp,
     if (!key)
         return false;
 
-    return aeskw_wrapper.wrap(jwe, cek, key, rcp, aes);
+    for (jose_jwe_wrapper_t *w = jose_jwe_wrappers(); w; w = w->next) {
+        for (size_t i = 0; w->algs[i]; i++) {
+            if (strcmp(aes, w->algs[i]) == 0)
+                return w->wrap(jwe, cek, key, rcp, aes);
+        }
+    }
+
+    return false;
 }
 
 static bool
@@ -163,7 +168,14 @@ unwrap(const json_t *jwe, const json_t *jwk, const json_t *rcp,
     if (!key)
         return false;
 
-    return aeskw_wrapper.unwrap(jwe, key, rcp, aes, cek);
+    for (jose_jwe_wrapper_t *w = jose_jwe_wrappers(); w; w = w->next) {
+        for (size_t i = 0; w->algs[i]; i++) {
+            if (strcmp(aes, w->algs[i]) == 0)
+                return w->unwrap(jwe, key, rcp, aes, cek);
+        }
+    }
+
+    return false;
 }
 
 static void __attribute__((constructor))
