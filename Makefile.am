@@ -33,6 +33,7 @@ libjose_openssl_la_CFLAGS = $(AM_CFLAGS) @libcrypto_CFLAGS@ -pthread
 libjose_openssl_la_LIBADD = libjose.la @libcrypto_LIBS@ @jansson_LIBS@
 libjose_openssl_la_LDFLAGS = -export-symbols-regex '^jose_openssl_' -pthread
 libjose_openssl_la_SOURCES = \
+    lib/openssl/compat.c lib/openssl/compat.h \
     lib/openssl/misc.c lib/openssl/misc.h \
     lib/openssl/jwk.c \
     lib/openssl/hmac.c \

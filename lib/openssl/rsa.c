@@ -19,13 +19,11 @@
 #include <jose/hooks.h>
 #include <jose/openssl.h>
 
-#include <openssl/rsa.h>
-
 static RSA *
 mkrsa(const json_t *jwk)
 {
+    openssl_auto(BIGNUM) *bn = NULL;
     json_auto_t *exp = NULL;
-    BIGNUM *bn = NULL;
     RSA *key = NULL;
     int bits = 2048;
 
@@ -43,28 +41,32 @@ mkrsa(const json_t *jwk)
     case JSON_STRING:
         bn = bn_decode_json(exp);
         if (!bn)
-            break;
-
-        key = RSA_new();
-        if (!key)
-            break;
-
-        bits = RSA_generate_key_ex(key, bits, bn, NULL);
-        if (bits <= 0) {
-            RSA_free(key);
-            key = NULL;
-        }
+            return NULL;
         break;
 
     case JSON_INTEGER:
-        key = RSA_generate_key(bits, json_integer_value(exp), NULL, NULL);
+        bn = BN_new();
+        if (!bn)
+            return NULL;
+
+        if (BN_set_word(bn, json_integer_value(exp)) <= 0)
+            return NULL;
         break;
 
     default:
         break;
     }
 
-    BN_free(bn);
+    key = RSA_new();
+    if (!key)
+        return NULL;
+
+    bits = RSA_generate_key_ex(key, bits, bn, NULL);
+    if (bits <= 0) {
+        RSA_free(key);
+        key = NULL;
+    }
+
     return key;
 }
 

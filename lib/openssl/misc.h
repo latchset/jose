@@ -17,9 +17,8 @@
 
 #pragma once
 
-#include <openssl/ec.h>
-#include <openssl/evp.h>
-#include <openssl/rsa.h>
+#include "compat.h"
+
 #include <jansson.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -30,15 +29,19 @@
 #define htobe64(x) OSSwapHostToBigInt64(x)
 #endif
 
-#define declare_cleanup(type) \
+#define declare_cleanup_full(type, prfx) \
     static inline void \
-    type ## _cleanup(type **p) { \
+    type ## _autoclean(type **p) { \
         if (!p) return; \
-        type ## _free(*p); \
+        prfx ## _free(*p); \
         *p = NULL; \
     }
 
-#define openssl_auto(type) type __attribute__((cleanup(type ## _cleanup)))
+#define declare_cleanup(type) declare_cleanup_full(type, type)
+
+#define openssl_auto(type) type __attribute__((cleanup(type ## _autoclean)))
+
+declare_cleanup_full(BIGNUM, BN_clear)
 
 size_t
 str2enum(const char *str, ...);

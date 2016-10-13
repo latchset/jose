@@ -18,13 +18,14 @@
 #include "misc.h"
 #include <jose/hooks.h>
 
-#include <openssl/evp.h>
 #include <openssl/rand.h>
 
 #include <string.h>
 
 #define CRYPT_NAMES "A128GCM", "A192GCM", "A256GCM"
 #define WRAP_NAMES "A128GCMKW", "A192GCMKW", "A256GCMKW"
+
+declare_cleanup(EVP_CIPHER_CTX)
 
 static bool
 resolve(json_t *jwk)
@@ -113,7 +114,7 @@ do_encrypt(const json_t *cek, const uint8_t pt[], size_t ptl,
            const char *enc, const char *prot, const char *aad,
            json_t *ivtgobj, json_t *ctobj, const char *ctn)
 {
-    openssl_auto(EVP_CIPHER_CTX) ctx = {};
+    openssl_auto(EVP_CIPHER_CTX) *ctx = NULL;
     const EVP_CIPHER *cph = NULL;
     jose_buf_auto_t *ky = NULL;
     jose_buf_auto_t *ct = NULL;
@@ -143,42 +144,44 @@ do_encrypt(const json_t *cek, const uint8_t pt[], size_t ptl,
     if (RAND_bytes(iv, sizeof(iv)) <= 0)
         return false;
 
-    EVP_CIPHER_CTX_init(&ctx);
-
-    if (EVP_EncryptInit(&ctx, cph, NULL, NULL) <= 0)
+    ctx = EVP_CIPHER_CTX_new();
+    if (!ctx)
         return false;
 
-    if (EVP_CIPHER_CTX_ctrl(&ctx, EVP_CTRL_GCM_SET_IVLEN,
+    if (EVP_EncryptInit_ex(ctx, cph, NULL, NULL, NULL) <= 0)
+        return false;
+
+    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN,
                             sizeof(iv), NULL) <= 0)
         return false;
 
-    if (EVP_EncryptInit(&ctx, NULL, ky->data, iv) <= 0)
+    if (EVP_EncryptInit_ex(ctx, NULL, NULL, ky->data, iv) <= 0)
         return false;
 
     if (prot) {
-        if (EVP_EncryptUpdate(&ctx, NULL, &len, (uint8_t *) prot,
+        if (EVP_EncryptUpdate(ctx, NULL, &len, (uint8_t *) prot,
                               strlen(prot)) <= 0)
             return false;
     }
 
     if (aad) {
-        if (EVP_EncryptUpdate(&ctx, NULL, &len, (uint8_t *) ".", 1) <= 0)
+        if (EVP_EncryptUpdate(ctx, NULL, &len, (uint8_t *) ".", 1) <= 0)
             return false;
 
-        if (EVP_EncryptUpdate(&ctx, NULL, &len, (uint8_t *) aad,
+        if (EVP_EncryptUpdate(ctx, NULL, &len, (uint8_t *) aad,
                               strlen(aad)) <= 0)
             return false;
     }
 
-    if (EVP_EncryptUpdate(&ctx, ct->data, &len, pt, ptl) <= 0)
+    if (EVP_EncryptUpdate(ctx, ct->data, &len, pt, ptl) <= 0)
         return false;
     ct->size = len;
 
-    if (EVP_EncryptFinal(&ctx, &ct->data[len], &len) <= 0)
+    if (EVP_EncryptFinal(ctx, &ct->data[len], &len) <= 0)
         return false;
     ct->size += len;
 
-    if (EVP_CIPHER_CTX_ctrl(&ctx, EVP_CTRL_GCM_GET_TAG, sizeof(tg), tg) <= 0)
+    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG, sizeof(tg), tg) <= 0)
         return false;
 
     if (json_object_set_new(ivtgobj, "iv",
@@ -207,7 +210,7 @@ static jose_buf_t *
 decrypt(const json_t *jwe, const json_t *cek, const char *enc,
         const char *prot, const char *aad)
 {
-    openssl_auto(EVP_CIPHER_CTX) ctx = {};
+    openssl_auto(EVP_CIPHER_CTX) *ctx = NULL;
     const EVP_CIPHER *cph = NULL;
     jose_buf_auto_t *ky = NULL;
     jose_buf_auto_t *iv = NULL;
@@ -237,35 +240,37 @@ decrypt(const json_t *jwe, const json_t *cek, const char *enc,
     if (!pt)
         return NULL;
 
-    EVP_CIPHER_CTX_init(&ctx);
+    ctx = EVP_CIPHER_CTX_new();
+    if (!ctx)
+        return NULL;
 
-    if (EVP_DecryptInit(&ctx, cph, ky->data, iv->data) <= 0)
+    if (EVP_DecryptInit(ctx, cph, ky->data, iv->data) <= 0)
         return NULL;
 
     if (prot) {
-        if (EVP_DecryptUpdate(&ctx, NULL, &len,
+        if (EVP_DecryptUpdate(ctx, NULL, &len,
                               (uint8_t *) prot, strlen(prot)) <= 0)
             return NULL;
     }
 
     if (aad) {
-        if (EVP_DecryptUpdate(&ctx, NULL, &len, (uint8_t *) ".", 1) <= 0)
+        if (EVP_DecryptUpdate(ctx, NULL, &len, (uint8_t *) ".", 1) <= 0)
             return NULL;
 
-        if (EVP_DecryptUpdate(&ctx, NULL, &len,
+        if (EVP_DecryptUpdate(ctx, NULL, &len,
                               (uint8_t *) aad, strlen(aad)) <= 0)
             return NULL;
     }
 
-    if (EVP_DecryptUpdate(&ctx, pt->data, &len, ct->data, ct->size) <= 0)
+    if (EVP_DecryptUpdate(ctx, pt->data, &len, ct->data, ct->size) <= 0)
         return NULL;
     pt->size = len;
 
-    if (EVP_CIPHER_CTX_ctrl(&ctx, EVP_CTRL_GCM_SET_TAG,
+    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG,
                             tg->size, tg->data) <= 0)
         return NULL;
 
-    if (EVP_DecryptFinal(&ctx, &pt->data[len], &len) <= 0)
+    if (EVP_DecryptFinal(ctx, &pt->data[len], &len) <= 0)
         return NULL;
 
     pt->size += len;

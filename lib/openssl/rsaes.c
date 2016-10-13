@@ -20,7 +20,6 @@
 #include <jose/openssl.h>
 
 #include <openssl/rand.h>
-#include <openssl/rsa.h>
 
 #include <string.h>
 
@@ -86,6 +85,7 @@ wrap(json_t *jwe, json_t *cek, const json_t *jwk, json_t *rcp,
     jose_buf_auto_t *pt = NULL;
     jose_buf_auto_t *ct = NULL;
     const EVP_MD *md = NULL;
+    const RSA *rsa = NULL;
     size_t len = 0;
     int tmp = 0;
     int pad = 0;
@@ -108,7 +108,11 @@ wrap(json_t *jwe, json_t *cek, const json_t *jwk, json_t *rcp,
     if (!pt)
         return false;
 
-    if ((int) pt->size >= RSA_size(key->pkey.rsa) - tmp)
+    rsa = EVP_PKEY_get0_RSA(key);
+    if (!rsa)
+        return false;
+
+    if ((int) pt->size >= RSA_size(rsa) - tmp)
         return false;
 
     ctx = EVP_PKEY_CTX_new(key, NULL);

@@ -18,7 +18,6 @@
 #include "misc.h"
 #include <jose/hooks.h>
 
-#include <openssl/hmac.h>
 #include <openssl/rand.h>
 #include <openssl/sha.h>
 
@@ -26,29 +25,33 @@
 
 #define NAMES "HS256", "HS384", "HS512"
 
+declare_cleanup(HMAC_CTX)
+
 static bool
 hmac(const EVP_MD *md, const jose_buf_t *key, uint8_t hsh[], ...)
 {
-    HMAC_CTX __attribute__((cleanup(HMAC_CTX_cleanup))) ctx = {};
+    openssl_auto(HMAC_CTX) *ctx = NULL;
     unsigned int ign = 0;
     va_list ap;
 
-    HMAC_CTX_init(&ctx);
+    ctx = HMAC_CTX_new();
+    if (!ctx)
+        return false;
 
-    if (HMAC_Init(&ctx, key->data, key->size, md) <= 0)
+    if (HMAC_Init_ex(ctx, key->data, key->size, md, NULL) <= 0)
         return false;
 
     va_start(ap, hsh);
 
     for (const char *data = NULL; (data = va_arg(ap, const char *)); ) {
-        if (HMAC_Update(&ctx, (uint8_t *) data, strlen(data)) <= 0) {
+        if (HMAC_Update(ctx, (uint8_t *) data, strlen(data)) <= 0) {
             va_end(ap);
             return false;
         }
     }
 
     va_end(ap);
-    return HMAC_Final(&ctx, hsh, &ign) > 0;
+    return HMAC_Final(ctx, hsh, &ign) > 0;
 }
 
 static bool

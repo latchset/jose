@@ -18,12 +18,13 @@
 #include "misc.h"
 #include <jose/hooks.h>
 
-#include <openssl/evp.h>
 #include <openssl/rand.h>
 
 #include <string.h>
 
 #define NAMES "A128KW", "A192KW", "A256KW"
+
+declare_cleanup(EVP_CIPHER_CTX)
 
 static bool
 resolve(json_t *jwk)
@@ -87,7 +88,7 @@ static bool
 wrap(json_t *jwe, json_t *cek, const json_t *jwk, json_t *rcp,
      const char *alg)
 {
-    openssl_auto(EVP_CIPHER_CTX) ctx = {};
+    openssl_auto(EVP_CIPHER_CTX) *ctx = NULL;
     const EVP_CIPHER *cph = NULL;
     jose_buf_auto_t *ky = NULL;
     jose_buf_auto_t *pt = NULL;
@@ -123,18 +124,20 @@ wrap(json_t *jwe, json_t *cek, const json_t *jwk, json_t *rcp,
     if (!ct)
         return false;
 
-    EVP_CIPHER_CTX_init(&ctx);
-
-    EVP_CIPHER_CTX_set_flags(&ctx, EVP_CIPHER_CTX_FLAG_WRAP_ALLOW);
-
-    if (EVP_EncryptInit_ex(&ctx, cph, NULL, ky->data, iv) <= 0)
+    ctx = EVP_CIPHER_CTX_new();
+    if (!ctx)
         return false;
 
-    if (EVP_EncryptUpdate(&ctx, ct->data, &tmp, pt->data, pt->size) <= 0)
+    EVP_CIPHER_CTX_set_flags(ctx, EVP_CIPHER_CTX_FLAG_WRAP_ALLOW);
+
+    if (EVP_EncryptInit_ex(ctx, cph, NULL, ky->data, iv) <= 0)
+        return false;
+
+    if (EVP_EncryptUpdate(ctx, ct->data, &tmp, pt->data, pt->size) <= 0)
         return false;
     ct->size = tmp;
 
-    if (EVP_EncryptFinal(&ctx, &ct->data[tmp], &tmp) <= 0)
+    if (EVP_EncryptFinal(ctx, &ct->data[tmp], &tmp) <= 0)
         return false;
     ct->size += tmp;
 
@@ -146,7 +149,7 @@ static bool
 unwrap(const json_t *jwe, const json_t *jwk, const json_t *rcp,
        const char *alg, json_t *cek)
 {
-    openssl_auto(EVP_CIPHER_CTX) ctx = {};
+    openssl_auto(EVP_CIPHER_CTX) *ctx = NULL;
     const EVP_CIPHER *cph = NULL;
     jose_buf_auto_t *ky = NULL;
     jose_buf_auto_t *pt = NULL;
@@ -178,18 +181,20 @@ unwrap(const json_t *jwe, const json_t *jwk, const json_t *rcp,
     if (!pt)
         return false;
 
-    EVP_CIPHER_CTX_init(&ctx);
-
-    EVP_CIPHER_CTX_set_flags(&ctx, EVP_CIPHER_CTX_FLAG_WRAP_ALLOW);
-
-    if (EVP_DecryptInit_ex(&ctx, cph, NULL, ky->data, iv) <= 0)
+    ctx = EVP_CIPHER_CTX_new();
+    if (!ctx)
         return false;
 
-    if (EVP_DecryptUpdate(&ctx, pt->data, &tmp, ct->data, ct->size) <= 0)
+    EVP_CIPHER_CTX_set_flags(ctx, EVP_CIPHER_CTX_FLAG_WRAP_ALLOW);
+
+    if (EVP_DecryptInit_ex(ctx, cph, NULL, ky->data, iv) <= 0)
+        return false;
+
+    if (EVP_DecryptUpdate(ctx, pt->data, &tmp, ct->data, ct->size) <= 0)
         return false;
     pt->size = tmp;
 
-    if (EVP_DecryptFinal(&ctx, &pt->data[tmp], &tmp) <= 0)
+    if (EVP_DecryptFinal(ctx, &pt->data[tmp], &tmp) <= 0)
         return false;
     pt->size += tmp;
 

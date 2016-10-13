@@ -19,13 +19,13 @@
 #include <jose/hooks.h>
 #include <jose/openssl.h>
 
-#include <openssl/rsa.h>
 #include <openssl/sha.h>
 
 #include <string.h>
 
 #define NAMES "RS256", "RS384", "RS512", "PS256", "PS384", "PS512"
 
+declare_cleanup(EVP_MD_CTX)
 declare_cleanup(EVP_PKEY)
 
 static bool
@@ -81,11 +81,12 @@ static bool
 sign(json_t *sig, const json_t *jwk,
      const char *alg, const char *prot, const char *payl)
 {
+    openssl_auto(EVP_MD_CTX) *ctx = NULL;
     openssl_auto(EVP_PKEY) *key = NULL;
-    openssl_auto(EVP_MD_CTX) ctx = {};
     jose_buf_auto_t *sg = NULL;
     EVP_PKEY_CTX *pctx = NULL;
     const EVP_MD *md = NULL;
+    const RSA *rsa = NULL;
     size_t sgl = 0;
     int pad = 0;
 
@@ -104,34 +105,39 @@ sign(json_t *sig, const json_t *jwk,
         return false;
 
     /* Don't use small keys. RFC 7518 3.3 */
-    if (RSA_size(key->pkey.rsa) < 2048 / 8)
+    rsa = EVP_PKEY_get0_RSA(key);
+    if (!rsa)
+        return false;
+    if (RSA_size(rsa) < 2048 / 8)
         return false;
 
-    EVP_MD_CTX_init(&ctx);
+    ctx = EVP_MD_CTX_new();
+    if (!ctx)
+        return false;
 
-    if (EVP_DigestSignInit(&ctx, &pctx, md, NULL, key) < 0)
+    if (EVP_DigestSignInit(ctx, &pctx, md, NULL, key) < 0)
         return false;
 
     if (EVP_PKEY_CTX_set_rsa_padding(pctx, pad) < 0)
         return false;
 
-    if (EVP_DigestSignUpdate(&ctx, prot, strlen(prot)) < 0)
+    if (EVP_DigestSignUpdate(ctx, prot, strlen(prot)) < 0)
         return false;
 
-    if (EVP_DigestSignUpdate(&ctx, ".", 1) < 0)
+    if (EVP_DigestSignUpdate(ctx, ".", 1) < 0)
         return false;
 
-    if (EVP_DigestSignUpdate(&ctx, payl, strlen(payl)) < 0)
+    if (EVP_DigestSignUpdate(ctx, payl, strlen(payl)) < 0)
         return false;
 
-    if (EVP_DigestSignFinal(&ctx, NULL, &sgl) < 0)
+    if (EVP_DigestSignFinal(ctx, NULL, &sgl) < 0)
         return false;
 
     sg = jose_buf(sgl, JOSE_BUF_FLAG_WIPE);
     if (!sg)
         return false;
 
-    if (EVP_DigestSignFinal(&ctx, sg->data, &sg->size) < 0)
+    if (EVP_DigestSignFinal(ctx, sg->data, &sg->size) < 0)
         return false;
 
     return json_object_set_new(sig, "signature",
@@ -142,11 +148,12 @@ static bool
 verify(const json_t *sig, const json_t *jwk,
        const char *alg, const char *prot, const char *payl)
 {
+    openssl_auto(EVP_MD_CTX) *ctx = NULL;
     openssl_auto(EVP_PKEY) *key = NULL;
-    openssl_auto(EVP_MD_CTX) ctx = {};
     jose_buf_auto_t *sgn = NULL;
     EVP_PKEY_CTX *pctx = NULL;
     const EVP_MD *md = NULL;
+    const RSA *rsa = NULL;
     int pad = 0;
 
     switch (str2enum(alg, NAMES, NULL)) {
@@ -164,31 +171,36 @@ verify(const json_t *sig, const json_t *jwk,
         return false;
 
     /* Don't use small keys. RFC 7518 3.3 */
-    if (RSA_size(key->pkey.rsa) < 2048 / 8)
+    rsa = EVP_PKEY_get0_RSA(key);
+    if (!rsa)
+        return false;
+    if (RSA_size(rsa) < 2048 / 8)
         return false;
 
     sgn = jose_b64_decode_json(json_object_get(sig, "signature"));
     if (!sgn)
         return false;
 
-    EVP_MD_CTX_init(&ctx);
+    ctx = EVP_MD_CTX_new();
+    if (!ctx)
+        return false;
 
-    if (EVP_DigestVerifyInit(&ctx, &pctx, md, NULL, key) < 0)
+    if (EVP_DigestVerifyInit(ctx, &pctx, md, NULL, key) < 0)
         return false;
 
     if (EVP_PKEY_CTX_set_rsa_padding(pctx, pad) < 0)
         return false;
 
-    if (EVP_DigestVerifyUpdate(&ctx, prot, strlen(prot)) < 0)
+    if (EVP_DigestVerifyUpdate(ctx, prot, strlen(prot)) < 0)
         return false;
 
-    if (EVP_DigestVerifyUpdate(&ctx, ".", 1) < 0)
+    if (EVP_DigestVerifyUpdate(ctx, ".", 1) < 0)
         return false;
 
-    if (EVP_DigestVerifyUpdate(&ctx, payl, strlen(payl)) < 0)
+    if (EVP_DigestVerifyUpdate(ctx, payl, strlen(payl)) < 0)
         return false;
 
-    return EVP_DigestVerifyFinal(&ctx, sgn->data, sgn->size) == 1;
+    return EVP_DigestVerifyFinal(ctx, sgn->data, sgn->size) == 1;
 }
 
 static void __attribute__((constructor))

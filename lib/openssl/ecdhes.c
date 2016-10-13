@@ -19,13 +19,13 @@
 #include <jose/hooks.h>
 #include <jose/openssl.h>
 
-#include <openssl/evp.h>
 #include <openssl/rand.h>
 
 #include <string.h>
 
 #define NAMES "ECDH-ES", "ECDH-ES+A128KW", "ECDH-ES+A192KW", "ECDH-ES+A256KW"
 
+declare_cleanup(EVP_MD_CTX)
 declare_cleanup(EC_POINT)
 declare_cleanup(EC_KEY)
 declare_cleanup(BN_CTX)
@@ -70,7 +70,7 @@ static bool
 concatkdf(const EVP_MD *md, uint8_t dk[], size_t dkl,
           const uint8_t z[], size_t zl, ...)
 {
-    openssl_auto(EVP_MD_CTX) ctx = {};
+    openssl_auto(EVP_MD_CTX) *ctx = NULL;
     jose_buf_auto_t *hsh = NULL;
     size_t reps = 0;
     size_t left = 0;
@@ -80,20 +80,23 @@ concatkdf(const EVP_MD *md, uint8_t dk[], size_t dkl,
     if (!hsh)
         return false;
 
-    EVP_MD_CTX_init(&ctx);
+    ctx = EVP_MD_CTX_new();
+    if (!ctx)
+        return false;
+
     reps = dkl / hsh->size;
     left = dkl % hsh->size;
 
     for (uint32_t c = 0; c <= reps; c++) {
         uint32_t cnt = htobe32(c + 1);
 
-        if (EVP_DigestInit_ex(&ctx, md, NULL) <= 0)
+        if (EVP_DigestInit_ex(ctx, md, NULL) <= 0)
             return false;
 
-        if (EVP_DigestUpdate(&ctx, &cnt, sizeof(cnt)) <= 0)
+        if (EVP_DigestUpdate(ctx, &cnt, sizeof(cnt)) <= 0)
             return false;
 
-        if (EVP_DigestUpdate(&ctx, z, zl) <= 0)
+        if (EVP_DigestUpdate(ctx, z, zl) <= 0)
             return false;
 
         va_start(ap, zl);
@@ -101,24 +104,24 @@ concatkdf(const EVP_MD *md, uint8_t dk[], size_t dkl,
             size_t l = va_arg(ap, size_t);
             uint32_t e = htobe32(l);
 
-            if (EVP_DigestUpdate(&ctx, &e, sizeof(e)) <= 0) {
+            if (EVP_DigestUpdate(ctx, &e, sizeof(e)) <= 0) {
                 va_end(ap);
                 return false;
             }
 
-            if (EVP_DigestUpdate(&ctx, b, l) <= 0) {
+            if (EVP_DigestUpdate(ctx, b, l) <= 0) {
                 va_end(ap);
                 return false;
             }
         }
         va_end(ap);
 
-        if (EVP_DigestUpdate(&ctx, &(uint32_t) { htobe32(dkl * 8) }, 4) <= 0) {
+        if (EVP_DigestUpdate(ctx, &(uint32_t) { htobe32(dkl * 8) }, 4) <= 0) {
             va_end(ap);
             return false;
         }
 
-        if (EVP_DigestFinal_ex(&ctx, hsh->data, NULL) <= 0)
+        if (EVP_DigestFinal_ex(ctx, hsh->data, NULL) <= 0)
             return false;
 
         memcpy(&dk[c * hsh->size], hsh->data, c == reps ? left : hsh->size);

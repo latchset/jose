@@ -19,9 +19,7 @@
 #include <jose/hooks.h>
 #include <jose/openssl.h>
 
-#include <openssl/ec.h>
 #include <openssl/rand.h>
-#include <openssl/rsa.h>
 #include <openssl/objects.h>
 
 #include <string.h>
@@ -30,35 +28,6 @@ declare_cleanup(EC_POINT)
 declare_cleanup(EC_KEY)
 declare_cleanup(BN_CTX)
 declare_cleanup(RSA)
-
-static inline void
-BIGNUM_cleanup(BIGNUM **bn)
-{
-    if (!bn)
-        return;
-
-    BN_free(*bn);
-    *bn = NULL;
-}
-
-/*
- * This really doesn't belong here, but OpenSSL doesn't (yet) help us.
- *
- * I have submitted a version of this function upstream:
- *   https://github.com/openssl/openssl/pull/1217
- */
-static const unsigned char *
-EVP_PKEY_get0_hmac(EVP_PKEY *pkey, size_t *len)
-{
-    ASN1_OCTET_STRING *os = NULL;
-
-    if (EVP_PKEY_base_id(pkey) != EVP_PKEY_HMAC)
-        return NULL;
-
-    os = EVP_PKEY_get0(pkey);
-    *len = os->length;
-    return os->data;
-}
 
 static EC_POINT *
 mkpub(const EC_GROUP *grp, const json_t *x, const json_t *y, const BIGNUM *D)
@@ -110,10 +79,10 @@ jose_openssl_jwk_from_EVP_PKEY(EVP_PKEY *key)
                          jose_b64_encode_json(buf, len));
 
     case EVP_PKEY_RSA:
-        return jose_openssl_jwk_from_RSA(key->pkey.rsa);
+        return jose_openssl_jwk_from_RSA(EVP_PKEY_get0_RSA(key));
 
     case EVP_PKEY_EC:
-        return jose_openssl_jwk_from_EC_KEY(key->pkey.ec);
+        return jose_openssl_jwk_from_EC_KEY(EVP_PKEY_get0_EC_KEY(key));
     default: return NULL;
     }
 }
@@ -121,37 +90,50 @@ jose_openssl_jwk_from_EVP_PKEY(EVP_PKEY *key)
 json_t *
 jose_openssl_jwk_from_RSA(const RSA *key)
 {
-    json_t *jwk = NULL;
+    const BIGNUM *n = NULL;
+    const BIGNUM *e = NULL;
+    const BIGNUM *d = NULL;
+    const BIGNUM *p = NULL;
+    const BIGNUM *q = NULL;
+    const BIGNUM *dp = NULL;
+    const BIGNUM *dq = NULL;
+    const BIGNUM *qi = NULL;
+    json_auto_t *jwk = NULL;
 
     if (!key)
         return NULL;
 
-    if (!key->n || !key->e)
+    RSA_get0_key(key, &n, &e, &d);
+    RSA_get0_factors(key, &p, &q);
+    RSA_get0_crt_params(key, &dp, &dq, &qi);
+
+    if (!n || !e)
         return NULL;
 
-    if (key->d && key->p && key->q && key->dmp1 && key->dmq1 && key->iqmp) {
-        jwk = json_pack(
-            "{s:s,s:o,s:o,s:o,s:o,s:o,s:o,s:o,s:o}",
-            "kty", "RSA",
-            "n", bn_encode_json(key->n, 0),
-            "e", bn_encode_json(key->e, 0),
-            "d", bn_encode_json(key->d, 0),
-            "p", bn_encode_json(key->p, 0),
-            "q", bn_encode_json(key->q, 0),
-            "dp", bn_encode_json(key->dmp1, 0),
-            "dq", bn_encode_json(key->dmq1, 0),
-            "qi", bn_encode_json(key->iqmp, 0)
-        );
-    } else {
-        jwk = json_pack(
-            "{s:s,s:o,s:o}",
-            "kty", "RSA",
-            "n", bn_encode_json(key->n, 0),
-            "e", bn_encode_json(key->e, 0)
-        );
-    }
+    jwk = json_pack("{s:s,s:o,s:o}",
+                    "kty", "RSA",
+                    "n", bn_encode_json(n, 0),
+                    "e", bn_encode_json(e, 0));
 
-    return jwk;
+    if (d && json_object_set_new(jwk, "d", bn_encode_json(d, 0)) != 0)
+        return NULL;
+
+    if (p && json_object_set_new(jwk, "p", bn_encode_json(p, 0)) != 0)
+        return NULL;
+
+    if (q && json_object_set_new(jwk, "q", bn_encode_json(q, 0)) != 0)
+        return NULL;
+
+    if (dp && json_object_set_new(jwk, "dp", bn_encode_json(dp, 0)) != 0)
+        return NULL;
+
+    if (dq && json_object_set_new(jwk, "dq", bn_encode_json(dq, 0)) != 0)
+        return NULL;
+
+    if (qi && json_object_set_new(jwk, "qi", bn_encode_json(qi, 0)) != 0)
+        return NULL;
+
+    return json_incref(jwk);
 }
 
 json_t *
@@ -278,15 +260,23 @@ RSA *
 jose_openssl_jwk_to_RSA(const json_t *jwk)
 {
     openssl_auto(RSA) *rsa = NULL;
-    const json_t *dp = NULL;
-    const json_t *dq = NULL;
-    const json_t *qi = NULL;
     const json_t *n = NULL;
     const json_t *e = NULL;
     const json_t *d = NULL;
     const json_t *p = NULL;
     const json_t *q = NULL;
+    const json_t *dp = NULL;
+    const json_t *dq = NULL;
+    const json_t *qi = NULL;
     const char *kty = NULL;
+    BIGNUM *N = NULL;
+    BIGNUM *E = NULL;
+    BIGNUM *D = NULL;
+    BIGNUM *P = NULL;
+    BIGNUM *Q = NULL;
+    BIGNUM *DP = NULL;
+    BIGNUM *DQ = NULL;
+    BIGNUM *QI = NULL;
 
     if (json_unpack(
             (json_t *) jwk, "{s:s,s:o,s:o,s?o,s?o,s?o,s?o,s?o,s?o}",
@@ -299,25 +289,46 @@ jose_openssl_jwk_to_RSA(const json_t *jwk)
     if (!rsa)
         return NULL;
 
-    rsa->n = bn_decode_json(n);
-    rsa->e = bn_decode_json(e);
-    if (!rsa->n || !rsa->e)
-        return NULL;
+    N = bn_decode_json(n);
+    E = bn_decode_json(e);
+    P = bn_decode_json(p);
+    Q = bn_decode_json(q);
+    DP = bn_decode_json(dp);
+    DQ = bn_decode_json(dq);
+    QI = bn_decode_json(qi);
+    if ((!n || N) && (!e || E) && (!p || P) && (!q || Q) &&
+        (!dp || DP) && (!dq || DQ) && (!qi || QI)) {
+        if (RSA_set0_key(rsa, N, E, D) > 0) {
+            N = NULL;
+            E = NULL;
+            D = NULL;
 
-    if (d && p && q && dp && dq && qi) {
-        rsa->d = bn_decode_json(d);
-        rsa->p = bn_decode_json(p);
-        rsa->q = bn_decode_json(q);
-        rsa->dmp1 = bn_decode_json(dp);
-        rsa->dmq1 = bn_decode_json(dq);
-        rsa->iqmp = bn_decode_json(qi);
+            if ((!P && !Q) ||
+                RSA_set0_factors(rsa, P, Q) > 0) {
+                P = NULL;
+                Q = NULL;
 
-        if (!rsa->d || !rsa->p || !rsa->q || !rsa->dmp1 || !rsa->dmq1 ||
-            !rsa->iqmp || RSA_blinding_on(rsa, NULL) <= 0)
-            return NULL;
+                if ((!DP && !DQ && !QI) ||
+                    RSA_set0_crt_params(rsa, DP, DQ, QI) > 0) {
+                    DP = NULL;
+                    DQ = NULL;
+                    QI = NULL;
+
+                    if (RSA_up_ref(rsa) > 0)
+                        return rsa;
+                }
+            }
+        }
     }
 
-    return RSA_up_ref(rsa) <= 0 ? NULL : rsa;
+    BN_free(N);
+    BN_free(E);
+    BN_free(P);
+    BN_free(Q);
+    BN_free(DP);
+    BN_free(DQ);
+    BN_free(QI);
+    return NULL;
 }
 
 EC_KEY *

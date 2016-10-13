@@ -19,10 +19,9 @@
 #include <jose/hooks.h>
 #include <jose/openssl.h>
 
-#include <openssl/ecdsa.h>
-
 #include <string.h>
 
+declare_cleanup(EVP_MD_CTX)
 declare_cleanup(ECDSA_SIG)
 declare_cleanup(EC_KEY)
 
@@ -30,7 +29,7 @@ static EC_KEY *
 setup(const json_t *jwk, const char *alg, const char *prot, const char *payl,
       uint8_t hsh[], size_t *hl)
 {
-    openssl_auto(EVP_MD_CTX) ctx = {};
+    openssl_auto(EVP_MD_CTX) *ctx = NULL;
     openssl_auto(EC_KEY) *key = NULL;
     const EVP_MD *md = NULL;
     const char *req = NULL;
@@ -52,21 +51,23 @@ setup(const json_t *jwk, const char *alg, const char *prot, const char *payl,
     if (strcmp(alg, req) != 0)
         return NULL;
 
-    EVP_MD_CTX_init(&ctx);
-
-    if (EVP_DigestInit(&ctx, md) <= 0)
+    ctx = EVP_MD_CTX_new();
+    if (!ctx)
         return NULL;
 
-    if (EVP_DigestUpdate(&ctx, (const uint8_t *) prot, strlen(prot)) <= 0)
+    if (EVP_DigestInit(ctx, md) <= 0)
         return NULL;
 
-    if (EVP_DigestUpdate(&ctx, (const uint8_t *) ".", 1) <= 0)
+    if (EVP_DigestUpdate(ctx, (const uint8_t *) prot, strlen(prot)) <= 0)
         return NULL;
 
-    if (EVP_DigestUpdate(&ctx, (const uint8_t *) payl, strlen(payl)) <= 0)
+    if (EVP_DigestUpdate(ctx, (const uint8_t *) ".", 1) <= 0)
         return NULL;
 
-    if (EVP_DigestFinal(&ctx, hsh, &ign) <= 0)
+    if (EVP_DigestUpdate(ctx, (const uint8_t *) payl, strlen(payl)) <= 0)
+        return NULL;
+
+    if (EVP_DigestFinal(ctx, hsh, &ign) <= 0)
         return NULL;
 
     *hl = EVP_MD_size(md);
@@ -139,37 +140,43 @@ sign(json_t *sig, const json_t *jwk,
     openssl_auto(ECDSA_SIG) *ecdsa = NULL;
     openssl_auto(EC_KEY) *key = NULL;
     uint8_t hsh[EVP_MAX_MD_SIZE];
+    const BIGNUM *r = NULL;
+    const BIGNUM *s = NULL;
     size_t hl = 0;
 
     key = setup(jwk, alg, prot, payl, hsh, &hl);
     if (!key)
         return false;
 
-    uint8_t s[(EC_GROUP_get_degree(EC_KEY_get0_group(key)) + 7) / 8 * 2];
+    uint8_t out[(EC_GROUP_get_degree(EC_KEY_get0_group(key)) + 7) / 8 * 2];
 
     ecdsa = ECDSA_do_sign(hsh, hl, key);
     if (!ecdsa)
         return false;
 
-    if (!bn_encode(ecdsa->r, s, sizeof(s) / 2))
+    ECDSA_SIG_get0(ecdsa, &r, &s);
+
+    if (!bn_encode(r, out, sizeof(out) / 2))
         return false;
 
-    if (!bn_encode(ecdsa->s, &s[sizeof(s) / 2], sizeof(s) / 2))
+    if (!bn_encode(s, &out[sizeof(out) / 2], sizeof(out) / 2))
         return false;
 
     return json_object_set_new(sig, "signature",
-                               jose_b64_encode_json(s, sizeof(s))) == 0;
+                               jose_b64_encode_json(out, sizeof(out))) == 0;
 }
 
 static bool
 verify(const json_t *sig, const json_t *jwk,
        const char *alg, const char *prot, const char *payl)
 {
+    openssl_auto(ECDSA_SIG) *ecdsa = NULL;
     uint8_t hsh[EVP_MAX_MD_SIZE];
     jose_buf_auto_t *sgn = NULL;
-    ECDSA_SIG ecdsa = {};
     EC_KEY *key = NULL;
     bool ret = false;
+    BIGNUM *r = NULL;
+    BIGNUM *s = NULL;
     size_t hshl = 0;
 
     key = setup(jwk, alg, prot, payl, hsh, &hshl);
@@ -178,15 +185,19 @@ verify(const json_t *sig, const json_t *jwk,
 
     sgn = jose_b64_decode_json(json_object_get(sig, "signature"));
     if (sig) {
-        ecdsa.r = bn_decode(sgn->data, sgn->size / 2);
-        ecdsa.s = bn_decode(&sgn->data[sgn->size / 2], sgn->size / 2);
-        if (ecdsa.r && ecdsa.s)
-            ret = ECDSA_do_verify(hsh, hshl, &ecdsa, key) == 1;
+        r = bn_decode(sgn->data, sgn->size / 2);
+        s = bn_decode(&sgn->data[sgn->size / 2], sgn->size / 2);
+        ecdsa = ECDSA_SIG_new();
+        if (ecdsa && ECDSA_SIG_set0(ecdsa, r, s) > 0) {
+            r = NULL;
+            s = NULL;
+            ret = ECDSA_do_verify(hsh, hshl, ecdsa, key) == 1;
+        }
     }
 
     EC_KEY_free(key);
-    BN_free(ecdsa.r);
-    BN_free(ecdsa.s);
+    BN_free(r);
+    BN_free(s);
     return ret;
 }
 

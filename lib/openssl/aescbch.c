@@ -18,13 +18,15 @@
 #include "misc.h"
 #include <jose/hooks.h>
 
-#include <openssl/hmac.h>
 #include <openssl/rand.h>
 #include <openssl/sha.h>
 
 #include <string.h>
 
 #define NAMES "A128CBC-HS256", "A192CBC-HS384", "A256CBC-HS512"
+
+declare_cleanup(EVP_CIPHER_CTX)
+declare_cleanup(HMAC_CTX)
 
 static bool
 mktag(const EVP_MD *md, const char *prot, const char *aad,
@@ -33,39 +35,43 @@ mktag(const EVP_MD *md, const char *prot, const char *aad,
       const uint8_t ct[], size_t ctl,
       uint8_t tg[])
 {
+    openssl_auto(HMAC_CTX) *hctx = NULL;
     uint8_t hsh[EVP_MD_size(md)];
-    HMAC_CTX __attribute__((cleanup(HMAC_CTX_cleanup))) hctx = {};
     bool ret = false;
     uint64_t al = 0;
 
-    if (HMAC_Init(&hctx, ky, kyl, md) <= 0)
+    hctx = HMAC_CTX_new();
+    if (!hctx)
+        return false;
+
+    if (HMAC_Init_ex(hctx, ky, kyl, md, NULL) <= 0)
         return false;
 
     al += strlen(prot);
-    if (HMAC_Update(&hctx, (uint8_t *) prot, strlen(prot)) <= 0)
+    if (HMAC_Update(hctx, (uint8_t *) prot, strlen(prot)) <= 0)
         return false;
 
     if (aad) {
         al++;
-        if (HMAC_Update(&hctx, (uint8_t *) ".", 1) <= 0)
+        if (HMAC_Update(hctx, (uint8_t *) ".", 1) <= 0)
             return false;
 
         al += strlen(aad);
-        if (HMAC_Update(&hctx, (uint8_t *) aad, strlen(aad)) <= 0)
+        if (HMAC_Update(hctx, (uint8_t *) aad, strlen(aad)) <= 0)
             return false;
     }
 
-    if (HMAC_Update(&hctx, iv, ivl) <= 0)
+    if (HMAC_Update(hctx, iv, ivl) <= 0)
         return false;
 
-    if (HMAC_Update(&hctx, ct, ctl) <= 0)
+    if (HMAC_Update(hctx, ct, ctl) <= 0)
         return false;
 
     al = htobe64(al * 8);
-    if (HMAC_Update(&hctx, (uint8_t *) &al, sizeof(al)) <= 0)
+    if (HMAC_Update(hctx, (uint8_t *) &al, sizeof(al)) <= 0)
         return false;
 
-    ret = HMAC_Final(&hctx, hsh, NULL) > 0;
+    ret = HMAC_Final(hctx, hsh, NULL) > 0;
     memcpy(tg, hsh, sizeof(hsh) / 2);
     return ret;
 }
@@ -139,7 +145,7 @@ static bool
 encrypt(json_t *jwe, const json_t *cek, const uint8_t pt[], size_t ptl,
         const char *enc, const char *prot, const char *aad)
 {
-    openssl_auto(EVP_CIPHER_CTX) ctx = {};
+    openssl_auto(EVP_CIPHER_CTX) *ctx = NULL;
     const EVP_CIPHER *cph = NULL;
     jose_buf_auto_t *ct = NULL;
     jose_buf_auto_t *ky = NULL;
@@ -170,16 +176,18 @@ encrypt(json_t *jwe, const json_t *cek, const uint8_t pt[], size_t ptl,
     if (RAND_bytes(iv, sizeof(iv)) <= 0)
         return false;
 
-    EVP_CIPHER_CTX_init(&ctx);
-
-    if (EVP_EncryptInit(&ctx, cph, &ky->data[ky->size / 2], iv) <= 0)
+    ctx = EVP_CIPHER_CTX_new();
+    if (!ctx)
         return false;
 
-    if (EVP_EncryptUpdate(&ctx, ct->data, &len, pt, ptl) <= 0)
+    if (EVP_EncryptInit(ctx, cph, &ky->data[ky->size / 2], iv) <= 0)
+        return false;
+
+    if (EVP_EncryptUpdate(ctx, ct->data, &len, pt, ptl) <= 0)
         return false;
     ct->size = len;
 
-    if (EVP_EncryptFinal(&ctx, &ct->data[ct->size], &len) <= 0)
+    if (EVP_EncryptFinal(ctx, &ct->data[ct->size], &len) <= 0)
         return false;
     ct->size += len;
 
@@ -206,7 +214,7 @@ static jose_buf_t *
 decrypt(const json_t *jwe, const json_t *cek, const char *enc,
         const char *prot, const char *aad)
 {
-    openssl_auto(EVP_CIPHER_CTX) ctx = {};
+    openssl_auto(EVP_CIPHER_CTX) *ctx = NULL;
     const EVP_CIPHER *cph = NULL;
     jose_buf_auto_t *ky = NULL;
     jose_buf_auto_t *iv = NULL;
@@ -253,16 +261,18 @@ decrypt(const json_t *jwe, const json_t *cek, const char *enc,
     if (!pt)
         return NULL;
 
-    EVP_CIPHER_CTX_init(&ctx);
-
-    if (EVP_DecryptInit(&ctx, cph, &ky->data[ky->size / 2], iv->data) <= 0)
+    ctx = EVP_CIPHER_CTX_new();
+    if (!ctx)
         return NULL;
 
-    if (EVP_DecryptUpdate(&ctx, pt->data, &len, ct->data, ct->size) <= 0)
+    if (EVP_DecryptInit(ctx, cph, &ky->data[ky->size / 2], iv->data) <= 0)
+        return NULL;
+
+    if (EVP_DecryptUpdate(ctx, pt->data, &len, ct->data, ct->size) <= 0)
         return NULL;
     pt->size = len;
 
-    vfy = EVP_DecryptFinal(&ctx, &pt->data[len], &len) > 0;
+    vfy = EVP_DecryptFinal(ctx, &pt->data[len], &len) > 0;
     pt->size += len;
     return vfy ? jose_buf_incref(pt) : NULL;
 }
