@@ -228,6 +228,11 @@ main(int argc, char *argv[])
 
     const char *cmd = NULL;
 
+    if (!jose_load_all_plugins()) {
+        fprintf(stderr, "jose plugin error\n");
+        return EXIT_FAILURE;
+    }
+
     if (argc >= 2) {
         char argv0[strlen(argv[0]) + strlen(argv[1]) + 2];
         strcpy(argv0, argv[0]);
