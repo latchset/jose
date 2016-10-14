@@ -5,6 +5,8 @@ EXTRA_DIST = tests/vectors
 incdir = $(includedir)/$(PACKAGE_NAME)
 pkgconfigdir = $(libdir)/pkgconfig
 
+TESTS =
+
 inc_HEADERS = jose/buf.h jose/b64.h jose/jwk.h jose/jws.h jose/jwe.h jose/jose.h jose/hooks.h
 pkgconfig_DATA = jose.pc
 lib_LTLIBRARIES = libjose.la
@@ -20,10 +22,6 @@ libjose_la_SOURCES = \
     lib/jwe.c \
     lib/jose.c \
     lib/dir.c
-
-TESTS = tests/jwk
-check_PROGRAMS = tests/jwk
-tests_jwk_LDADD = libjose.la @jansson_LIBS@
 
 if USE_OPENSSL
 inc_HEADERS += jose/openssl.h
@@ -58,6 +56,7 @@ cmd_jose_SOURCES = \
     cmd/gen.c \
     cmd/pub.c \
     cmd/thp.c \
+    cmd/use.c \
     cmd/exc.c \
     cmd/sig.c \
     cmd/ver.c \
@@ -73,6 +72,7 @@ dist_check_SCRIPTS = \
     tests/rfc7520_4 \
     tests/rfc7520_5 \
     tests/rfc7638 \
+    tests/jose-use \
     tests/jose
 endif
 

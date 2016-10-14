@@ -24,6 +24,9 @@
 #define PUB_USE \
     "pub -i JWK(Set) [-o JWK(Set)]"
 
+#define USE_USE \
+    "use -i JWK [-a] [-r] -o OP ..."
+
 #define THP_USE \
     "thp -i JWK(Set) [-H HASH] [-o THMB]"
 
@@ -70,6 +73,9 @@ jcmd_pub(int argc, char *argv[]);
 
 int
 jcmd_thp(int argc, char *argv[]);
+
+int
+jcmd_use(int argc, char *argv[]);
 
 int
 jcmd_exc(int argc, char *argv[]);

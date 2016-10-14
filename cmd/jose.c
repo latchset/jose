@@ -216,6 +216,7 @@ main(int argc, char *argv[])
         { "gen", jcmd_gen },
         { "pub", jcmd_pub },
         { "thp", jcmd_thp },
+        { "use", jcmd_use },
         { "exc", jcmd_exc },
         { "sig", jcmd_sig },
         { "ver", jcmd_ver },
@@ -247,6 +248,7 @@ main(int argc, char *argv[])
 "\n  jose " GEN_USE
 "\n  jose " PUB_USE
 "\n  jose " THP_USE
+"\n  jose " USE_USE
 "\n  jose " EXC_USE
 "\n  jose " SIG_USE
 "\n  jose " VER_USE

@@ -1,0 +1,26 @@
+#!/bin/bash -ex
+
+echo '{}' | cmd/jose use -i- -o encrypt
+! echo '{}' | cmd/jose use -i- -r -o encrypt
+
+! echo '{"use": true}' | cmd/jose use -i- -o encrypt
+! echo '{"key_ops": []}' | cmd/jose use -i- -o encrypt
+! echo '{"key_ops": [true]}' | cmd/jose use -i- -o encrypt
+
+echo '{"use": "enc"}' | cmd/jose use -i- -o encrypt
+! echo '{"use": "sig"}' | cmd/jose use -i- -o encrypt
+
+echo '{"key_ops": ["encrypt", "decrypt"]}' | cmd/jose use -i- -o encrypt
+echo '{"key_ops": ["encrypt", "decrypt"]}' | cmd/jose use -i- -o encrypt -o decrypt
+! echo '{"key_ops": ["encrypt", "decrypt"]}' | cmd/jose use -i- -o sign
+
+! echo '{"key_ops": ["encrypt", "decrypt"]}' | cmd/jose use -i- -o encrypt -o sign
+echo '{"key_ops": ["encrypt", "decrypt"]}' | cmd/jose use -i- -a -o encrypt -o sign
+
+echo '{"use": "sig", "key_ops": ["encrypt", "decrypt"]}' | cmd/jose use -i- -o encrypt -o sign
+echo '{"use": "sig", "key_ops": ["encrypt", "decrypt"]}' | cmd/jose use -i- -a -o encrypt -o sign
+
+! echo '{"use": "enc"}' | cmd/jose use -i- -o deriveKey
+! echo '{"use": "enc"}' | cmd/jose use -i- -o deriveBits
+! echo '{"use": "sig"}' | cmd/jose use -i- -o deriveKey
+! echo '{"use": "sig"}' | cmd/jose use -i- -o deriveBits

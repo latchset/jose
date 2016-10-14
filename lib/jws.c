@@ -54,7 +54,7 @@ jose_jws_sign(json_t *jws, const json_t *jwk, const json_t *sig)
     else
         s = json_deep_copy(sig);
 
-    if (!jose_jwk_allowed(jwk, false, NULL, "sign"))
+    if (!jose_jwk_allowed(jwk, false, "sign"))
         return false;
 
     if (json_unpack(s, "{s?o}", "protected", &p) == -1)
@@ -126,7 +126,7 @@ jose_jws_verify(const json_t *jws, const json_t *jwk, const json_t *sig)
         return false;
     }
 
-    if (!jose_jwk_allowed(jwk, false, NULL, "verify"))
+    if (!jose_jwk_allowed(jwk, false, "verify"))
         return false;
 
     if (json_unpack((json_t *) jws, "{s: s}", "payload", &payl) == -1)

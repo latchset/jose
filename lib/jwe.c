@@ -73,7 +73,7 @@ jose_jwe_encrypt(json_t *jwe, const json_t *cek,
     const char *aad = NULL;
     json_auto_t *p = NULL;
 
-    if (!jose_jwk_allowed(cek, false, NULL, "encrypt"))
+    if (!jose_jwk_allowed(cek, false, "encrypt"))
         return false;
 
     if (json_unpack((json_t *) cek, "{s?s}", "alg", &kalg) == -1)
@@ -184,10 +184,10 @@ jose_jwe_wrap(json_t *jwe, json_t *cek, const json_t *jwk, json_t *rcp)
         }
     }
 
-    if (!jose_jwk_allowed(cek, false, NULL, "encrypt"))
+    if (!jose_jwk_allowed(cek, false, "encrypt"))
         return false;
 
-    if (!jose_jwk_allowed(jwk, false, NULL, "wrapKey"))
+    if (!jose_jwk_allowed(jwk, false, "wrapKey"))
         return false;
 
     kalg = json_string_value(json_object_get(jwk, "alg"));
@@ -261,7 +261,7 @@ jose_jwe_unwrap(const json_t *jwe, const json_t *jwk, const json_t *rcp)
     if (json_unpack(hdr, "{s?s,s?s}", "alg", &halg, "enc", &henc) == -1)
         return NULL;
 
-    if (!jose_jwk_allowed(jwk, false, NULL, "unwrapKey"))
+    if (!jose_jwk_allowed(jwk, false, "unwrapKey"))
         return NULL;
 
     kalg = json_string_value(json_object_get(jwk, "alg"));
@@ -302,7 +302,7 @@ jose_jwe_decrypt(const json_t *jwe, const json_t *cek)
     const char *aad = NULL;
     const char *zip = NULL;
 
-    if (!jose_jwk_allowed(cek, false, NULL, "decrypt"))
+    if (!jose_jwk_allowed(cek, false, "decrypt"))
         return NULL;
 
     if (json_unpack((json_t *) cek, "{s?s}", "alg", &kalg) == -1)

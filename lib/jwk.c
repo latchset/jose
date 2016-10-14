@@ -135,42 +135,43 @@ jose_jwk_clean(json_t *jwk)
 }
 
 bool
-jose_jwk_allowed(const json_t *jwk, bool req, const char *use, const char *op)
+jose_jwk_allowed(const json_t *jwk, bool req, const char *op)
 {
-    bool found = true;
+    const char *use = NULL;
     json_t *ko = NULL;
-    json_t *u = NULL;
 
-    for (jose_jwk_op_t *o = jose_jwk_ops(); o && !use && op; o = o->next) {
-        if (o->pub && strcmp(o->pub, op) == 0)
-            use = o->use;
+    if (!json_is_object(jwk))
+        return true;
 
-        if (o->prv && strcmp(o->prv, op) == 0)
-            use = o->use;
+    if (!op)
+        return false;
+
+    if (json_unpack((json_t *) jwk, "{s?s,s?o}",
+                    "use", &use, "key_ops", &ko) != 0)
+        return false;
+
+    if (!use && !ko)
+        return !req;
+
+    for (size_t i = 0; i < json_array_size(ko); i++) {
+        json_t *v = json_array_get(ko, i);
+
+        if (json_is_string(v) && strcmp(op, json_string_value(v)) == 0)
+            return true;
     }
 
-    u = json_object_get(jwk, "use");
-    if (use && json_is_string(u)) {
-        if (strcmp(json_string_value(u), use) != 0)
-            return false;
-    } else if (req)
-        found = false;
+    for (jose_jwk_op_t *o = jose_jwk_ops(); use && o; o = o->next) {
+        if (!o->use || strcmp(use, o->use) != 0)
+            continue;
 
-    ko = json_object_get(jwk, "key_ops");
-    if (op && json_is_array(ko)) {
-        found = false;
-        for (size_t i = 0; i < json_array_size(ko) && !found; i++) {
-            json_t *o = NULL;
+        if (o->pub && strcmp(op, o->pub) == 0)
+            return true;
 
-            o = json_array_get(ko, i);
-            if (!json_is_string(o))
-                continue;
-
-            found = strcmp(json_string_value(o), op) == 0;
-        }
+        if (o->prv && strcmp(op, o->prv) == 0)
+            return true;
     }
 
-    return found;
+    return false;
 }
 
 char *
@@ -323,12 +324,12 @@ constructor(void)
 json_t *
 jose_jwk_exchange(const json_t *prv, const json_t *pub)
 {
-    if (!jose_jwk_allowed(prv, false, NULL, "deriveKey") &&
-        !jose_jwk_allowed(prv, false, NULL, "deriveBits"))
+    if (!jose_jwk_allowed(prv, false, "deriveKey") &&
+        !jose_jwk_allowed(prv, false, "deriveBits"))
         return NULL;
 
-    if (!jose_jwk_allowed(pub, false, NULL, "deriveKey") &&
-        !jose_jwk_allowed(pub, false, NULL, "deriveBits"))
+    if (!jose_jwk_allowed(pub, false, "deriveKey") &&
+        !jose_jwk_allowed(pub, false, "deriveBits"))
         return NULL;
 
     for (jose_jwk_exchanger_t *e = jose_jwk_exchangers(); e; e = e->next) {
