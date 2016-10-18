@@ -53,11 +53,11 @@ static void __attribute__((constructor))
 constructor(void)
 {
     static jose_jwk_hasher_t hashes[] = {
-        { NULL, "sha1",   SHA_DIGEST_LENGTH,    sha1   },
-        { NULL, "sha224", SHA224_DIGEST_LENGTH, sha224 },
-        { NULL, "sha256", SHA256_DIGEST_LENGTH, sha256 },
-        { NULL, "sha384", SHA384_DIGEST_LENGTH, sha384 },
         { NULL, "sha512", SHA512_DIGEST_LENGTH, sha512 },
+        { NULL, "sha384", SHA384_DIGEST_LENGTH, sha384 },
+        { NULL, "sha256", SHA256_DIGEST_LENGTH, sha256 },
+        { NULL, "sha224", SHA224_DIGEST_LENGTH, sha224 },
+        { NULL, "sha1",   SHA_DIGEST_LENGTH,    sha1   },
         {}
     };
 
