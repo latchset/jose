@@ -20,8 +20,8 @@ case "$1" in
 
   fedora:*)
     [ "$1" != "fedora:23" ] && rt=compiler-rt
-    dnf -y clean all
-    dnf -y --setopt=deltarpm=0 update
+#    dnf -y clean all
+#    dnf -y --setopt=deltarpm=0 update
     dnf -y install automake autoconf libtool pkgconfig openssl-devel zlib-devel jansson-devel curl git gcc make file clang $rt
     ;;
 
