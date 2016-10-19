@@ -201,7 +201,7 @@ jose_jwk_thumbprint_len(const char *hash)
 {
     jose_jwk_hasher_t *hasher = NULL;
 
-    for (hasher = jose_jwk_hashers(); hasher; hasher = hasher->next) {
+    for (hasher = jose_jwk_hashers(); hash && hasher; hasher = hasher->next) {
         if (strcasecmp(hash, hasher->name) == 0)
             break;
     }
@@ -222,7 +222,7 @@ jose_jwk_thumbprint_buf(const json_t *jwk, const char *hash, char enc[])
     char *str = NULL;
     bool ret = false;
 
-    for (hasher = jose_jwk_hashers(); hasher; hasher = hasher->next) {
+    for (hasher = jose_jwk_hashers(); hash && hasher; hasher = hasher->next) {
         if (strcasecmp(hash, hasher->name) == 0)
             break;
     }
