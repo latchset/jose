@@ -26,7 +26,7 @@ generate(json_t *jwk)
     jose_buf_auto_t *buf = NULL;
     json_int_t len = 0;
 
-    if (json_unpack(jwk, "{s:i}", "bytes", &len) == -1)
+    if (json_unpack(jwk, "{s:I}", "bytes", &len) == -1)
         return false;
 
     buf = jose_buf(len, JOSE_BUF_FLAG_WIPE);
