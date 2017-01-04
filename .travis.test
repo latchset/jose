@@ -27,8 +27,8 @@ case "$1" in
 
   centos:*)
     curl \
-      -o /etc/yum.repos.d/npmccallum-jansson-epel-7.repo \
-      https://copr.fedorainfracloud.org/coprs/npmccallum/jansson/repo/epel-7/npmccallum-jansson-epel-7.repo
+      -o /etc/yum.repos.d/npmccallum-nbde-epel-7.repo \
+      https://copr.fedorainfracloud.org/coprs/npmccallum/nbde/repo/epel-7/npmccallum-nbde-epel-7.repo
     yum -y clean all
     yum -y --setopt=deltarpm=0 update
     yum -y install automake autoconf libtool pkgconfig openssl-devel zlib-devel jansson-devel curl git gcc make file clang
