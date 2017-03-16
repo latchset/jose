@@ -88,8 +88,8 @@ sign(json_t *sig, const json_t *jwk,
     const EVP_MD *md = NULL;
     const RSA *rsa = NULL;
     size_t sgl = 0;
-    int pad = 0;
     int slen = 0;
+    int pad = 0;
 
     switch (str2enum(alg, NAMES, NULL)) {
     case 0: md = EVP_sha256(); pad = RSA_PKCS1_PADDING; break;
