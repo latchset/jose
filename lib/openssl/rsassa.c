@@ -88,15 +88,16 @@ sign(json_t *sig, const json_t *jwk,
     const EVP_MD *md = NULL;
     const RSA *rsa = NULL;
     size_t sgl = 0;
+    int slen = 0;
     int pad = 0;
 
     switch (str2enum(alg, NAMES, NULL)) {
     case 0: md = EVP_sha256(); pad = RSA_PKCS1_PADDING; break;
     case 1: md = EVP_sha384(); pad = RSA_PKCS1_PADDING; break;
     case 2: md = EVP_sha512(); pad = RSA_PKCS1_PADDING; break;
-    case 3: md = EVP_sha256(); pad = RSA_PKCS1_PSS_PADDING; break;
-    case 4: md = EVP_sha384(); pad = RSA_PKCS1_PSS_PADDING; break;
-    case 5: md = EVP_sha512(); pad = RSA_PKCS1_PSS_PADDING; break;
+    case 3: md = EVP_sha256(); pad = RSA_PKCS1_PSS_PADDING; slen = -1; break;
+    case 4: md = EVP_sha384(); pad = RSA_PKCS1_PSS_PADDING; slen = -1; break;
+    case 5: md = EVP_sha512(); pad = RSA_PKCS1_PSS_PADDING; slen = -1; break;
     default: return false;
     }
 
@@ -120,6 +121,11 @@ sign(json_t *sig, const json_t *jwk,
 
     if (EVP_PKEY_CTX_set_rsa_padding(pctx, pad) < 0)
         return false;
+
+    if (slen != 0) {
+        if (EVP_PKEY_CTX_set_rsa_pss_saltlen(pctx, slen) < 0)
+            return false;
+    }
 
     if (EVP_DigestSignUpdate(ctx, prot, strlen(prot)) < 0)
         return false;
