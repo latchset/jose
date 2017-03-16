@@ -121,6 +121,9 @@ sign(json_t *sig, const json_t *jwk,
     if (EVP_PKEY_CTX_set_rsa_padding(pctx, pad) < 0)
         return false;
 
+    if (EVP_PKEY_CTX_set_rsa_pss_saltlen(pctx, -1) < 0)
+        return false;
+
     if (EVP_DigestSignUpdate(ctx, prot, strlen(prot)) < 0)
         return false;
 
