@@ -43,3 +43,6 @@ tests/jwkset
 tests/jws
 tests/jwe
 tests/rsa_oaep
+
+/docs/build
+!/docs/Makefile
