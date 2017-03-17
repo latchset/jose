@@ -130,7 +130,7 @@ do_encrypt(const json_t *cek, const uint8_t pt[], size_t ptl,
     uint8_t iv[EVP_CIPHER_iv_length(cph)];
     uint8_t tg[16];
 
-    ct = jose_buf(ptl + EVP_CIPHER_block_size(cph) - 1, JOSE_BUF_FLAG_NONE);
+    ct = jose_buf(ptl + EVP_CIPHER_block_size(cph), JOSE_BUF_FLAG_NONE);
     if (!ct)
         return false;
 

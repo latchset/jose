@@ -169,7 +169,7 @@ encrypt(json_t *jwe, const json_t *cek, const uint8_t pt[], size_t ptl,
     if ((int) ky->size != EVP_CIPHER_key_length(cph) * 2)
         return false;
 
-    ct = jose_buf(ptl + EVP_CIPHER_block_size(cph) - 1, JOSE_BUF_FLAG_NONE);
+    ct = jose_buf(ptl + EVP_CIPHER_block_size(cph), JOSE_BUF_FLAG_NONE);
     if (!ct)
         return false;
 

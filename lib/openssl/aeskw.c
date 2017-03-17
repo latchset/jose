@@ -119,8 +119,7 @@ wrap(json_t *jwe, json_t *cek, const json_t *jwk, json_t *rcp,
     if (!pt)
         return false;
 
-    ct = jose_buf(pt->size + EVP_CIPHER_block_size(cph) * 2 - 1,
-                  JOSE_BUF_FLAG_NONE);
+    ct = jose_buf(pt->size + EVP_CIPHER_block_size(cph) * 2, JOSE_BUF_FLAG_NONE);
     if (!ct)
         return false;
 
