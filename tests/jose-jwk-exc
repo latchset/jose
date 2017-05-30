@@ -1,0 +1,41 @@
+#!/bin/bash -ex
+
+tmpdir=`mktemp -d`
+
+function onexit() {
+    rm -rf $tmpdir
+}
+
+trap exit ERR
+trap onexit EXIT
+
+for T in '{"alg":"ECDH"}' '{"alg":"ECDH+P-256"}' '{"kty":"EC","crv":"P-256"}'; do
+    ../cmd/jose jwk gen -i "$T" -o $tmpdir/exc_a.jwk
+    ../cmd/jose jwk gen -i "$T" -o $tmpdir/exc_b.jwk
+
+    ../cmd/jose jwk pub -i $tmpdir/exc_a.jwk -o $tmpdir/exc_a.pub.jwk
+    ../cmd/jose jwk pub -i $tmpdir/exc_b.jwk -o $tmpdir/exc_b.pub.jwk
+
+    a=`../cmd/jose jwk exc -l $tmpdir/exc_a.jwk -r $tmpdir/exc_b.pub.jwk`
+    b=`../cmd/jose jwk exc -l $tmpdir/exc_b.jwk -r $tmpdir/exc_a.pub.jwk`
+    c=`../cmd/jose jwk exc -l $tmpdir/exc_a.jwk -r $tmpdir/exc_b.jwk`
+    d=`../cmd/jose jwk exc -l $tmpdir/exc_b.jwk -r $tmpdir/exc_a.jwk`
+    test "$a" == "$b"
+    test "$c" == "$d"
+    test "$a" == "$c"
+
+    ! ../cmd/jose jwk exc -l $tmpdir/exc_a.pub.jwk -r $tmpdir/exc_b.jwk
+    ! ../cmd/jose jwk exc -l $tmpdir/exc_b.pub.jwk -r $tmpdir/exc_a.jwk
+    ! ../cmd/jose jwk exc -l $tmpdir/exc_a.pub.jwk -r $tmpdir/exc_b.pub.jwk
+    ! ../cmd/jose jwk exc -l $tmpdir/exc_b.pub.jwk -r $tmpdir/exc_a.pub.jwk
+done
+
+../cmd/jose jwk gen -i '{"alg":"ECDH+P-384"}' -o $tmpdir/exc_c.jwk
+! ../cmd/jose jwk exc -l $tmpdir/exc_c.jwk -r $tmpdir/exc_a.pub.jwk
+
+../cmd/jose jwk gen -i '{"kty":"EC","crv":"P-384"}' -o $tmpdir/exc_c.jwk
+! ../cmd/jose jwk exc -l $tmpdir/exc_c.jwk -r $tmpdir/exc_a.pub.jwk
+
+../cmd/jose jwk gen -i '{ "alg": "ES256" }' -o $tmpdir/exc_c.jwk
+! ../cmd/jose jwk exc -l $tmpdir/exc_c.jwk -r $tmpdir/exc_a.pub.jwk
+

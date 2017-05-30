@@ -1,0 +1,514 @@
+.TH "jose_jwe" 3 "Tue May 30 2017" "José" \" -*- nroff -*-
+.ad l
+.nh
+.SH NAME
+jose_jwe \- JSON Web Encryption (RFC 7516)  
+
+.SH SYNOPSIS
+.br
+.PP
+.SS "Functions"
+
+.in +1c
+.ti -1c
+.RI "json_t * \fBjose_jwe_hdr\fP (const json_t *jwe, const json_t *rcp)"
+.br
+.RI "Merges the JOSE headers of a JWE object and a JWE recpient object\&. "
+.ti -1c
+.RI "bool \fBjose_jwe_enc\fP (jose_cfg_t *cfg, json_t *jwe, json_t *rcp, const json_t *jwk, const void *pt, size_t ptl)"
+.br
+.RI "Wraps and encrypts plaintext\&. "
+.ti -1c
+.RI "\fBjose_io_t\fP * \fBjose_jwe_enc_io\fP (jose_cfg_t *cfg, json_t *jwe, json_t *rcp, const json_t *jwk, \fBjose_io_t\fP *next)"
+.br
+.RI "Wraps and encrypts plaintext using streaming\&. "
+.ti -1c
+.RI "bool \fBjose_jwe_enc_jwk\fP (jose_cfg_t *cfg, json_t *jwe, json_t *rcp, const json_t *jwk, json_t *cek)"
+.br
+.RI "Wraps a CEK with a JWK\&. "
+.ti -1c
+.RI "bool \fBjose_jwe_enc_cek\fP (jose_cfg_t *cfg, json_t *jwe, const json_t *cek, const void *pt, size_t ptl)"
+.br
+.RI "Encrypts plaintext with the CEK\&. "
+.ti -1c
+.RI "\fBjose_io_t\fP * \fBjose_jwe_enc_cek_io\fP (jose_cfg_t *cfg, json_t *jwe, const json_t *cek, \fBjose_io_t\fP *next)"
+.br
+.RI "Encrypts plaintext with the CEK using streaming\&. "
+.ti -1c
+.RI "void * \fBjose_jwe_dec\fP (jose_cfg_t *cfg, const json_t *jwe, const json_t *rcp, const json_t *jwk, size_t *ptl)"
+.br
+.RI "Unwraps and decrypts ciphertext\&. "
+.ti -1c
+.RI "\fBjose_io_t\fP * \fBjose_jwe_dec_io\fP (jose_cfg_t *cfg, const json_t *jwe, const json_t *rcp, const json_t *jwk, \fBjose_io_t\fP *next)"
+.br
+.RI "Unwraps and decrypts ciphertext using streaming\&. "
+.ti -1c
+.RI "json_t * \fBjose_jwe_dec_jwk\fP (jose_cfg_t *cfg, const json_t *jwe, const json_t *rcp, const json_t *jwk)"
+.br
+.RI "Unwraps a CEK with a JWK\&. "
+.ti -1c
+.RI "void * \fBjose_jwe_dec_cek\fP (jose_cfg_t *cfg, const json_t *jwe, const json_t *cek, size_t *ptl)"
+.br
+.RI "Decrypts ciphertext with the CEK\&. "
+.ti -1c
+.RI "\fBjose_io_t\fP * \fBjose_jwe_dec_cek_io\fP (jose_cfg_t *cfg, const json_t *jwe, const json_t *cek, \fBjose_io_t\fP *next)"
+.br
+.RI "Decrypts ciphertext with the CEK using streaming\&. "
+.in -1c
+.SH "Detailed Description"
+.PP 
+JSON Web Encryption (RFC 7516) 
+
+A JSON Web Encryption (JWE) object contains (usually) two levels of encryption\&. First, the plaintext is encrypted with a random symmetric key\&. In José, we call this key the Content Encryption Key (CEK)\&. Next, the CEK is wrapped (encrypted) with one or more keys\&. These keys are standard JSON Web Keys (JWK) and may be symmetric or asymmetric\&.
+.PP
+Thus there is (usually) one CEK and one or more JWKs\&. However, there are some exceptions to this rule\&. Two such examples are the algorithms: 'dir' and 'ECDH-ES'\&. In the first case, the JWK is a symmetric key and is used directly as the CEK\&. In the second case, an ECDH key exchange is performed and the result is used directly as the CEK\&. But in general, the maxim holds\&.
+.PP
+This means that you can encrypt the data using one CEK and then encrypt the CEK to multiple recipients\&. With this schema, multiple recipients can each decrypt the data using their own key without having to send separate ciphertext to each recipient\&.
+.PP
+For maximum flexibility, José structures its API to take advantage of this schema\&. For example, when encrypting to two recipients, the code could look like this (error handling omitted): 
+.PP
+.nf
+json_t *enc(void *plaintext, size_t len, json_t *jwk0, json_t *jwk1) {
+    json_auto_t *jwe = json_object();
+    json_auto_t *cek = json_object();
+
+    // Wrap to the first recipient (CEK generated implicitly)
+    jose_jwe_enc_jwk(NULL, jwe, NULL, jwk0, cek);
+
+    // Wrap to the second recipient
+    jose_jwe_enc_jwk(NULL, jwe, NULL, jwk1, cek);
+
+    // Encrypt plaintext using the generated CEK
+    jose_jwe_enc_cek(NULL, jwe, cek, plaintext, len);
+
+    return json_incref(jwe);
+}
+
+.fi
+.PP
+.PP
+However, because José intends to be easy to use, we also provide shortcuts\&. For example, you could use a JWKSet which contains multiple JWKs: 
+.PP
+.nf
+json_t *enc(void *plaintext, size_t len, json_t *jwkset) {
+    json_auto_t *jwe = json_object();
+
+    // Perform wrapping and encryption to all recipients
+    jose_jwe_enc(NULL, jwe, NULL, jwkset, plaintext, len);
+
+    return json_incref(jwe);
+}
+
+.fi
+.PP
+.PP
+Here are two tips to remember\&. First, let José generate your CEK implicitly\&. Second, always perform wrapping before encryption\&. Both of these tips are important because some wrapping algorithms may impose constraints on the generation of the CEK\&.
+.PP
+To decrypt a JWE, we just reverse the process\&. First, we use a JWK to unwrap the CEK\&. Then we use the CEK to decrypt the ciphertext\&. Here is how that might look in code (again, error handling omitted): 
+.PP
+.nf
+void *dec(json_t *jwe, json_t *jwk, size_t *len) {
+    json_auto_t *cek = NULL;
+
+    // Unwrap the CEK using our JWK
+    cek = jose_jwe_dec_jwk(NULL, jwe, NULL, jwk);
+
+    // Decrypt ciphertext using the CEK
+    return jose_jwe_dec_cek(NULL, jwe, cek, len);
+}
+
+.fi
+.PP
+.PP
+Or, again, in simplified form: 
+.PP
+.nf
+void *dec(json_t *jwe, json_t *jwk, size_t *len) {
+    return jose_jwe_dec(NULL, jwe, NULL, jwk, len);
+}
+
+.fi
+.PP
+.PP
+If you need to forward a JWE to a new recipient, you can do this without performing re-encryption\&. Just unwrap the CEK and then wrap the CEK again using a new JWK\&. For example: 
+.PP
+.nf
+void fwd(json_t *jwe, json_t *oldjwk, json_t *newjwk) {
+    json_auto_t *cek = NULL;
+
+    // Unwrap the CEK using the old JWK
+    cek = jose_jwe_dec_jwk(NULL, jwe, NULL, oldjwk);
+
+    // Wrap the CEK to the new JWK
+    jose_jwe_enc_jwk(NULL, jwe, NULL, newjwk, cek);
+}
+
+.fi
+.PP
+.PP
+In all the above examples, parameters like which encryption algorithms to use were inferred from our keys\&. Where such an inferrence cannot be made, sensible and secure defaults were chosen automatically\&. If you would like more control over the process, simply set parameters in the appropriate objects (more on this in the function documentation)\&. For example, to enable plaintext compression, you can specify the \fCzip\fP property in the JWE Protected Header: 
+.PP
+.nf
+json_t *enc(void *plaintext, size_t len, json_t *jwkset) {
+    json_auto_t *jwe = json_pack("{s:{s:s}}", "protected", "zip", "DEF");
+
+    // Perform compressed wrapping and encryption to all recipients
+    jose_jwe_enc(NULL, jwe, NULL, jwkset, plaintext, len);
+
+    return json_incref(jwe);
+}
+
+.fi
+.PP
+.PP
+José currently supports the 'alg', 'enc' and 'zip' header parameters, as well as any algorithm-specific header parameters used by the specific algorithms we implement\&. Other header parameters may be specified, but do not effect the behavior of José's JWE implementation\&.
+.PP
+\fBSee also:\fP
+.RS 4
+https://tools.ietf.org/html/rfc7516 
+.RE
+.PP
+
+.SH "Function Documentation"
+.PP 
+.SS "json_t* jose_jwe_hdr (const json_t * jwe, const json_t * rcp)"
+
+.PP
+Merges the JOSE headers of a JWE object and a JWE recpient object\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fIjwe\fP A JWE object\&. 
+.br
+\fIrcp\fP A JWE recipient object\&. 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+The newly allocated JOSE header\&. 
+.RE
+.PP
+
+.SS "bool jose_jwe_enc (jose_cfg_t * cfg, json_t * jwe, json_t * rcp, const json_t * jwk, const void * pt, size_t ptl)"
+
+.PP
+Wraps and encrypts plaintext\&. This function is a thin wrapper around the \fBjose_jwe_enc_io()\fP function allowing the user to specify the plaintext in a single call\&. The ciphertext output will be appended to the JWE as the 'ciphertext' property\&.
+.PP
+\fBSee also:\fP
+.RS 4
+\fBjose_jwe_enc_cek_io()\fP 
+.RE
+.PP
+\fBParameters:\fP
+.RS 4
+\fIcfg\fP The configuration context (optional)\&. 
+.br
+\fIjwe\fP The JWE object\&. 
+.br
+\fIrcp\fP The JWE recipient object(s) or NULL\&. 
+.br
+\fIjwk\fP The JWK(s) or JWKSet used for wrapping\&. 
+.br
+\fIpt\fP The plaintext\&. 
+.br
+\fIptl\fP The length of the plaintext\&. 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+On success, true\&. Otherwise, false\&. 
+.RE
+.PP
+
+.SS "\fBjose_io_t\fP* jose_jwe_enc_io (jose_cfg_t * cfg, json_t * jwe, json_t * rcp, const json_t * jwk, \fBjose_io_t\fP * next)"
+
+.PP
+Wraps and encrypts plaintext using streaming\&. This function is a thin wrapper around the \fBjose_jwe_enc_jwk()\fP and \fBjose_jwe_enc_cek_io()\fP functions, removing the complexity of managing the CEK\&.
+.PP
+\fBSee also:\fP
+.RS 4
+\fBjose_jwe_enc_jwk()\fP 
+.PP
+\fBjose_jwe_enc_cek_io()\fP 
+.RE
+.PP
+\fBParameters:\fP
+.RS 4
+\fIcfg\fP The configuration context (optional)\&. 
+.br
+\fIjwe\fP The JWE object\&. 
+.br
+\fIrcp\fP The JWE recipient object(s) or NULL\&. 
+.br
+\fIjwk\fP The JWK(s) or JWKSet used for wrapping\&. 
+.br
+\fInext\fP The next IO object in the chain\&. 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+The new IO object or NULL on error\&. 
+.RE
+.PP
+
+.SS "bool jose_jwe_enc_jwk (jose_cfg_t * cfg, json_t * jwe, json_t * rcp, const json_t * jwk, json_t * cek)"
+
+.PP
+Wraps a CEK with a JWK\&. The purpose of this function is to wrap (encrypt) or, in some cases, produce the CEK (\fCcek\fP) from the provided JWK(s) (\fCjwk\fP)\&. This function can be used in two modes: single-JWK and multi-JWK\&.
+.PP
+In single-JWK mode, the \fCjwk\fP parameter contains a JWK object and the \fCrcp\fP parameter must contain either a JWE recipient object or NULL, in which case a default empty JWE recipient object is created internally\&.
+.PP
+Multi-JWK mode works exactly the same as single-JWK mode except that it performs multiple wrappings in a single call\&. This mode is enabled by passing either an array of JWK objects or a JWKSet as the \fCjwk\fP parameter\&. In this mode, the \fCrcp\fP parameter contains one of the following values:
+.PP
+.IP "1." 4
+A JWE recipient object that will be used for all wrappings\&. In this case, a copy will be made for each wrapping and \fCrcp\fP will not be modified in any way\&.
+.IP "2." 4
+An array of JWE recipient objects\&. Each object will be used with its corresponding JWK from \fCjwk\fP\&. If the arrays in \fCsig\fP and \fCjwk\fP are a different size, an error will occur\&.
+.IP "3." 4
+NULL\&. This has the same effect as passing NULL for each separate JWK\&.
+.PP
+.PP
+In either mode, if the resulting JWE (\fCjwe\fP) would contain only a single recipient, the JWE will be represented in Flattened JWE JSON Serialization Syntax\&. Otherwise, it will be represented in General JWE JSON Serialization Syntax\&.
+.PP
+If the 'alg' parameter is not specified in the JOSE Header, it will be inferred from the JWK and the chosen algorithm will be added to the JWE Per-Recipient Unprotected Header\&. Likewise, any missing, required, algorithm-specific parameters will be either inferred or sensible, secure defaults will be chosen and the results will be added to the JWE Per-Recipient Unprotected Header\&.
+.PP
+If the provided CEK (\fCcek\fP) does not contain key material, it will be implicitly generated during the first call to \fBjose_jwe_enc_jwk()\fP\&. This important feature enables the use of the 'dir' and 'ECDH-ES' algorithms\&. In the case of the 'dir' algorithm, the JWK is the CEK and thus the key material is copied from \fCjwk\fP to \fCcek\fP\&. A similar situation arises with the algorithm 'ECDH-ES' where the result of a key exchange is used as the CEK; thus, the CEK is produced during the wrapping process\&. This feature implies that if multiple wrappings are created, only one of them may have the algorithm 'ECDH-ES' and it must be the first wrapping\&. Attempting to use 'ECDH-ES' with an existing CEK will result in an error\&.
+.PP
+It is additionally possible to pass a password JSON string as key input to the PBES2 family of algorithms anywhere a JWK can be used\&. Likewise, if the 'alg' JOSE Header parameter is not specified and a JSON string is used in place of a JWK, the PBES2 family of algorithms will be inferred\&.
+.PP
+\fBParameters:\fP
+.RS 4
+\fIcfg\fP The configuration context (optional)\&. 
+.br
+\fIjwe\fP The JWE object\&. 
+.br
+\fIrcp\fP The JWE recipient object(s) or NULL\&. 
+.br
+\fIjwk\fP The JWK(s) or JWKSet used for wrapping\&. 
+.br
+\fIcek\fP The CEK to wrap (if empty, generated)\&. 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+On success, true\&. Otherwise, false\&. 
+.RE
+.PP
+
+.SS "bool jose_jwe_enc_cek (jose_cfg_t * cfg, json_t * jwe, const json_t * cek, const void * pt, size_t ptl)"
+
+.PP
+Encrypts plaintext with the CEK\&. This function is a thin wrapper around the \fBjose_jwe_enc_cek_io()\fP function allowing the user to specify the plaintext in a single call\&. The ciphertext output will be appended to the JWE as the 'ciphertext' property\&.
+.PP
+\fBSee also:\fP
+.RS 4
+\fBjose_jwe_enc_cek_io()\fP 
+.RE
+.PP
+\fBParameters:\fP
+.RS 4
+\fIcfg\fP The configuration context (optional)\&. 
+.br
+\fIjwe\fP The JWE object\&. 
+.br
+\fIcek\fP The CEK object\&. 
+.br
+\fIpt\fP The plaintext\&. 
+.br
+\fIptl\fP The length of the plaintext\&. 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+On success, true\&. Otherwise, false\&. 
+.RE
+.PP
+
+.SS "\fBjose_io_t\fP* jose_jwe_enc_cek_io (jose_cfg_t * cfg, json_t * jwe, const json_t * cek, \fBjose_io_t\fP * next)"
+
+.PP
+Encrypts plaintext with the CEK using streaming\&. The plaintext is provided through the returned IO object\&. The plaintext will be encrypted and written to the \fCnext\fP IO object\&. This IO object works on binary data, so you may need to use a URL-safe Base64 decoder on input and a URL-safe Base64 encoder on output, depending on your situation\&.
+.PP
+Compressed plaintext can be implicitly enabled by specifying the 'zip' parameter the JWE Protected Header\&.
+.PP
+If the JWE Protected Header is a JSON object rather than an encoded string, this function will encode the JWE Protected Header to its URL-safe Base64 encoding as defined in RFC 7516\&. However, this function will never modify a JWE Protected Header that is already encoded\&.
+.PP
+If the 'enc' parameter is not specified in the JWE Protected Header or the JWE Shared Unprotected Header, it will be inferred from the CEK and stored in either the JWE Protected Header or the JWE Shared Unprotected Header (preferring the JWE Protected header if it can be modified)\&.
+.PP
+Please note that the 'tag' property will only be added to the JWE when \fBjose_io_t::done()\fP returns\&.
+.PP
+\fBParameters:\fP
+.RS 4
+\fIcfg\fP The configuration context (optional)\&. 
+.br
+\fIjwe\fP The JWE object\&. 
+.br
+\fIcek\fP The CEK object\&. 
+.br
+\fInext\fP The next IO object in the chain\&. 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+The new IO object or NULL on error\&. 
+.RE
+.PP
+
+.SS "void* jose_jwe_dec (jose_cfg_t * cfg, const json_t * jwe, const json_t * rcp, const json_t * jwk, size_t * ptl)"
+
+.PP
+Unwraps and decrypts ciphertext\&. This function is a thin wrapper around the \fBjose_jwe_dec_io()\fP function allowing the user to obtain the plaintext in a single call\&. The ciphertext input will be obtained from the JWE 'ciphertext' property\&.
+.PP
+\fBSee also:\fP
+.RS 4
+\fBjose_jwe_dec_io()\fP 
+.RE
+.PP
+\fBParameters:\fP
+.RS 4
+\fIcfg\fP The configuration context (optional)\&. 
+.br
+\fIjwe\fP The JWE object\&. 
+.br
+\fIrcp\fP The JWE recipient object(s) or NULL\&. 
+.br
+\fIjwk\fP The JWK(s) or JWKSet used for wrapping\&. 
+.br
+\fIptl\fP The length of the plaintext (output)\&. 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+The newly-allocated plaintext\&. 
+.RE
+.PP
+
+.SS "\fBjose_io_t\fP* jose_jwe_dec_io (jose_cfg_t * cfg, const json_t * jwe, const json_t * rcp, const json_t * jwk, \fBjose_io_t\fP * next)"
+
+.PP
+Unwraps and decrypts ciphertext using streaming\&. This function is a thin wrapper around the \fBjose_jwe_dec_jwk()\fP and \fBjose_jwe_dec_cek_io()\fP functions, removing the complexity of managing the CEK\&.
+.PP
+\fBSee also:\fP
+.RS 4
+\fBjose_jwe_dec_jwk()\fP 
+.PP
+\fBjose_jwe_dec_cek_io()\fP 
+.RE
+.PP
+\fBParameters:\fP
+.RS 4
+\fIcfg\fP The configuration context (optional)\&. 
+.br
+\fIjwe\fP The JWE object\&. 
+.br
+\fIrcp\fP The JWE recipient object(s) or NULL\&. 
+.br
+\fIjwk\fP The JWK(s) or JWKSet used for unwrapping\&. 
+.br
+\fInext\fP The next IO object in the chain\&. 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+The new IO object or NULL on error\&. 
+.RE
+.PP
+
+.SS "json_t* jose_jwe_dec_jwk (jose_cfg_t * cfg, const json_t * jwe, const json_t * rcp, const json_t * jwk)"
+
+.PP
+Unwraps a CEK with a JWK\&. The purpose of this function is to unwrap (decrypt) or, in some cases, produce the CEK (\fCcek\fP) from the provided JWK(s) (\fCjwk\fP)\&. This function can be used in two modes: single-JWK and multi-JWK\&.
+.PP
+In single-JWK mode, the \fCjwk\fP parameter contains a JWK object and the \fCrcp\fP parameter must contain either a JWE recipient object you wish to unwrap or NULL, in which case all JWE recipients will be tried\&.
+.PP
+Multi-JWK mode works exactly the same as single-JWK mode except that it attempts to unwrap with multiple JWKs in a single call\&. This mode is enabled by passing either an array of JWK objects or a JWKSet as the \fCjwk\fP parameter\&. In this mode, the \fCrcp\fP parameter contains one of the following values:
+.PP
+.IP "1." 4
+A JWE recipient object that will be used for all attempted unwrappings\&.
+.IP "2." 4
+An array of JWE recipient objects\&. Each object will be used with its corresponding JWK from \fCjwk\fP\&. If the arrays in \fCsig\fP and \fCjwk\fP are a different size, an error will occur\&.
+.IP "3." 4
+NULL\&. This has the same effect as passing NULL for each separate JWK\&.
+.PP
+.PP
+In either mode, a CEK is returned for the first JWK that successfully unwraps a CEK\&. Two exceptions to this rule are if the 'dir' or 'ECDH-ES' algorithms are used\&. In this case, a CEK may be returned which will fail during decryption since there is no way to completely validate the JWK with these algorithms\&. Thus, we suggest placing the keys for these algorithms last when unwrapping with multiple JWKs\&.
+.PP
+If the 'alg' parameter is not specified in the JOSE Header, it will be inferred from the JWK\&. This includes using a JSON string in place of a JWK for the PBES2 family of algorithms\&.
+.PP
+\fBParameters:\fP
+.RS 4
+\fIcfg\fP The configuration context (optional)\&. 
+.br
+\fIjwe\fP The JWE object\&. 
+.br
+\fIrcp\fP The JWE recipient object(s) or NULL\&. 
+.br
+\fIjwk\fP The JWK(s) or JWKSet used for wrapping\&. 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+On success, a newly-allocated CEK object\&. Otherwise, NULL\&. 
+.RE
+.PP
+
+.SS "void* jose_jwe_dec_cek (jose_cfg_t * cfg, const json_t * jwe, const json_t * cek, size_t * ptl)"
+
+.PP
+Decrypts ciphertext with the CEK\&. This function is a thin wrapper around the \fBjose_jwe_dec_cek_io()\fP function allowing the user to obtain the plaintext in a single call\&. The ciphertext input will be obtained from the JWE 'ciphertext' property\&.
+.PP
+\fBSee also:\fP
+.RS 4
+\fBjose_jwe_dec_cek_io()\fP 
+.RE
+.PP
+\fBParameters:\fP
+.RS 4
+\fIcfg\fP The configuration context (optional)\&. 
+.br
+\fIjwe\fP The JWE object\&. 
+.br
+\fIcek\fP The CEK object\&. 
+.br
+\fIptl\fP The length of the plaintext (output)\&. 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+The newly-allocated plaintext\&. 
+.RE
+.PP
+
+.SS "\fBjose_io_t\fP* jose_jwe_dec_cek_io (jose_cfg_t * cfg, const json_t * jwe, const json_t * cek, \fBjose_io_t\fP * next)"
+
+.PP
+Decrypts ciphertext with the CEK using streaming\&. The ciphertext is provided through the returned IO object\&. The ciphertext will be decrypted and written to the \fCnext\fP IO object\&. This IO object works on binary data, so you may need to use a URL-safe Base64 decoder on input and a URL-safe Base64 encoder on output, depending on your situation\&.
+.PP
+Please note that validation of the ciphertext integrity protection is delayed until \fBjose_io_t::done()\fP returns\&. This means it is incredibly important to check this return value and it is also important to be careful with the plaintext emitted until this check is performed\&.
+.PP
+Compressed plaintext will be internally decompressed if the 'zip' property is appropriately defined\&.
+.PP
+If the 'enc' parameter is not specified in the JWE Protected Header or the JWE Shared Unprotected Header, it will be inferred from the CEK\&.
+.PP
+Please note that the 'tag' property on the JWE will only be accessed when \fBjose_io_t::done()\fP is called\&. So you may define it at any time on the JWE object before calling \fBjose_io_t::done()\fP\&.
+.PP
+\fBParameters:\fP
+.RS 4
+\fIcfg\fP The configuration context (optional)\&. 
+.br
+\fIjwe\fP The JWE object\&. 
+.br
+\fIcek\fP The CEK object\&. 
+.br
+\fInext\fP The next IO object in the chain\&. 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+The new IO object or NULL on error\&. 
+.RE
+.PP
+
+.SH "Author"
+.PP 
+Generated automatically by Doxygen for José from the source code\&.

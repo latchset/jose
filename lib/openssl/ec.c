@@ -16,18 +16,35 @@
  */
 
 #include "misc.h"
-#include <jose/hooks.h>
+#include "../hooks.h"
 #include <jose/openssl.h>
 
-static bool
-generate(json_t *jwk)
-{
-    json_auto_t *tmp = NULL;
-    const char *crv = NULL;
-    int nid = NID_undef;
-    EC_KEY *key = NULL;
+#include <string.h>
 
-    if (json_unpack(jwk, "{s:s}", "crv", &crv) == -1)
+declare_cleanup(EC_KEY)
+
+static bool
+jwk_make_handles(jose_cfg_t *cfg, const json_t *jwk)
+{
+    const char *kty = NULL;
+
+    if (json_unpack((json_t *) jwk, "{s:s}", "kty", &kty) == -1)
+        return false;
+
+    return strcmp(kty, "EC") == 0;
+}
+
+static json_t *
+jwk_make_execute(jose_cfg_t *cfg, const json_t *jwk)
+{
+    openssl_auto(EC_KEY) *key = NULL;
+    const char *crv = "P-256";
+    int nid = NID_undef;
+
+    if (!jwk_make_handles(cfg, jwk))
+        return false;
+
+    if (json_unpack((json_t *) jwk, "{s?s}", "crv", &crv) == -1)
         return false;
 
     switch (str2enum(crv, "P-256", "P-384", "P-521", NULL)) {
@@ -41,24 +58,20 @@ generate(json_t *jwk)
     if (!key)
         return false;
 
-    if (EC_KEY_generate_key(key) <= 0) {
-        EC_KEY_free(key);
+    if (EC_KEY_generate_key(key) <= 0)
         return false;
-    }
 
-    tmp = jose_openssl_jwk_from_EC_KEY(key);
-    EC_KEY_free(key);
-
-    return json_object_update(jwk, tmp) == 0;
+    return json_pack("{s:o}", "upd", jose_openssl_jwk_from_EC_KEY(cfg, key));
 }
 
 static void __attribute__((constructor))
 constructor(void)
 {
-    static jose_jwk_generator_t generator = {
-        .kty = "EC",
-        .generate = generate
+    static jose_hook_jwk_t jwk = {
+        .kind = JOSE_HOOK_JWK_KIND_MAKE,
+        .make.handles = jwk_make_handles,
+        .make.execute = jwk_make_execute
     };
 
-    jose_jwk_register_generator(&generator);
+    jose_hook_jwk_push(&jwk);
 }

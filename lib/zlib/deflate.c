@@ -16,99 +16,180 @@
  */
 
 #include <jose/jwe.h>
-#include <jose/hooks.h>
+#include "../hooks.h"
 #include <zlib.h>
 #include <string.h>
 
-static inline void
-swap(jose_buf_t **a, jose_buf_t **b)
+#define containerof(ptr, type, member) \
+    ((type *)((char *) ptr - offsetof(type, member)))
+
+static size_t SIZE = 4096;
+
+typedef struct {
+    jose_io_t io;
+    jose_io_t *next;
+    z_stream strm;
+} io_t;
+
+static bool
+step(jose_io_t *io, const void *in, size_t len, typeof(deflate) *func)
 {
-    jose_buf_t *c = *a;
-    *a = *b;
-    *b = c;
-}
+    io_t *i = containerof(io, io_t, io);
 
-static jose_buf_t *
-comp_deflate(const uint8_t *buf, size_t len)
-{
-    z_stream __attribute__((cleanup(deflateEnd))) strm = {};
-    jose_buf_auto_t *out = NULL;
+    i->strm.next_in = (void *) in;
+    i->strm.avail_in = len;
 
-    strm.next_in = (uint8_t *) buf;
-    strm.avail_in = len;
+    while (i->strm.avail_in > 0 && i->strm.avail_out < SIZE) {
+        uint8_t buf[SIZE];
 
-    if (deflateInit2(&strm, Z_DEFAULT_COMPRESSION, Z_DEFLATED, -MAX_WBITS,
-                     MAX_MEM_LEVEL, Z_DEFAULT_STRATEGY) != Z_OK)
-        return NULL;
+        i->strm.next_out = buf;
+        i->strm.avail_out = sizeof(buf);
 
-    while (strm.avail_in > 0) {
-        jose_buf_auto_t *tmp = NULL;
-
-        strm.avail_out = 16 * 1024; /* 16K blocks */
-
-        tmp = jose_buf(strm.total_out + strm.avail_out, JOSE_BUF_FLAG_WIPE);
-        if (!tmp)
-            return NULL;
-
-        if (out)
-            memcpy(tmp->data, out->data, strm.total_out);
-
-        swap(&tmp, &out);
-
-        strm.next_out = &out->data[strm.total_out];
-
-        if (deflate(&strm, Z_FINISH) != Z_STREAM_END)
-            return NULL;
+        switch (func(&i->strm, Z_NO_FLUSH)) {
+        case Z_STREAM_END: /* fallthrough */
+        case Z_BUF_ERROR:  /* fallthrough */
+        case Z_OK:
+            if (i->next->step(i->next, buf, SIZE - i->strm.avail_out))
+                break;
+            /* fallthrough */
+        default:
+            return false;
+        }
     }
 
-    out->size = strm.total_out;
-    return jose_buf_incref(out);
+    i->strm.next_in = NULL;
+    i->strm.next_out = NULL;
+    i->strm.avail_out = 0;
+
+    return i->strm.avail_in == 0;
 }
 
-static jose_buf_t *
-comp_inflate(const uint8_t *buf, size_t len)
+static bool
+done(jose_io_t *io, typeof(deflate) *func)
 {
-    z_stream __attribute__((cleanup(inflateEnd))) strm = {};
-    jose_buf_auto_t *out = NULL;
+    io_t *i = containerof(io, io_t, io);
 
-    strm.next_in = (uint8_t *) buf;
-    strm.avail_in = len;
+    while (i->strm.avail_out < SIZE) {
+        uint8_t buf[SIZE];
 
-    if (inflateInit2(&strm, -MAX_WBITS) != Z_OK)
-        return NULL;
+        i->strm.next_out = buf;
+        i->strm.avail_out = sizeof(buf);
 
-    while (strm.avail_in > 0) {
-        jose_buf_auto_t *tmp = NULL;
-
-        strm.avail_out = 16 * 1024; /* 16K blocks */
-
-        tmp = jose_buf(strm.total_out + strm.avail_out, JOSE_BUF_FLAG_WIPE);
-        if (!tmp)
-            return NULL;
-
-        if (out)
-            memcpy(tmp->data, out->data, strm.total_out);
-
-        swap(&tmp, &out);
-
-        strm.next_out = &out->data[strm.total_out];
-
-        if (inflate(&strm, Z_FINISH) != Z_STREAM_END)
-            return NULL;
+        switch (func(&i->strm, Z_FINISH)) {
+        case Z_STREAM_END: /* fallthrough */
+        case Z_BUF_ERROR:  /* fallthrough */
+        case Z_OK:
+            if (i->next->step(i->next, buf, SIZE - i->strm.avail_out))
+                break;
+            /* fallthrough */
+        default:
+            return false;
+        }
     }
 
-    out->size = strm.total_out;
-    return jose_buf_incref(out);
+    return i->next->done(i->next);
+}
+
+static bool
+def_step(jose_io_t *io, const void *in, size_t len)
+{
+    return step(io, in, len, deflate);
+}
+
+static bool
+def_done(jose_io_t *io)
+{
+    return done(io, deflate);
+}
+
+static void
+def_free(jose_io_t *io)
+{
+    io_t *i = containerof(io, io_t, io);
+    deflateEnd(&i->strm);
+    free(i);
+}
+
+static bool
+inf_step(jose_io_t *io, const void *in, size_t len)
+{
+    return step(io, in, len, inflate);
+}
+
+static bool
+inf_done(jose_io_t *io)
+{
+    return done(io, inflate);
+}
+
+static void
+inf_free(jose_io_t *io)
+{
+    io_t *i = containerof(io, io_t, io);
+    inflateEnd(&i->strm);
+    free(i);
+}
+
+static jose_io_t *
+alg_comp_def(const jose_hook_alg_t *alg, jose_cfg_t *cfg, jose_io_t *next)
+{
+    jose_io_auto_t *io = NULL;
+    io_t *i = NULL;
+
+    i = calloc(1, sizeof(*i));
+    if (!i)
+        return NULL;
+
+    io = jose_io_incref(&i->io);
+    io->step = def_step;
+    io->done = def_done;
+    io->free = def_free;
+
+    i->next = jose_io_incref(next);
+    if (!i->next)
+        return NULL;
+
+    if (deflateInit2(&i->strm, Z_DEFAULT_COMPRESSION, Z_DEFLATED,
+                     -MAX_WBITS, MAX_MEM_LEVEL, Z_DEFAULT_STRATEGY) != Z_OK)
+        return NULL;
+
+    return jose_io_incref(io);
+}
+
+static jose_io_t *
+alg_comp_inf(const jose_hook_alg_t *alg, jose_cfg_t *cfg, jose_io_t *next)
+{
+    jose_io_auto_t *io = NULL;
+    io_t *i = NULL;
+
+    i = calloc(1, sizeof(*i));
+    if (!i)
+        return NULL;
+
+    io = jose_io_incref(&i->io);
+    io->step = inf_step;
+    io->done = inf_done;
+    io->free = inf_free;
+
+    i->next = jose_io_incref(next);
+    if (!i->next)
+        return NULL;
+
+    if (inflateInit2(&i->strm, -MAX_WBITS) != Z_OK)
+        return NULL;
+
+    return jose_io_incref(io);
 }
 
 static void __attribute__((constructor))
 constructor(void)
 {
-    static jose_jwe_zipper_t zipper = {
-        .zip = "DEF",
-        .deflate = comp_deflate,
-        .inflate = comp_inflate
+    static jose_hook_alg_t alg = {
+        .kind = JOSE_HOOK_ALG_KIND_COMP,
+        .name = "DEF",
+        .comp.def = alg_comp_def,
+        .comp.inf = alg_comp_inf,
     };
 
-    jose_jwe_register_zipper(&zipper);
+    jose_hook_alg_push(&alg);
 }

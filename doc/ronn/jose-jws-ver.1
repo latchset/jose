@@ -1,0 +1,67 @@
+.\" generated with Ronn/v0.7.3
+.\" http://github.com/rtomayko/ronn/tree/0.7.3
+.
+.TH "JOSE\-JWS\-VER" "1" "May 2017" "" ""
+.
+.SH "NAME"
+\fBjose\-jws\-ver\fR \- Verifies a JWS using the supplied JWKs
+.
+.SH "SYNOPSIS"
+\fBjose jws ver\fR \-i JWS [\-I PAY] \-k JWK [\-a] [\-O PAY]
+.
+.SH "OVERVIEW"
+The \fBjose jws ver\fR command verifies a signature over a payload using one or more JWKs\. When specifying more than one JWK (\fB\-k\fR), the program will succeed when any of the provided JWKs successfully verify a signature\. Alternatively, if the \fB\-a\fR option is given, the program will succeed only when all JWKs successfully verify a signature\.
+.
+.P
+If the JWS is a detached JWS, meaning that the payload is stored in binary form external to the JWS itself, the payload can be loaded using the \fB\-I\fR parameter\.
+.
+.P
+Please note that, when specifying the \fB\-O\fR option to output the payload, the payload is output whether or not the signature validates\. Therefore, you must check the return value of the command before trusting the data\.
+.
+.SH "OPTIONS"
+.
+.TP
+\fB\-i\fR \fIJSON\fR, \fB\-\-input\fR=\fIJSON\fR
+Parse JWS from JSON
+.
+.TP
+\fB\-i\fR \fIFILE\fR, \fB\-\-input\fR=\fIFILE\fR
+Read JWS from FILE
+.
+.TP
+\fB\-i\fR \-, \fB\-\-input\fR=\-
+Read JWS from standard input
+.
+.TP
+\fB\-I\fR \fIFILE\fR, \fB\-\-detached\fR=\fIFILE\fR
+Read decoded payload from FILE
+.
+.TP
+\fB\-I\fR \-, \fB\-\-detached\fR=\-
+Read decoded payload from standard input
+.
+.TP
+\fB\-k\fR \fIFILE\fR, \fB\-\-key\fR=\fIFILE\fR
+Read JWK(Set) from FILE
+.
+.TP
+\fB\-k\fR \-, \fB\-\-key\fR=\-
+Read JWK(Set) from standard input
+.
+.TP
+\fB\-O\fR \fIFILE\fR, \fB\-\-detach\fR=\fIFILE\fR
+Decode payload to FILE
+.
+.TP
+\fB\-O\fR \-, \fB\-\-detach\fR=\-
+Decode payload to standard output
+.
+.TP
+\fB\-a\fR, \fB\-\-all\fR
+Ensure the JWS validates with all keys
+.
+.SH "AUTHOR"
+Nathaniel McCallum <npmccallum@redhat\.com>
+.
+.SH "SEE ALSO"
+\fBjose\-jws\-fmt\fR(1), \fBjose\-jws\-sig\fR(1)

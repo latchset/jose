@@ -21,364 +21,59 @@
 #include <jose/b64.h>
 #include <jose/jwk.h>
 #include <jose/jwe.h>
-#include <jose/hooks.h>
+#include "hooks.h"
 
+#include <errno.h>
 #include <string.h>
 
-static const jose_jwe_crypter_t *
-find_crypter(const char *enc)
+#include <unistd.h>
+
+static bool
+jwe_hdr_set_new(json_t *jwe, const char *name, json_t *value)
 {
-    for (const jose_jwe_crypter_t *c = jose_jwe_crypters(); c && enc; c = c->next) {
-        if (strcmp(enc, c->enc) == 0)
-            return c;
-    }
+    json_auto_t *v = value;
+    json_t *p = NULL;
+    json_t *u = NULL;
 
-    return NULL;
-}
-
-static const jose_jwe_wrapper_t *
-find_wrapper(const char *alg)
-{
-    for (const jose_jwe_wrapper_t *s = jose_jwe_wrappers(); s && alg; s = s->next) {
-        if (strcmp(alg, s->alg) == 0)
-            return s;
-    }
-
-    return NULL;
-}
-
-static const jose_jwe_zipper_t *
-find_zipper(const char *zip)
-{
-    for (const jose_jwe_zipper_t *z = jose_jwe_zippers(); z && zip; z = z->next) {
-        if (strcmp(zip, z->zip) == 0)
-            return z;
-    }
-
-    return NULL;
-}
-
-bool
-jose_jwe_encrypt(json_t *jwe, const json_t *cek,
-                 const uint8_t pt[], size_t ptl)
-{
-    const jose_jwe_crypter_t *crypter = NULL;
-    const jose_jwe_zipper_t *zipper = NULL;
-    jose_buf_auto_t *zpt = NULL;
-    const char *prot = NULL;
-    const char *kalg = NULL;
-    const char *penc = NULL;
-    const char *senc = NULL;
-    const char *zip = NULL;
-    const char *aad = NULL;
-    json_auto_t *p = NULL;
-
-    if (!jose_jwk_allowed(cek, false, "encrypt"))
+    p = json_object_get(jwe, "protected");
+    if (p && !json_is_object(p) && !json_is_string(p))
         return false;
 
-    if (json_unpack((json_t *) cek, "{s?s}", "alg", &kalg) == -1)
+    u = json_object_get(jwe, "unprotected");
+    if (u && !json_is_object(u))
         return false;
 
-    if (json_unpack(jwe, "{s?s,s?{s?s,s?s},s?O,s?{s?s}}", "aad", &aad,
-                    "protected", "enc", &penc, "zip", &zip, "protected", &p,
-                    "unprotected", "enc", &senc) == -1)
+    if (!u && json_is_string(p) &&
+        json_object_set_new(jwe, "unprotected", u = json_object()) < 0)
         return false;
 
-    if (!penc && !zip && json_is_string(p)) {
-        json_decref(p);
-        p = jose_b64_decode_json_load(p);
-        if (!p)
-            return false;
-
-        if (json_unpack(p, "{s?s,s?s}", "enc", &penc, "zip", &zip) == -1)
-            return false;
-    }
-
-    if (penc && senc && strcmp(penc, senc) != 0)
+    if (!u && !p &&
+        json_object_set_new(jwe, "protected", p = json_object()) < 0)
         return false;
 
-    if (!penc && !senc) {
-        senc = kalg;
-
-        for (crypter = jose_jwe_crypters(); crypter && !senc; crypter = crypter->next)
-            senc = crypter->suggest(cek);
-
-        if (!senc || !set_protected_new(jwe, "enc", json_string(senc)))
-            return false;
-    }
-
-    if (kalg && strcmp(penc ? penc : senc, kalg) != 0)
+    if (json_object_set(json_is_object(p) ? p : u, name, v) < 0)
         return false;
 
-    if (zip) {
-        zipper = find_zipper(zip);
-        if (!zipper)
-            return false;
-
-        zpt = zipper->deflate(pt, ptl);
-        if (!zpt)
-            return false;
-    }
-
-    crypter = find_crypter(penc ? penc : senc);
-    if (!crypter)
-        return false;
-
-    prot = encode_protected(jwe);
-    if (!prot)
-        return false;
-
-    return crypter->encrypt(jwe, cek,
-                            zpt ? zpt->data : pt,
-                            zpt ? zpt->size : ptl,
-                            penc ? penc : senc,
-                            prot, aad);
-}
-
-bool
-jose_jwe_encrypt_json(json_t *jwe, const json_t *cek, json_t *pt)
-{
-    char *ept = NULL;
-    bool ret = false;
-
-    ept = json_dumps(pt, JSON_SORT_KEYS | JSON_COMPACT | JSON_ENCODE_ANY);
-    if (!ept)
-        return NULL;
-
-    ret = jose_jwe_encrypt(jwe, cek, (uint8_t *) ept, strlen(ept));
-    memset(ept, 0, strlen(ept));
-    free(ept);
-    return ret;
-}
-
-bool
-jose_jwe_wrap(json_t *jwe, json_t *cek, const json_t *jwk, json_t *rcp)
-{
-    const jose_jwe_wrapper_t *wrapper = NULL;
-    const char *kalg = NULL;
-    const char *halg = NULL;
-    const char *henc = NULL;
-    json_auto_t *hdr = NULL;
-    json_auto_t *r = NULL;
-
-    if (!cek)
-        return false;
-
-    hdr = jose_jwe_merge_header(jwe, rcp);
-    if (!hdr)
-        return false;
-
-    if (json_unpack(hdr, "{s?s,s?s}", "alg", &halg, "enc", &henc) == -1)
-        return false;
-
-    if (!json_object_get(cek, "k")) {
-        const char *kenc = NULL;
-
-        if (json_unpack(cek, "{s?s}", "alg", &kenc) == -1)
-            return false;
-
-        if (!kenc) {
-            kenc = henc ? henc : "A128CBC-HS256";
-            if (json_object_set_new(cek, "alg", json_string(kenc)) == -1)
-                return false;
-        }
-    }
-
-    if (!jose_jwk_allowed(cek, false, "encrypt"))
-        return false;
-
-    if (!jose_jwk_allowed(jwk, false, "wrapKey"))
-        return false;
-
-    kalg = json_string_value(json_object_get(jwk, "alg"));
-
-    if (!rcp)
-        r = json_object();
-    else if (!json_is_object(rcp))
-        return false;
-    else
-        r = json_deep_copy(rcp);
-
-    if (!halg) {
-        json_t *h = NULL;
-
-        halg = kalg;
-        for (const jose_jwe_wrapper_t *s = jose_jwe_wrappers(); s && !halg; s = s->next)
-            halg = s->suggest(jwk);
-
-        if (!halg)
-            return false;
-
-        h = json_object_get(r, "header");
-        if (!h && json_object_set_new(r, "header", h = json_object()) == -1)
-            return false;
-
-        if (json_object_set_new(h, "alg", json_string(halg)) == -1)
-            return false;
-    }
-
-    if (halg && kalg && strcmp(halg, kalg) != 0)
-        return false;
-
-    wrapper = find_wrapper(halg);
-    if (!wrapper)
-        return false;
-
-    if (!wrapper->wrap(jwe, cek, jwk, r, halg))
-        return false;
-
-    return add_entity(jwe, r, "recipients", "header", "encrypted_key", NULL);
+    return true;
 }
 
 json_t *
-jose_jwe_unwrap(const json_t *jwe, const json_t *jwk, const json_t *rcp)
-{
-    const jose_jwe_wrapper_t *wrapper = NULL;
-    const char *halg = NULL;
-    const char *henc = NULL;
-    const char *kalg = NULL;
-    json_auto_t *cek = NULL;
-    json_auto_t *hdr = NULL;
-
-    if (!rcp) {
-        const json_t *rcps = NULL;
-
-        rcps = json_object_get(jwe, "recipients");
-        if (json_is_array(rcps)) {
-            for (size_t i = 0; i < json_array_size(rcps) && !cek; i++)
-                cek = jose_jwe_unwrap(jwe, jwk, json_array_get(rcps, i));
-        } else if (!rcps) {
-            cek = jose_jwe_unwrap(jwe, jwk, jwe);
-        }
-
-        return json_incref(cek);
-    }
-
-    hdr = jose_jwe_merge_header(jwe, rcp);
-    if (!hdr)
-        return NULL;
-
-    if (json_unpack(hdr, "{s?s,s?s}", "alg", &halg, "enc", &henc) == -1)
-        return NULL;
-
-    if (!jose_jwk_allowed(jwk, false, "unwrapKey"))
-        return NULL;
-
-    kalg = json_string_value(json_object_get(jwk, "alg"));
-    if (!halg)
-        halg = kalg;
-    else if (kalg && strcmp(halg, kalg) != 0 &&
-             (!henc || strcmp(henc, kalg) != 0))
-        return NULL;
-
-    wrapper = find_wrapper(halg);
-    if (!wrapper)
-        return NULL;
-
-    cek = json_pack("{s:s,s:s,s:O,s:[ss]}",
-                    "kty", "oct", "use", "enc",
-                    "enc", json_object_get(hdr, "enc"),
-                    "key_ops", "encrypt", "decrypt");
-    if (!cek)
-        return NULL;
-
-    if (!wrapper->unwrap(jwe, jwk, rcp, halg, cek))
-        return NULL;
-
-    return json_incref(cek);
-}
-
-jose_buf_t *
-jose_jwe_decrypt(const json_t *jwe, const json_t *cek)
-{
-    const jose_jwe_crypter_t *crypter = NULL;
-    const jose_jwe_zipper_t *zipper = NULL;
-    jose_buf_auto_t *pt = NULL;
-    json_auto_t *hdr = NULL;
-    const char *prot = NULL;
-    const char *kalg = NULL;
-    const char *szip = NULL;
-    const char *enc = NULL;
-    const char *aad = NULL;
-    const char *zip = NULL;
-
-    if (!jose_jwk_allowed(cek, false, "decrypt"))
-        return NULL;
-
-    if (json_unpack((json_t *) cek, "{s?s}", "alg", &kalg) == -1)
-        return NULL;
-
-    if (json_unpack((json_t *) jwe, "{s?s,s?s,s?{s?s}}",
-                    "aad", &aad, "protected", &prot,
-                    "unprotected", "zip", &szip) == -1)
-        return NULL;
-
-    hdr = jose_jwe_merge_header(jwe, NULL);
-    if (!hdr)
-        return NULL;
-
-    if (json_unpack(hdr, "{s?s,s?s}", "enc", &enc, "zip", &zip) == -1)
-        return NULL;
-
-    if (!enc)
-        enc = kalg;
-
-    if (kalg) {
-        if (strcmp(enc, kalg) != 0)
-            return NULL;
-    }
-
-    zipper = find_zipper(zip);
-    if (zip && (!zipper || szip))
-        return NULL;
-
-    crypter = find_crypter(enc);
-    if (!crypter)
-        return NULL;
-
-    pt = crypter->decrypt(jwe, cek, enc, prot ? prot : "", aad);
-
-    if (pt && zipper) {
-        jose_buf_auto_t *tmp = NULL;
-        tmp = zipper->inflate(pt->data, pt->size);
-        jose_buf_decref(pt);
-        pt = jose_buf_incref(tmp);
-    }
-
-    return jose_buf_incref(pt);
-}
-
-json_t *
-jose_jwe_decrypt_json(const json_t *jwe, const json_t *cek)
-{
-    jose_buf_auto_t *pt = NULL;
-    json_t *ct = NULL;
-
-    ct = json_object_get(jwe, "ciphertext");
-    if (!json_is_string(ct))
-        return NULL;
-
-    pt = jose_jwe_decrypt(jwe, cek);
-    if (!pt)
-        return NULL;
-
-    return json_loadb((char *) pt->data, pt->size, JSON_DECODE_ANY, NULL);
-}
-
-json_t *
-jose_jwe_merge_header(const json_t *jwe, const json_t *rcp)
+jose_jwe_hdr(const json_t *jwe, const json_t *rcp)
 {
     json_auto_t *p = NULL;
     json_t *s = NULL;
     json_t *h = NULL;
 
-    p = json_object_get(jwe, "protected");
-    if (!p)
+    p = json_incref(json_object_get(jwe, "protected"));
+    if (!p) {
         p = json_object();
-    else if (json_is_object(p))
+    } else if (json_is_object(p)) {
+        json_decref(p);
         p = json_deep_copy(p);
-    else if (json_is_string(p))
-        p = jose_b64_decode_json_load(p);
+    } else if (json_is_string(p)) {
+        json_decref(p);
+        p = jose_b64_dec_load(p);
+    }
 
     if (!json_is_object(p))
         return NULL;
@@ -396,4 +91,443 @@ jose_jwe_merge_header(const json_t *jwe, const json_t *rcp)
     }
 
     return json_incref(p);
+}
+
+bool
+jose_jwe_enc(jose_cfg_t *cfg, json_t *jwe, json_t *rcp, const json_t *jwk,
+             const void *pt, size_t ptl)
+{
+    json_auto_t *cek = NULL;
+
+    cek = json_object();
+    if (!cek)
+        return NULL;
+
+    if (!jose_jwe_enc_jwk(cfg, jwe, rcp, jwk, cek))
+        return NULL;
+
+    return jose_jwe_enc_cek(cfg, jwe, cek, pt, ptl);
+}
+
+jose_io_t *
+jose_jwe_enc_io(jose_cfg_t *cfg, json_t *jwe, json_t *rcp, const json_t *jwk,
+                jose_io_t *next)
+{
+    json_auto_t *cek = NULL;
+
+    cek = json_object();
+    if (!cek)
+        return NULL;
+
+    if (!jose_jwe_enc_jwk(cfg, jwe, rcp, jwk, cek))
+        return NULL;
+
+    return jose_jwe_enc_cek_io(cfg, jwe, cek, next);
+}
+
+static const jose_hook_alg_t *
+find_alg(jose_cfg_t *cfg, json_t *jwe, json_t *rcp, const json_t *hdr,
+         const json_t *jwk)
+{
+    const jose_hook_alg_t *alg = NULL;
+    const char *name = NULL;
+    json_t *h = NULL;
+
+    if (json_unpack((json_t *) hdr, "{s:s}", "alg", &name) >= 0)
+        return jose_hook_alg_find(JOSE_HOOK_ALG_KIND_WRAP, name);
+
+    for (alg = jose_hook_alg_list(); alg && !name; alg = alg->next) {
+        if (alg->kind != JOSE_HOOK_ALG_KIND_WRAP)
+            continue;
+        name = alg->wrap.alg(alg, cfg, jwk);
+    }
+
+    if (!name)
+        return NULL;
+
+    alg = jose_hook_alg_find(JOSE_HOOK_ALG_KIND_WRAP, name);
+    if (alg) {
+        h = json_object_get(rcp, "header");
+        if (!h && json_object_set_new(rcp, "header", h = json_object()) < 0)
+            return NULL;
+
+        if (json_object_set_new(h, "alg", json_string(alg->name)) < 0)
+            return NULL;
+    }
+
+    return alg;
+}
+
+static bool
+ensure_enc(const jose_hook_alg_t *alg, jose_cfg_t *cfg, json_t *jwe,
+           const json_t *hdr, const json_t *jwk, json_t *cek)
+{
+    const char *enc = NULL;
+
+    enc = json_string_value(json_object_get(cek, "alg"));
+    if (enc)
+        return true;
+
+    if (json_unpack((json_t *) hdr, "{s?s}", "enc", &enc) < 0)
+        return false;
+
+    /* See if we can infer an enc from the CEK. */
+    for (const jose_hook_alg_t *a = jose_hook_alg_list();
+         a && !enc; a = a->next) {
+        if (a->kind != JOSE_HOOK_ALG_KIND_ENCR)
+            continue;
+        enc = a->encr.sug(a, cfg, cek);
+    }
+
+    /* See if we can infer an enc from the JWK. */
+    if (!enc)
+        enc = alg->wrap.enc(alg, cfg, jwk);
+
+    /* Just pick an enc. */
+    for (const jose_hook_alg_t *a = jose_hook_alg_list();
+         a && !enc; a = a->next) {
+        if (a->kind == JOSE_HOOK_ALG_KIND_ENCR)
+            enc = a->name;
+    }
+
+    return json_object_set_new(cek, "alg", json_string(enc)) >= 0;
+}
+
+bool
+jose_jwe_enc_jwk(jose_cfg_t *cfg, json_t *jwe, json_t *rcp, const json_t *jwk,
+                 json_t *cek)
+{
+    const jose_hook_alg_t *alg = NULL;
+    json_auto_t *hdr = NULL;
+    json_auto_t *r = NULL;
+
+    if (!cek)
+        return false;
+
+    if (json_is_array(jwk) || json_is_array(json_object_get(jwk, "keys"))) {
+        if (!json_is_array(jwk))
+            jwk = json_object_get(jwk, "keys");
+
+        if (json_is_array(rcp) && json_array_size(rcp) != json_array_size(jwk))
+            return NULL;
+
+        for (size_t i = 0; i < json_array_size(jwk); i++) {
+            json_auto_t *tmp = NULL;
+
+            if (json_is_array(rcp))
+                tmp = json_incref(json_array_get(rcp, i));
+            else
+                tmp = json_deep_copy(rcp);
+
+            if (!jose_jwe_enc_jwk(cfg, jwe, tmp, json_array_get(jwk, i), cek))
+                return false;
+        }
+
+        return json_array_size(jwk) > 0;
+    }
+
+    if (!rcp)
+        r = json_object();
+    else if (!json_is_object(rcp))
+        return false;
+    else
+        r = json_incref(rcp);
+
+    hdr = jose_jwe_hdr(jwe, r);
+    if (!hdr)
+        return false;
+
+    alg = find_alg(cfg, jwe, r, hdr, jwk);
+    if (!alg)
+        return false;
+
+    if (!ensure_enc(alg, cfg, jwe, hdr, jwk, cek))
+        return false;
+
+    if (!jose_jwk_prm(cfg, jwk, false, alg->wrap.eprm))
+        return false;
+
+    return alg->wrap.wrp(alg, cfg, jwe, r, jwk, cek);
+}
+
+bool
+jose_jwe_enc_cek(jose_cfg_t *cfg, json_t *jwe, const json_t *cek,
+                 const void *pt, size_t ptl)
+{
+    jose_io_auto_t *i = NULL;
+    jose_io_auto_t *o = NULL;
+    void *ct = NULL;
+    size_t ctl = 0;
+
+    o = jose_io_malloc(cfg, &ct, &ctl);
+    i = jose_jwe_enc_cek_io(cfg, jwe, cek, o);
+    if (!o || !i)
+        return false;
+
+    if (!i->step(i, pt, ptl))
+        return false;
+
+    if (!i->done(i))
+        return false;
+
+    if (json_object_set_new(jwe, "ciphertext", jose_b64_enc(ct, ctl)) < 0)
+        return false;
+
+    return true;
+}
+
+jose_io_t *
+jose_jwe_enc_cek_io(jose_cfg_t *cfg, json_t *jwe, const json_t *cek,
+                    jose_io_t *next)
+{
+    const jose_hook_alg_t *alg = NULL;
+    jose_io_auto_t *zip = NULL;
+    json_auto_t *prt = NULL;
+    const char *h = NULL;
+    const char *k = NULL;
+    const char *z = NULL;
+
+    prt = jose_b64_dec_load(json_object_get(jwe, "protected"));
+    json_unpack(prt, "{s:s}", "zip", &z);
+
+    if (json_unpack(jwe, "{s?{s?s}}", "unprotected", "enc", &h) < 0)
+        return NULL;
+
+    if (json_unpack(jwe, "{s?{s?s}}", "protected", "enc", &h) < 0)
+        return NULL;
+
+    if (json_unpack((json_t *) cek, "{s?s}", "alg", &k) < 0)
+        return NULL;
+
+    if (!h) {
+        h = k;
+
+        for (alg = jose_hook_alg_list(); alg && !h; alg = alg->next) {
+            if (alg->kind != JOSE_HOOK_ALG_KIND_ENCR)
+                continue;
+            h = alg->encr.sug(alg, cfg, cek);
+        }
+
+        if (!h) {
+            jose_cfg_err(cfg, "Unable to infer encryption algorithm");
+            return NULL;
+        }
+
+        alg = jose_hook_alg_find(JOSE_HOOK_ALG_KIND_ENCR, h);
+        if (alg && !jwe_hdr_set_new(jwe, "enc", json_string(alg->name)))
+            return NULL;
+    } else {
+        if (k && strcmp(h, k) != 0) {
+            jose_cfg_err(cfg, "Algorithm mismatch (%s != %s)", h, k);
+            return NULL;
+        }
+
+        alg = jose_hook_alg_find(JOSE_HOOK_ALG_KIND_ENCR, h);
+    }
+
+    if (!alg) {
+        jose_cfg_err(cfg, "Unsupported encryption algorithm (%s)", h);
+        return NULL;
+    }
+
+    if (!jose_jwk_prm(cfg, cek, false, alg->encr.eprm)) {
+        jose_cfg_err(cfg, "CEK is not allowed to encrypt");
+        return NULL;
+    }
+
+    if (!encode_protected(jwe))
+        return NULL;
+
+    if (z) {
+        const jose_hook_alg_t *a = NULL;
+
+        a = jose_hook_alg_find(JOSE_HOOK_ALG_KIND_COMP, z);
+        if (!a)
+            return NULL;
+
+        zip = a->comp.def(a, cfg, next);
+        if (!zip)
+            return NULL;
+    }
+
+    return alg->encr.enc(alg, cfg, jwe, cek, zip ? zip : next);
+}
+
+void *
+jose_jwe_dec(jose_cfg_t *cfg, const json_t *jwe, const json_t *rcp,
+             const json_t *jwk, size_t *ptl)
+{
+    json_auto_t *cek = NULL;
+
+    cek = jose_jwe_dec_jwk(cfg, jwe, rcp, jwk);
+    if (!cek)
+        return NULL;
+
+    return jose_jwe_dec_cek(cfg, jwe, cek, ptl);
+}
+
+jose_io_t *
+jose_jwe_dec_io(jose_cfg_t *cfg, const json_t *jwe, const json_t *rcp,
+                const json_t *jwk, jose_io_t *next)
+{
+    json_auto_t *cek = NULL;
+
+    cek = jose_jwe_dec_jwk(cfg, jwe, rcp, jwk);
+    if (!cek)
+        return NULL;
+
+    return jose_jwe_dec_cek_io(cfg, jwe, cek, next);
+}
+
+json_t *
+jose_jwe_dec_jwk(jose_cfg_t *cfg, const json_t *jwe, const json_t *rcp,
+                 const json_t *jwk)
+{
+    const jose_hook_alg_t *alg = NULL;
+    const char *halg = NULL;
+    const char *henc = NULL;
+    const char *kalg = NULL;
+    json_auto_t *cek = NULL;
+    json_auto_t *hdr = NULL;
+
+    if (json_is_array(jwk) || json_is_array(json_object_get(jwk, "keys"))) {
+        if (!json_is_array(jwk))
+            jwk = json_object_get(jwk, "keys");
+
+        for (size_t i = 0; i < json_array_size(jwk) && !cek; i++)
+            cek = jose_jwe_dec_jwk(cfg, jwe, rcp, json_array_get(jwk, i));
+
+        return json_incref(cek);
+    }
+
+    if (!rcp) {
+        const json_t *rcps = NULL;
+
+        rcps = json_object_get(jwe, "recipients");
+        if (json_is_array(rcps)) {
+            for (size_t i = 0; i < json_array_size(rcps) && !cek; i++)
+                cek = jose_jwe_dec_jwk(cfg, jwe, json_array_get(rcps, i), jwk);
+        } else if (!rcps) {
+            cek = jose_jwe_dec_jwk(cfg, jwe, jwe, jwk);
+        }
+
+        return json_incref(cek);
+    }
+
+    hdr = jose_jwe_hdr(jwe, rcp);
+    if (!hdr)
+        return NULL;
+
+    if (json_unpack(hdr, "{s?s,s?s}", "alg", &halg, "enc", &henc) == -1)
+        return NULL;
+
+    kalg = json_string_value(json_object_get(jwk, "alg"));
+    if (!halg)
+        halg = kalg;
+    else if (kalg && strcmp(halg, kalg) != 0 &&
+             (!henc || strcmp(henc, kalg) != 0))
+        return NULL;
+
+    alg = jose_hook_alg_find(JOSE_HOOK_ALG_KIND_WRAP, halg);
+    if (!alg)
+        return NULL;
+
+    if (!jose_jwk_prm(cfg, jwk, false, alg->wrap.dprm))
+        return NULL;
+
+    cek = json_pack("{s:s,s:s,s:O,s:[ss]}",
+                    "kty", "oct", "use", "enc",
+                    "enc", json_object_get(hdr, "enc"),
+                    "key_ops", "encrypt", "decrypt");
+    if (!cek)
+        return NULL;
+
+    if (!alg->wrap.unw(alg, cfg, jwe, rcp, jwk, cek))
+        return NULL;
+
+    return json_incref(cek);
+}
+
+void *
+jose_jwe_dec_cek(jose_cfg_t *cfg, const json_t *jwe, const json_t *cek,
+                 size_t *ptl)
+{
+    jose_io_auto_t *d = NULL;
+    jose_io_auto_t *i = NULL;
+    jose_io_auto_t *o = NULL;
+    const char *ct = NULL;
+    void *pt = NULL;
+    size_t ctl = 0;
+
+    if (json_unpack((json_t *) jwe, "{s:s%}", "ciphertext", &ct, &ctl) < 0)
+        return NULL;
+
+    o = jose_io_malloc(cfg, &pt, ptl);
+    d = jose_jwe_dec_cek_io(cfg, jwe, cek, o);
+    i = jose_b64_dec_io(d);
+    if (!o || !d || !i)
+        return NULL;
+
+    if (!i->step(i, ct, ctl))
+        return NULL;
+
+    if (!i->done(i))
+        return NULL;
+
+    return jose_io_malloc_steal(&pt);
+}
+
+jose_io_t *
+jose_jwe_dec_cek_io(jose_cfg_t *cfg, const json_t *jwe, const json_t *cek,
+                    jose_io_t *next)
+{
+    const jose_hook_alg_t *alg = NULL;
+    jose_io_auto_t *zip = NULL;
+    json_auto_t *hdr = NULL;
+    json_auto_t *prt = NULL;
+    const char *kalg = NULL;
+    const char *halg = NULL;
+    const char *hzip = NULL;
+
+    prt = jose_b64_dec_load(json_object_get(jwe, "protected"));
+    json_unpack(prt, "{s:s}", "zip", &hzip);
+
+    hdr = jose_jwe_hdr(jwe, NULL);
+    if (!hdr)
+        return NULL;
+
+    if (json_unpack(hdr, "{s?s}", "enc", &halg) < 0)
+        return NULL;
+
+    if (json_unpack((json_t *) cek, "{s?s}", "alg", &kalg) < 0)
+        return NULL;
+
+    if (!halg && !kalg) {
+        jose_cfg_err(cfg, "Decryption algorithm cannot be inferred");
+        return NULL;
+    } else if (halg && kalg && strcmp(halg, kalg) != 0) {
+        jose_cfg_err(cfg, "Algorithm mismatch (%s != %s)", halg, kalg);
+        return NULL;
+    }
+
+    alg = jose_hook_alg_find(JOSE_HOOK_ALG_KIND_ENCR, halg ? halg : kalg);
+    if (!alg)
+        return NULL;
+
+    if (!jose_jwk_prm(cfg, cek, false, alg->encr.dprm))
+        return NULL;
+
+    if (hzip) {
+        const jose_hook_alg_t *a = NULL;
+
+        a = jose_hook_alg_find(JOSE_HOOK_ALG_KIND_COMP, hzip);
+        if (!a)
+            return NULL;
+
+        zip = a->comp.inf(a, cfg, next);
+        if (!zip)
+            return NULL;
+    }
+
+    return alg->encr.dec(alg, cfg, jwe, cek, zip ? zip : next);
 }

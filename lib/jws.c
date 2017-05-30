@@ -21,146 +21,81 @@
 #include <jose/b64.h>
 #include <jose/jwk.h>
 #include <jose/jws.h>
-#include <jose/hooks.h>
+#include "hooks.h"
 
 #include <string.h>
 
-static const jose_jws_signer_t *
-find(const char *alg)
+static const jose_hook_alg_t *
+find_alg(jose_cfg_t *cfg, json_t *jws, json_t *sig, const json_t *jwk)
 {
-    for (const jose_jws_signer_t *s = jose_jws_signers(); s; s = s->next) {
-        if (strcmp(alg, s->alg) == 0)
-            return s;
-    }
-
-    return NULL;
-}
-
-bool
-jose_jws_sign(json_t *jws, const json_t *jwk, const json_t *sig)
-{
-    const jose_jws_signer_t *signer = NULL;
-    const char *payl = NULL;
-    const char *prot = NULL;
-    const char *kalg = NULL;
-    const char *alg = NULL;
-    json_auto_t *s = NULL;
-    json_auto_t *p = NULL;
-
-    if (!sig)
-        s = json_object();
-    else if (!json_is_object(sig))
-        return false;
-    else
-        s = json_deep_copy(sig);
-
-    if (!jose_jwk_allowed(jwk, false, "sign"))
-        return false;
-
-    if (json_unpack(s, "{s?o}", "protected", &p) == -1)
-        return false;
-
-    if (json_is_object(p))
-        p = json_incref(p);
-    else if (json_is_string(p))
-        p = jose_b64_decode_json_load(p);
-    else if (p)
-        return false;
-
-    if (json_unpack((json_t *) jwk, "{s?s}", "alg", &kalg) == -1)
-        return false;
-
-    if (json_unpack(p, "{s:s}", "alg", &alg) == -1 &&
-        json_unpack(s, "{s:{s:s}}", "header", "alg", &alg) == -1) {
-        alg = kalg;
-        for (signer = jose_jws_signers(); signer && !alg; signer = signer->next)
-            alg = signer->suggest(jwk);
-
-        if (!set_protected_new(s, "alg", json_string(alg)))
-            return false;
-    }
-
-    if (kalg && strcmp(alg, kalg) != 0)
-        return false;
-
-    if (json_unpack(jws, "{s:s}", "payload", &payl) == -1)
-        return false;
-
-    prot = encode_protected(s);
-    if (!prot)
-        return false;
-
-    signer = find(alg);
-    if (!signer)
-        return false;
-
-    if (signer->sign(s, jwk, alg, prot, payl))
-        return add_entity(jws, s, "signatures", "signature", "protected",
-                         "header", NULL);
-
-    return false;
-}
-
-bool
-jose_jws_verify(const json_t *jws, const json_t *jwk, const json_t *sig)
-{
-    const jose_jws_signer_t *signer = NULL;
-    const char *prot = NULL;
-    const char *payl = NULL;
-    const char *kalg = NULL;
+    const jose_hook_alg_t *alg = NULL;
     const char *halg = NULL;
+    const char *kalg = NULL;
     json_auto_t *hdr = NULL;
 
-    if (!sig) {
-        const json_t *array = NULL;
+    hdr = jose_jws_hdr(sig);
+    if (!hdr)
+        return NULL;
 
-        array = json_object_get(jws, "signatures");
-        if (!json_is_array(array))
-            return jose_jws_verify(jws, jwk, jws);
-
-        for (size_t i = 0; i < json_array_size(array); i++) {
-            if (jose_jws_verify(jws, jwk, json_array_get(array, i)))
-                return true;
+    if (json_unpack(hdr, "{s:s}", "alg", &halg) < 0) {
+        for (alg = jose_hook_alg_list(); alg && !halg; alg = alg->next) {
+            if (alg->kind != JOSE_HOOK_ALG_KIND_SIGN)
+                continue;
+            halg = alg->sign.sug(alg, cfg, jwk);
         }
 
-        return false;
+        if (!halg) {
+            jose_cfg_err(cfg, "Unable to infer signing algorithm");
+            return NULL;
+        }
+
+        alg = jose_hook_alg_find(JOSE_HOOK_ALG_KIND_SIGN, halg);
+        if (alg) {
+            json_t *h = NULL;
+
+            h = json_object_get(sig, "protected");
+            if (!h && json_object_set_new(sig, "protected", h = json_object()) < 0)
+                return NULL;
+
+            if (json_object_set_new(h, "alg", json_string(alg->name)) < 0)
+                return NULL;
+        }
+    } else {
+        alg = jose_hook_alg_find(JOSE_HOOK_ALG_KIND_SIGN, halg);
     }
 
-    if (!jose_jwk_allowed(jwk, false, "verify"))
-        return false;
+    if (!alg)
+        jose_cfg_err(cfg, "Signing algorithm (%s) is not supported", halg);
 
-    if (json_unpack((json_t *) jws, "{s: s}", "payload", &payl) == -1)
-        return false;
+    if (json_unpack((json_t *) jwk, "{s?s}", "alg", &kalg) < 0)
+        return NULL;
 
-    if (json_unpack((json_t *) sig, "{s?s}", "protected", &prot) != 0)
-        return false;
+    if (halg && kalg && strcmp(halg, kalg) != 0) {
+        jose_cfg_err(cfg, "Algorithm mismatch (%s != %s)", halg, kalg);
+        return NULL;
+    }
 
-    if (json_unpack((json_t *) jwk, "{s?s}", "alg", &kalg) != 0)
-        return false;
+    if (!jose_jwk_prm(cfg, jwk, false, alg->sign.sprm)) {
+        jose_cfg_err(cfg, "JWK cannot be used to sign");
+        return NULL;
+    }
 
-    hdr = jose_jws_merge_header(sig);
-    if (!hdr)
-        return false;
+    return alg;
+}
 
-    if (json_unpack(hdr, "{s:s}", "alg", &halg) != 0)
-        return false;
+static void
+ios_auto(jose_io_t ***iosp)
+{
+    jose_io_t **ios = *iosp;
 
-    if (!halg) {
-        if (!kalg)
-            return false;
-        halg = kalg;
-    } else if (kalg && strcmp(halg, kalg) != 0)
-        return false;
+    for (size_t i = 0; ios && ios[i]; i++)
+        jose_io_auto(&ios[i]);
 
-    signer = find(halg);
-    if (!signer)
-        return false;
-
-    return signer->verify(sig, jwk, halg, prot ? prot : "", payl);
+    free(ios);
 }
 
 json_t *
-jose_jws_merge_header(const json_t *sig)
+jose_jws_hdr(const json_t *sig)
 {
     json_auto_t *p = NULL;
     json_t *h = NULL;
@@ -171,7 +106,7 @@ jose_jws_merge_header(const json_t *sig)
     else if (json_is_object(p))
         p = json_deep_copy(p);
     else if (json_is_string(p))
-        p = jose_b64_decode_json_load(p);
+        p = jose_b64_dec_load(p);
 
     if (!json_is_object(p))
         return NULL;
@@ -183,4 +118,187 @@ jose_jws_merge_header(const json_t *sig)
     }
 
     return json_incref(p);
+}
+
+bool
+jose_jws_sig(jose_cfg_t *cfg, json_t *jws, json_t *sig, const json_t *jwk)
+{
+    jose_io_auto_t *io = NULL;
+    const char *pay = NULL;
+    size_t payl = 0;
+
+    if (json_unpack(jws, "{s:s%}", "payload", &pay, &payl) < 0) {
+        jose_cfg_err(cfg, "JWS missing payload attribute");
+        return false;
+    }
+
+    io = jose_jws_sig_io(cfg, jws, sig, jwk);
+    return io && io->step(io, pay, payl) && io->done(io);
+}
+
+jose_io_t *
+jose_jws_sig_io(jose_cfg_t *cfg, json_t *jws, json_t *sig, const json_t *jwk)
+{
+    const jose_hook_alg_t *alg = NULL;
+    json_auto_t *s = NULL;
+
+    if (json_is_array(jwk) || json_is_array(json_object_get(jwk, "keys"))) {
+        jose_io_t __attribute__((cleanup(ios_auto))) **ios = NULL;
+        const json_t *key = NULL;
+        size_t i = 0;
+
+        if (!json_is_array(jwk))
+            jwk = json_object_get(jwk, "keys");
+
+        if (json_is_array(sig) && json_array_size(sig) != json_array_size(jwk))
+            return NULL;
+
+        ios = calloc(json_array_size(jwk) + 1, sizeof(*ios));
+        if (!ios)
+            return NULL;
+
+        json_array_foreach(jwk, i, key) {
+            json_auto_t *tmp = NULL;
+
+            if (json_is_array(sig))
+                tmp = json_incref(json_array_get(sig, i));
+            else
+                tmp = json_deep_copy(sig);
+
+            ios[i] = jose_jws_sig_io(cfg, jws, tmp, key);
+            if (!ios[i])
+                return NULL;
+        }
+
+        return jose_io_multiplex(cfg, ios, true);
+    }
+
+    s = sig ? json_incref(sig) : json_object();
+    if (!json_is_object(s)) {
+        jose_cfg_err(cfg, "Parameter sig MUST be an object or NULL");
+        return NULL;
+    }
+
+    alg = find_alg(cfg, jws, s, jwk);
+    if (!alg)
+        return NULL;
+
+    if (!encode_protected(s))
+        return NULL;
+
+    return alg->sign.sig(alg, cfg, jws, s, jwk);
+}
+
+bool
+jose_jws_ver(jose_cfg_t *cfg, const json_t *jws, const json_t *sig,
+             const json_t *jwk, bool all)
+{
+    jose_io_auto_t *io = NULL;
+    const char *pay = NULL;
+    size_t payl = 0;
+
+    if (json_unpack((json_t *) jws, "{s:s%}", "payload", &pay, &payl) < 0) {
+        jose_cfg_err(cfg, "JWS missing payload attribute");
+        return false;
+    }
+
+    io = jose_jws_ver_io(cfg, jws, sig, jwk, all);
+    return io && io->step(io, pay, payl) && io->done(io);
+}
+
+jose_io_t *
+jose_jws_ver_io(jose_cfg_t *cfg, const json_t *jws, const json_t *sig,
+                const json_t *jwk, bool all)
+{
+    const jose_hook_alg_t *alg = NULL;
+    const char *kalg = NULL;
+    const char *halg = NULL;
+    json_auto_t *hdr = NULL;
+
+    if (json_is_array(jwk) || json_is_array(json_object_get(jwk, "keys"))) {
+        jose_io_t __attribute__((cleanup(ios_auto))) **ios = NULL;
+        size_t j = 0;
+
+        if (!json_is_array(jwk))
+            jwk = json_object_get(jwk, "keys");
+
+        if (json_is_array(sig) && json_array_size(sig) != json_array_size(jwk))
+            return NULL;
+
+        ios = calloc(json_array_size(jwk) + 1, sizeof(*ios));
+        if (!ios)
+            return NULL;
+
+        for (size_t i = 0; i < json_array_size(jwk); i++) {
+            const json_t *s = json_is_object(sig) ? sig : json_array_get(sig, i);
+            const json_t *k = json_array_get(jwk, i);
+            ios[j] = jose_jws_ver_io(cfg, jws, s, k, false);
+            if (ios[j])
+                j++;
+            else if (all)
+                return NULL;
+        }
+
+        return jose_io_multiplex(cfg, ios, all);
+    }
+
+    if (!sig) {
+        jose_io_t __attribute__((cleanup(ios_auto))) **ios = NULL;
+        const json_t *array = NULL;
+        const json_t *s = NULL;
+        size_t i = 0;
+        size_t j = 0;
+
+        array = json_object_get(jws, "signatures");
+        if (!json_is_array(array))
+            return jose_jws_ver_io(cfg, jws, jws, jwk, true);
+
+        ios = calloc(json_array_size(array) + 1, sizeof(*ios));
+        if (!ios)
+            return NULL;
+
+        json_array_foreach(array, i, s) {
+            ios[j] = jose_jws_ver_io(cfg, jws, s, jwk, true);
+            if (ios[j])
+                j++;
+        }
+
+        return jose_io_multiplex(cfg, ios, false);
+    } else if (!json_is_object(sig))
+        return NULL;
+
+    if (json_unpack((json_t *) jwk, "{s?s}", "alg", &kalg) < 0)
+        return NULL;
+
+    hdr = jose_jws_hdr(sig);
+    if (!hdr)
+        return NULL;
+
+    if (json_unpack(hdr, "{s?s}", "alg", &halg) < 0)
+        return NULL;
+
+    if (!halg) {
+        if (!kalg) {
+            jose_cfg_err(cfg, "Signature algorithm cannot be inferred");
+            return NULL;
+        }
+
+        halg = kalg;
+    } else if (kalg && strcmp(halg, kalg) < 0) {
+        jose_cfg_err(cfg, "Signing algorithm mismatch (%s != %s)", halg, kalg);
+        return NULL;
+    }
+
+    alg = jose_hook_alg_find(JOSE_HOOK_ALG_KIND_SIGN, halg);
+    if (!alg) {
+        jose_cfg_err(cfg, "Signing algorithm (%s) is not supported", halg);
+        return NULL;
+    }
+
+    if (!jose_jwk_prm(cfg, jwk, false, alg->sign.vprm)) {
+        jose_cfg_err(cfg, "JWK cannot be used to verify");
+        return false;
+    }
+
+    return alg->sign.ver(alg, cfg, jws, sig, jwk);
 }

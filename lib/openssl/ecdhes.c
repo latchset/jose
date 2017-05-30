@@ -15,8 +15,11 @@
  * limitations under the License.
  */
 
+#define _GNU_SOURCE
 #include "misc.h"
-#include <jose/hooks.h>
+#include <jose/b64.h>
+#include <jose/jwk.h>
+#include "../hooks.h"
 #include <jose/openssl.h>
 
 #include <openssl/rand.h>
@@ -25,164 +28,250 @@
 
 #define NAMES "ECDH-ES", "ECDH-ES+A128KW", "ECDH-ES+A192KW", "ECDH-ES+A256KW"
 
-declare_cleanup(EVP_MD_CTX)
-declare_cleanup(EC_POINT)
-declare_cleanup(EC_KEY)
-declare_cleanup(BN_CTX)
-
-static json_t *
-exchange(const json_t *prv, const json_t *pub)
-{
-    openssl_auto(EC_KEY) *lcl = NULL;
-    openssl_auto(EC_KEY) *rem = NULL;
-    openssl_auto(BN_CTX) *bnc = NULL;
-    openssl_auto(EC_POINT) *p = NULL;
-    const EC_GROUP *grp = NULL;
-
-    bnc = BN_CTX_new();
-    if (!bnc)
-        return NULL;
-
-    lcl = jose_openssl_jwk_to_EC_KEY(prv);
-    if (!lcl)
-        return NULL;
-
-    rem = jose_openssl_jwk_to_EC_KEY(pub);
-    if (!rem)
-        return NULL;
-
-    grp = EC_KEY_get0_group(lcl);
-    if (EC_GROUP_cmp(grp, EC_KEY_get0_group(rem), bnc) != 0)
-        return NULL;
-
-    p = EC_POINT_new(grp);
-    if (!p)
-        return NULL;
-
-    if (EC_POINT_mul(grp, p, NULL, EC_KEY_get0_public_key(rem),
-                     EC_KEY_get0_private_key(lcl), bnc) <= 0)
-        return NULL;
-
-    return jose_openssl_jwk_from_EC_POINT(EC_KEY_get0_group(rem), p, NULL);
-}
+#include <assert.h>
 
 static bool
-concatkdf(const EVP_MD *md, uint8_t dk[], size_t dkl,
+concatkdf(const jose_hook_alg_t *alg, jose_cfg_t *cfg, uint8_t dk[], size_t dkl,
           const uint8_t z[], size_t zl, ...)
 {
-    openssl_auto(EVP_MD_CTX) *ctx = NULL;
-    jose_buf_auto_t *hsh = NULL;
+    jose_io_auto_t *b = NULL;
+    uint8_t hsh[alg->hash.size];
+    size_t hshl = sizeof(hsh);
     size_t reps = 0;
     size_t left = 0;
-    va_list ap;
 
-    hsh = jose_buf(EVP_MD_size(md), JOSE_BUF_FLAG_WIPE);
-    if (!hsh)
+    reps = dkl / sizeof(hsh);
+    left = dkl % sizeof(hsh);
+
+    b = jose_io_buffer(cfg, &hsh, &hshl);
+    if (!b)
         return false;
-
-    ctx = EVP_MD_CTX_new();
-    if (!ctx)
-        return false;
-
-    reps = dkl / hsh->size;
-    left = dkl % hsh->size;
 
     for (uint32_t c = 0; c <= reps; c++) {
         uint32_t cnt = htobe32(c + 1);
+        jose_io_auto_t *h = NULL;
+        va_list ap;
 
-        if (EVP_DigestInit_ex(ctx, md, NULL) <= 0)
+        h = alg->hash.hsh(alg, cfg, b);
+        if (!h)
             return false;
 
-        if (EVP_DigestUpdate(ctx, &cnt, sizeof(cnt)) <= 0)
+        if (!h->step(h, &cnt, sizeof(cnt)))
             return false;
 
-        if (EVP_DigestUpdate(ctx, z, zl) <= 0)
+        if (!h->step(h, z, zl))
             return false;
 
         va_start(ap, zl);
-        for (void *b = va_arg(ap, void *); b; b = va_arg(ap, void *)) {
+        for (void *a = va_arg(ap, void *); a; a = va_arg(ap, void *)) {
             size_t l = va_arg(ap, size_t);
             uint32_t e = htobe32(l);
 
-            if (EVP_DigestUpdate(ctx, &e, sizeof(e)) <= 0) {
+            if (!h->step(h, &e, sizeof(e))) {
                 va_end(ap);
                 return false;
             }
 
-            if (EVP_DigestUpdate(ctx, b, l) <= 0) {
+            if (!h->step(h, a, l)) {
                 va_end(ap);
                 return false;
             }
         }
         va_end(ap);
 
-        if (EVP_DigestUpdate(ctx, &(uint32_t) { htobe32(dkl * 8) }, 4) <= 0) {
-            va_end(ap);
-            return false;
-        }
-
-        if (EVP_DigestFinal_ex(ctx, hsh->data, NULL) <= 0)
+        if (!h->step(h, &(uint32_t) { htobe32(dkl * 8) }, 4))
             return false;
 
-        memcpy(&dk[c * hsh->size], hsh->data, c == reps ? left : hsh->size);
+        if (!h->done(h))
+            return false;
+
+        assert(hshl == alg->hash.size);
+
+        memcpy(&dk[c * hshl], hsh, c == reps ? left : hshl);
+        OPENSSL_cleanse(hsh, sizeof(hsh));
+        hshl = 0;
     }
 
     return true;
 }
 
+static size_t
+encr_alg_keylen(jose_cfg_t *cfg, const char *enc)
+{
+    json_auto_t *tmpl = NULL;
+
+    if (!jose_hook_alg_find(JOSE_HOOK_ALG_KIND_ENCR, enc))
+        return SIZE_MAX;
+
+    tmpl = json_pack("{s:s}", "alg", enc);
+    if (!tmpl)
+        return SIZE_MAX;
+
+    for (const jose_hook_jwk_t *j = jose_hook_jwk_list(); j; j = j->next) {
+        json_auto_t *upd = NULL;
+        const char *kty = NULL;
+        json_int_t len = 0;
+
+        if (j->kind != JOSE_HOOK_JWK_KIND_PREP)
+            continue;
+
+        if (!j->prep.handles(cfg, tmpl))
+            continue;
+
+        upd = j->prep.execute(cfg, tmpl);
+        if (json_unpack(upd, "{s:{s:s,s:I}}",
+                        "upd", "kty", &kty, "bytes", &len) < 0)
+            return SIZE_MAX;
+
+        if (strcmp(kty, "oct") != 0)
+            return SIZE_MAX;
+
+        return len;
+    }
+
+    return SIZE_MAX;
+}
+
+static size_t
+decode(const json_t *obj, const char *name, uint8_t *buf, size_t len)
+{
+    const char *tmp = NULL;
+    size_t tmpl = 0;
+    size_t dlen = 0;
+
+    if (json_unpack((json_t *) obj, "{s?s%}", name, &tmp, &tmpl) < 0)
+        return SIZE_MAX;
+
+    if (!tmp)
+        return 0;
+
+    dlen = jose_b64_dec_buf(tmp, tmpl, NULL, 0);
+    if (dlen > len)
+        return dlen;
+
+    return jose_b64_dec_buf(tmp, tmpl, buf, len);
+}
+
+static json_t *
+derive(const jose_hook_alg_t *alg, jose_cfg_t *cfg,
+       json_t *hdr, json_t *cek, const json_t *key)
+{
+    const jose_hook_alg_t *halg = NULL;
+    const char *name = alg->name;
+    uint8_t pu[KEYMAX] = {};
+    uint8_t pv[KEYMAX] = {};
+    uint8_t dk[KEYMAX] = {};
+    uint8_t ky[KEYMAX] = {};
+    const char *enc = NULL;
+    json_t *out = NULL;
+    size_t dkl = 0;
+    size_t pul = 0;
+    size_t pvl = 0;
+    size_t kyl = 0;
+
+    halg = jose_hook_alg_find(JOSE_HOOK_ALG_KIND_HASH, "S256");
+    if (!halg)
+        goto egress;
+
+    if (json_unpack(hdr, "{s?s}", "enc", &enc) < 0)
+        goto egress;
+
+    if (!enc && json_unpack(cek, "{s:s}", "alg", &enc) < 0)
+        goto egress;
+
+    switch (str2enum(alg->name, NAMES, NULL)) {
+    case 0: dkl = encr_alg_keylen(cfg, enc); name = enc; break;
+    case 1: dkl = 16; break;
+    case 2: dkl = 24; break;
+    case 3: dkl = 32; break;
+    default:
+        goto egress;
+    }
+
+    if (dkl < 16 || dkl > sizeof(dk))
+        goto egress;
+
+    pul = decode(hdr, "apu", pu, sizeof(pu));
+    if (pul > sizeof(pu))
+        goto egress;
+
+    pvl = decode(hdr, "apv", pv, sizeof(pv));
+    if (pvl > sizeof(pv))
+        goto egress;
+
+    kyl = decode(key, "x", ky, sizeof(ky));
+    if (kyl > sizeof(ky))
+        goto egress;
+
+    if (!concatkdf(halg, cfg,
+                   dk, dkl,
+                   ky, kyl,
+                   name, strlen(name),
+                   pu, pul,
+                   pv, pvl,
+                   NULL))
+        goto egress;
+
+    out = json_pack("{s:s,s:s,s:o}", "kty", "oct", "alg", enc,
+                    "k", jose_b64_enc(dk, dkl));
+
+egress:
+    OPENSSL_cleanse(ky, sizeof(ky));
+    OPENSSL_cleanse(pu, sizeof(pu));
+    OPENSSL_cleanse(pv, sizeof(pv));
+    OPENSSL_cleanse(dk, sizeof(dk));
+    return out;
+}
+
 static bool
-resolve(json_t *jwk)
+jwk_prep_handles(jose_cfg_t *cfg, const json_t *jwk)
 {
     const char *alg = NULL;
-    const char *crv = NULL;
-    const char *kty = NULL;
-    const char *grp = NULL;
-    json_auto_t *upd = NULL;
 
-    if (json_unpack(jwk, "{s?s,s?s,s?s}",
-                    "kty", &kty, "alg", &alg, "crv", &crv) == -1)
+    if (json_unpack((json_t *) jwk, "{s:s}", "alg", &alg) == -1)
         return false;
 
+    return str2enum(alg, NAMES, NULL) != SIZE_MAX;
+}
+
+static json_t *
+jwk_prep_execute(jose_cfg_t *cfg, const json_t *jwk)
+{
+    const char *alg = NULL;
+    const char *grp = NULL;
+
+    if (json_unpack((json_t *) jwk, "{s:s}", "alg", &alg) == -1)
+        return NULL;
+
     switch (str2enum(alg, NAMES, NULL)) {
-    case 0: grp = "P-256"; break;
+    case 0: grp = "P-521"; break;
     case 1: grp = "P-256"; break;
     case 2: grp = "P-384"; break;
     case 3: grp = "P-521"; break;
-    default: return true;
+    default: return NULL;
     }
 
-    if (!kty && json_object_set_new(jwk, "kty", json_string("EC")) == -1)
-        return false;
-    if (kty && strcmp(kty, "EC") != 0)
-        return false;
-
-    if (!crv && json_object_set_new(jwk, "crv", json_string(grp)) == -1)
-        return false;
-    if (crv && strcmp(crv, grp) != 0)
-        return false;
-
-    upd = json_pack("{s:s,s:[s,s]}", "use", "enc", "key_ops",
-                    "wrapKey", "unwrapKey");
-    if (!upd)
-        return false;
-
-    return json_object_update_missing(jwk, upd) == 0;
+    return json_pack("{s:{s:s,s:s}}", "upd", "kty", "EC", "crv", grp);
 }
 
 static const char *
-suggest(const json_t *jwk)
+alg_wrap_alg(const jose_hook_alg_t *alg, jose_cfg_t *cfg, const json_t *jwk)
 {
-    const char *kty = NULL;
-    const char *crv = NULL;
+    const char *name = NULL;
+    const char *type = NULL;
+    const char *curv = NULL;
 
-    if (json_unpack((json_t *) jwk, "{s:s,s:s}",
-                    "kty", &kty, "crv", &crv) == -1)
+    if (json_unpack((json_t *) jwk, "{s?s,s?s,s?s}",
+                    "alg", &name, "kty", &type, "crv", &curv) < 0)
         return NULL;
 
-    if (strcmp(kty, "EC") != 0)
+    if (name)
+        return str2enum(name, NAMES, NULL) != SIZE_MAX ? name : NULL;
+
+    if (!type || strcmp(type, "EC") != 0)
         return NULL;
 
-    switch (str2enum(crv, "P-256", "P-384", "P-521", NULL)) {
+    switch (str2enum(curv, "P-256", "P-384", "P-521", NULL)) {
     case 0: return "ECDH-ES+A128KW";
     case 1: return "ECDH-ES+A192KW";
     case 2: return "ECDH-ES+A256KW";
@@ -190,49 +279,43 @@ suggest(const json_t *jwk)
     }
 }
 
-static bool
-wrap(json_t *jwe, json_t *cek, const json_t *jwk, json_t *rcp,
-     const char *alg)
+static const char *
+alg_wrap_enc(const jose_hook_alg_t *alg, jose_cfg_t *cfg, const json_t *jwk)
 {
-    jose_buf_auto_t *ky = NULL;
-    jose_buf_auto_t *pu = NULL;
-    jose_buf_auto_t *pv = NULL;
-    jose_buf_auto_t *dk = NULL;
-    json_auto_t *tmp = NULL;
+    const char *crv = NULL;
+
+    if (json_unpack((json_t *) jwk, "{s?s}", "crv", &crv) < 0)
+        return NULL;
+
+    switch (str2enum(crv, "P-256", "P-384", "P-521", NULL)) {
+    case 0: return "A128GCM";
+    case 1: return "A192GCM";
+    case 2: return "A256GCM";
+    default: return NULL;
+    }
+}
+
+static bool
+alg_wrap_wrp(const jose_hook_alg_t *alg, jose_cfg_t *cfg, json_t *jwe,
+             json_t *rcp, const json_t *jwk, json_t *cek)
+{
+    const jose_hook_alg_t *ecdh = NULL;
+    json_auto_t *exc = NULL;
     json_auto_t *hdr = NULL;
-    const char *apu = NULL;
-    const char *apv = NULL;
-    const char *aes = NULL;
-    const char *enc = NULL;
-    json_t *epk = NULL;
+    json_auto_t *epk = NULL;
+    json_auto_t *der = NULL;
+    const char *wrap = NULL;
     json_t *h = NULL;
 
     if (json_object_get(cek, "k")) {
-        if (strcmp(alg, "ECDH-ES") == 0)
+        if (strcmp(alg->name, "ECDH-ES") == 0)
             return false;
-    } else if (!jose_jwk_generate(cek)) {
+    } else if (!jose_jwk_gen(cfg, cek)) {
         return false;
     }
 
-    switch (str2enum(alg, NAMES, NULL)) {
-    case 0: dk = jose_b64_decode_json(json_object_get(cek, "k"));  break;
-    case 1: dk = jose_buf(16, JOSE_BUF_FLAG_WIPE); aes = "A128KW"; break;
-    case 2: dk = jose_buf(24, JOSE_BUF_FLAG_WIPE); aes = "A192KW"; break;
-    case 3: dk = jose_buf(32, JOSE_BUF_FLAG_WIPE); aes = "A256KW"; break;
-    default: return false;
-    }
-    if (!dk)
-        return false;
-
-    hdr = jose_jwe_merge_header(jwe, rcp);
+    hdr = jose_jwe_hdr(jwe, rcp);
     if (!hdr)
-        return false;
-
-    if (json_unpack(hdr, "{s?s,s?s,s?s}", "apu", &apu,
-                    "apv", &apv, "enc", &enc) == -1)
-        return false;
-
-    if (!aes && !enc)
         return false;
 
     h = json_object_get(rcp, "header");
@@ -244,181 +327,141 @@ wrap(json_t *jwe, json_t *cek, const json_t *jwk, json_t *rcp,
     if (!epk)
         return false;
 
-    if (json_object_set_new(h, "epk", epk) == -1)
+    if (!jose_jwk_gen(cfg, epk))
         return false;
 
-    if (!jose_jwk_generate(epk))
+    ecdh = jose_hook_alg_find(JOSE_HOOK_ALG_KIND_EXCH, "ECDH");
+    if (!ecdh)
         return false;
 
-    tmp = exchange(epk, jwk);
-    if (!tmp)
+    exc = ecdh->exch.exc(ecdh, cfg, epk, jwk);
+    if (!exc)
         return false;
 
-    if (!jose_jwk_clean(epk))
+    if (!jose_jwk_pub(cfg, epk))
         return false;
 
-    ky = jose_b64_decode_json(json_object_get(tmp, "x"));
-    if (!ky)
+    if (json_object_set(h, "epk", epk) == -1)
         return false;
 
-    pu = jose_b64_decode(apu);
-    pv = jose_b64_decode(apv);
-    if ((apu && !pu) || (apv && !pv))
+    der = derive(alg, cfg, hdr, cek, exc);
+    if (!der)
         return false;
 
-    if (!concatkdf(EVP_sha256(), dk->data, dk->size, ky->data, ky->size,
-                   aes ? alg : enc, strlen(aes ? alg : enc),
-                   pu ? pu->data : (uint8_t *) "",
-                   pu ? pu->size : 0,
-                   pv ? pv->data : (uint8_t *) "",
-                   pv ? pv->size : 0, NULL))
-        return false;
+    wrap = strchr(alg->name, '+');
+    if (wrap) {
+        const jose_hook_alg_t *kw = NULL;
 
-    json_decref(tmp);
-    tmp = json_pack("{s:s,s:o}", "kty", "oct", "k",
-                    jose_b64_encode_json(dk->data, dk->size));
-    if (!tmp)
-        return false;
+        kw = jose_hook_alg_find(JOSE_HOOK_ALG_KIND_WRAP, &wrap[1]);
+        if (!kw)
+            return false;
 
-    if (aes) {
-        for (jose_jwe_wrapper_t *w = jose_jwe_wrappers(); w; w = w->next) {
-            if (strcmp(aes, w->alg) == 0)
-                return w->wrap(jwe, cek, tmp, rcp, aes);
-        }
-
-        return false;
+        return kw->wrap.wrp(kw, cfg, jwe, rcp, der, cek);
     }
 
-    return json_object_update(cek, tmp) == 0;
-}
+    if (json_object_update(cek, der) < 0)
+        return false;
 
-static jose_buf_t *
-get_dk(const json_t *jwe, const json_t *rcp)
-{
-    json_auto_t *head = NULL;
-    json_auto_t *jwk = NULL;
-    const char *enc = NULL;
-
-    head = jose_jwe_merge_header(jwe, rcp);
-    if (!head)
-        return NULL;
-
-    if (json_unpack(head, "{s:s}", "enc", &enc) == -1)
-        return NULL;
-
-    jwk = json_pack("{s:s}", "alg", enc);
-    if (!jwk)
-        return NULL;
-
-    if (!jose_jwk_generate(jwk))
-        return NULL;
-
-    if (!json_is_string(json_object_get(jwk, "k")))
-        return NULL;
-
-    return jose_b64_decode_json(json_object_get(jwk, "k"));
+    return add_entity(jwe, rcp, "recipients", "header", "encrypted_key", NULL);
 }
 
 static bool
-unwrap(const json_t *jwe, const json_t *jwk, const json_t *rcp,
-       const char *alg, json_t *cek)
+alg_wrap_unw(const jose_hook_alg_t *alg, jose_cfg_t *cfg, const json_t *jwe,
+             const json_t *rcp, const json_t *jwk, json_t *cek)
 {
-    jose_buf_auto_t *ky = NULL;
-    jose_buf_auto_t *pu = NULL;
-    jose_buf_auto_t *pv = NULL;
-    jose_buf_auto_t *dk = NULL;
-    json_auto_t *tmp = NULL;
+    const json_t *epk = NULL;
+    json_auto_t *exc = NULL;
+    json_auto_t *der = NULL;
     json_auto_t *hdr = NULL;
-    const char *apu = NULL;
-    const char *apv = NULL;
-    const char *aes = NULL;
-    const char *enc = NULL;
-    json_t *epk = NULL;
+    const char *wrap = NULL;
 
-    switch (str2enum(alg, NAMES, NULL)) {
-    case 0: dk = get_dk(jwe, rcp);  break;
-    case 1: dk = jose_buf(16, JOSE_BUF_FLAG_WIPE); aes = "A128KW"; break;
-    case 2: dk = jose_buf(24, JOSE_BUF_FLAG_WIPE); aes = "A192KW"; break;
-    case 3: dk = jose_buf(32, JOSE_BUF_FLAG_WIPE); aes = "A256KW"; break;
-    default: return false;
-    }
-    if (!dk)
-        return false;
-
-    hdr = jose_jwe_merge_header(jwe, rcp);
-    if (json_unpack(hdr, "{s:o,s?s,s?s,s:s}", "epk", &epk, "apu", &apu,
-                    "apv", &apv, "enc", &enc) == -1)
-        return false;
-
-    if (!aes && !enc)
-        return false;
-
-    pu = jose_b64_decode(apu);
-    pv = jose_b64_decode(apv);
-    if ((apu && !pu) || (apv && !pv))
+    hdr = jose_jwe_hdr(jwe, rcp);
+    epk = json_object_get(hdr, "epk");
+    if (!hdr || !epk)
         return false;
 
     /* If the JWK has a private key, perform the normal exchange. */
-    if (json_object_get(jwk, "d"))
-        tmp = exchange(jwk, epk);
+    if (json_object_get(jwk, "d")) {
+        const jose_hook_alg_t *ecdh = NULL;
+
+        ecdh = jose_hook_alg_find(JOSE_HOOK_ALG_KIND_EXCH, "ECDH");
+        if (!ecdh)
+            return false;
+
+        exc = ecdh->exch.exc(ecdh, cfg, jwk, epk);
 
     /* Otherwise, allow external exchanges. */
-    else if (json_equal(json_object_get(jwk, "crv"),
-                        json_object_get(epk, "crv")))
-        tmp = json_deep_copy(jwk);
-
-    ky = jose_b64_decode_json(json_object_get(tmp, "x"));
-    if (!ky)
+    } else if (json_equal(json_object_get(jwk, "crv"),
+                          json_object_get(epk, "crv"))) {
+        exc = json_deep_copy(jwk);
+    }
+    if (!exc)
         return false;
 
-    if (!concatkdf(EVP_sha256(), dk->data, dk->size, ky->data, ky->size,
-                   aes ? alg : enc, strlen(aes ? alg : enc),
-                   pu ? pu->data : (uint8_t *) "",
-                   pu ? pu->size : 0,
-                   pv ? pv->data : (uint8_t *) "",
-                   pv ? pv->size : 0, NULL))
+    der = derive(alg, cfg, hdr, cek, exc);
+    if (!der)
         return false;
 
-    json_decref(tmp);
-    tmp = json_pack("{s:s,s:o}", "kty", "oct", "k",
-                    jose_b64_encode_json(dk->data, dk->size));
-    if (!tmp)
-        return false;
+    wrap = strchr(alg->name, '+');
+    if (wrap) {
+        const jose_hook_alg_t *kw = NULL;
 
-    if (aes) {
-        for (jose_jwe_wrapper_t *w = jose_jwe_wrappers(); w; w = w->next) {
-            if (strcmp(aes, w->alg) == 0)
-                return w->unwrap(jwe, tmp, rcp, aes, cek);
-        }
+        kw = jose_hook_alg_find(JOSE_HOOK_ALG_KIND_WRAP, &wrap[1]);
+        if (!kw)
+            return false;
 
-        return false;
+        return kw->wrap.unw(kw, cfg, jwe, rcp, der, cek);
     }
 
-    return json_object_update_missing(cek, tmp) == 0;
+    return json_object_update(cek, der) == 0;
 }
 
 static void __attribute__((constructor))
 constructor(void)
 {
-    static jose_jwk_exchanger_t exchanger = {
-        .exchange = exchange
+    static jose_hook_jwk_t jwk = {
+        .kind = JOSE_HOOK_JWK_KIND_PREP,
+        .prep.handles = jwk_prep_handles,
+        .prep.execute = jwk_prep_execute
     };
 
-    static jose_jwk_resolver_t resolver = {
-        .resolve = resolve
-    };
-
-    static jose_jwe_wrapper_t wrappers[] = {
-        { NULL, "ECDH-ES", suggest, wrap, unwrap },
-        { NULL, "ECDH-ES+A128KW", suggest, wrap, unwrap },
-        { NULL, "ECDH-ES+A192KW", suggest, wrap, unwrap },
-        { NULL, "ECDH-ES+A256KW", suggest, wrap, unwrap },
+    static jose_hook_alg_t algs[] = {
+        { .kind = JOSE_HOOK_ALG_KIND_WRAP,
+          .name = "ECDH-ES",
+          .wrap.eprm = "wrapKey",
+          .wrap.dprm = "unwrapKey",
+          .wrap.alg = alg_wrap_alg,
+          .wrap.enc = alg_wrap_enc,
+          .wrap.wrp = alg_wrap_wrp,
+          .wrap.unw = alg_wrap_unw },
+        { .kind = JOSE_HOOK_ALG_KIND_WRAP,
+          .name = "ECDH-ES+A128KW",
+          .wrap.eprm = "wrapKey",
+          .wrap.dprm = "unwrapKey",
+          .wrap.alg = alg_wrap_alg,
+          .wrap.enc = alg_wrap_enc,
+          .wrap.wrp = alg_wrap_wrp,
+          .wrap.unw = alg_wrap_unw },
+        { .kind = JOSE_HOOK_ALG_KIND_WRAP,
+          .name = "ECDH-ES+A192KW",
+          .wrap.eprm = "wrapKey",
+          .wrap.dprm = "unwrapKey",
+          .wrap.alg = alg_wrap_alg,
+          .wrap.enc = alg_wrap_enc,
+          .wrap.wrp = alg_wrap_wrp,
+          .wrap.unw = alg_wrap_unw },
+        { .kind = JOSE_HOOK_ALG_KIND_WRAP,
+          .name = "ECDH-ES+A256KW",
+          .wrap.eprm = "wrapKey",
+          .wrap.dprm = "unwrapKey",
+          .wrap.alg = alg_wrap_alg,
+          .wrap.enc = alg_wrap_enc,
+          .wrap.wrp = alg_wrap_wrp,
+          .wrap.unw = alg_wrap_unw },
         {}
     };
 
-    jose_jwk_register_exchanger(&exchanger);
-    jose_jwk_register_resolver(&resolver);
-
-    for (size_t i = 0; wrappers[i].alg; i++)
-        jose_jwe_register_wrapper(&wrappers[i]);
+    jose_hook_jwk_push(&jwk);
+    for (size_t i = 0; algs[i].name; i++)
+        jose_hook_alg_push(&algs[i]);
 }

@@ -15,28 +15,29 @@
  * limitations under the License.
  */
 
+/**
+ * \mainpage José API Documentation
+ * \author Nathaniel McCallum
+ * \copyright Apache License, Version 2.0
+ *
+ * José is a C-language implementation of the Javascript Object Signing and
+ * Encryption standards. Specifically, José aims towards implementing the
+ * following standards:
+ *
+ * * RFC 7515 - JSON Web Signature (JWS)
+ * * RFC 7516 - JSON Web Encryption (JWE)
+ * * RFC 7517 - JSON Web Key (JWK)
+ * * RFC 7518 - JSON Web Algorithms (JWA)
+ * * RFC 7519 - JSON Web Token (JWT)
+ * * RFC 7520 - Examples of Protecting Content Using JOSE
+ * * RFC 7638 - JSON Web Key (JWK) Thumbprint
+ */
+
 #pragma once
 
-#include <jose/b64.h>
-#include <jose/jwk.h>
-#include <jose/jws.h>
-#include <jose/jwe.h>
+#include "b64.h"
+#include "jwe.h"
+#include "jwk.h"
+#include "jws.h"
 
 #define JOSE_VERSION @VERSION@
-
-/**
- * Converts a JWS or JWE from compact format into JSON format.
- */
-json_t *
-jose_from_compact(const char *cmpct);
-
-/**
- * Converts a JWS or JWE from JSON format into compact format.
- *
- * If more than one signature/recipient exists or if an unprotected header is
- * found, this operation will fail.
- *
- * Free with free().
- */
-char *
-jose_to_compact(const json_t *jose);

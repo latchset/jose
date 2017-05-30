@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv='content-type' value='text/html;charset=utf8'>
+  <meta name='generator' value='Ronn/v0.7.3 (http://github.com/rtomayko/ronn/tree/0.7.3)'>
+  <title>jose(1) - Toolkit for performing JSON Object Signing and Encryption</title>
+  <style type='text/css' media='all'>
+  /* style: man */
+  body#manpage {margin:0}
+  .mp {max-width:100ex;padding:0 9ex 1ex 4ex}
+  .mp p,.mp pre,.mp ul,.mp ol,.mp dl {margin:0 0 20px 0}
+  .mp h2 {margin:10px 0 0 0}
+  .mp > p,.mp > pre,.mp > ul,.mp > ol,.mp > dl {margin-left:8ex}
+  .mp h3 {margin:0 0 0 4ex}
+  .mp dt {margin:0;clear:left}
+  .mp dt.flush {float:left;width:8ex}
+  .mp dd {margin:0 0 0 9ex}
+  .mp h1,.mp h2,.mp h3,.mp h4 {clear:left}
+  .mp pre {margin-bottom:20px}
+  .mp pre+h2,.mp pre+h3 {margin-top:22px}
+  .mp h2+pre,.mp h3+pre {margin-top:5px}
+  .mp img {display:block;margin:auto}
+  .mp h1.man-title {display:none}
+  .mp,.mp code,.mp pre,.mp tt,.mp kbd,.mp samp,.mp h3,.mp h4 {font-family:monospace;font-size:14px;line-height:1.42857142857143}
+  .mp h2 {font-size:16px;line-height:1.25}
+  .mp h1 {font-size:20px;line-height:2}
+  .mp {text-align:justify;background:#fff}
+  .mp,.mp code,.mp pre,.mp pre code,.mp tt,.mp kbd,.mp samp {color:#131211}
+  .mp h1,.mp h2,.mp h3,.mp h4 {color:#030201}
+  .mp u {text-decoration:underline}
+  .mp code,.mp strong,.mp b {font-weight:bold;color:#131211}
+  .mp em,.mp var {font-style:italic;color:#232221;text-decoration:none}
+  .mp a,.mp a:link,.mp a:hover,.mp a code,.mp a pre,.mp a tt,.mp a kbd,.mp a samp {color:#0000ff}
+  .mp b.man-ref {font-weight:normal;color:#434241}
+  .mp pre {padding:0 4ex}
+  .mp pre code {font-weight:normal;color:#434241}
+  .mp h2+pre,h3+pre {padding-left:0}
+  ol.man-decor,ol.man-decor li {margin:3px 0 10px 0;padding:0;float:left;width:33%;list-style-type:none;text-transform:uppercase;color:#999;letter-spacing:1px}
+  ol.man-decor {width:100%}
+  ol.man-decor li.tl {text-align:left}
+  ol.man-decor li.tc {text-align:center;letter-spacing:4px}
+  ol.man-decor li.tr {text-align:right;float:right}
+  </style>
+</head>
+<!--
+  The following styles are deprecated and will be removed at some point:
+  div#man, div#man ol.man, div#man ol.head, div#man ol.man.
+
+  The .man-page, .man-decor, .man-head, .man-foot, .man-title, and
+  .man-navigation should be used instead.
+-->
+<body id='manpage'>
+  <div class='mp' id='man'>
+
+  <div class='man-navigation' style='display:none'>
+    <a href="#NAME">NAME</a>
+    <a href="#SYNOPSIS">SYNOPSIS</a>
+    <a href="#OVERVIEW">OVERVIEW</a>
+    <a href="#AUTHOR">AUTHOR</a>
+    <a href="#SEE-ALSO">SEE ALSO</a>
+  </div>
+
+  <ol class='man-decor man-head man head'>
+    <li class='tl'>jose(1)</li>
+    <li class='tc'></li>
+    <li class='tr'>jose(1)</li>
+  </ol>
+
+  <h2 id="NAME">NAME</h2>
+<p class="man-name">
+  <code>jose</code> - <span class="man-whatis">Toolkit for performing JSON Object Signing and Encryption</span>
+</p>
+
+<h2 id="SYNOPSIS">SYNOPSIS</h2>
+
+<p><code>jose alg</code> [-k KIND]</p>
+
+<p><code>jose b64 dec</code> -i B64 [-O BIN]</p>
+
+<p><code>jose b64 enc</code> -I BIN [-o B64]</p>
+
+<p><code>jose jwe dec</code> -i JWE [-I CT] -k JWK [-p] [-O PT]</p>
+
+<p><code>jose jwe enc</code> [-i JWE] -I PT -k JWK [-p] [-r RCP] [-o JWE] [-O CT] [-c]</p>
+
+<p><code>jose jwe fmt</code> -i JWE [-I CT] [-o JWE] [-O CT] [-c]</p>
+
+<p><code>jose jwk exc</code> [-i JWK] -l JWK -r JWK [-o JWK]</p>
+
+<p><code>jose jwk gen</code> -i JWK [-o JWK]</p>
+
+<p><code>jose jwk pub</code> -i JWK [-o JWK]</p>
+
+<p><code>jose jwk thp</code> -i JWK [-H ALG] [-o THP]</p>
+
+<p><code>jose jwk use</code> -i JWK [-a] [-r] -u OP</p>
+
+<p><code>jose jws fmt</code> -i JWS [-I PAY] [-o JWS] [-O PAY] [-c]</p>
+
+<p><code>jose jws sig</code> [-i JWS] [-I PAY] [-s SIG] -k JWK [-o JWS] [-O PAY] [-c]</p>
+
+<p><code>jose jws ver</code> -i JWS [-I PAY] -k JWK [-O PAY] [-a]</p>
+
+<h2 id="OVERVIEW">OVERVIEW</h2>
+
+<p>José is a C-language implementation of the Javascript Object Signing and
+Encryption standards. Specifically, José aims towards implementing the
+following standards:</p>
+
+<ul>
+<li>RFC 7515 - JSON Web Signature (JWS)</li>
+<li>RFC 7516 - JSON Web Encryption (JWE)</li>
+<li>RFC 7517 - JSON Web Key (JWK)</li>
+<li>RFC 7518 - JSON Web Algorithms (JWA)</li>
+<li>RFC 7519 - JSON Web Token (JWT)</li>
+<li>RFC 7520 - Examples of Protecting Content Using JOSE</li>
+<li>RFC 7638 - JSON Web Key (JWK) Thumbprint</li>
+</ul>
+
+
+<p>The José command line utility provides facilities for the following:</p>
+
+<ul>
+<li>URL-safe Base64 Encoding &amp; Decoding</li>
+<li>Key Generation and Management</li>
+<li>Encryption &amp; Decryption</li>
+<li>Signing &amp; Verification</li>
+</ul>
+
+
+<h2 id="AUTHOR">AUTHOR</h2>
+
+<p>Nathaniel McCallum &lt;npmccallum@redhat.com&gt;</p>
+
+<h2 id="SEE-ALSO">SEE ALSO</h2>
+
+<p><code>jose-alg</code>(1),
+<code>jose-b64-dec</code>(1),
+<code>jose-b64-enc</code>(1),
+<code>jose-jwe-dec</code>(1),
+<code>jose-jwe-enc</code>(1),
+<code>jose-jwe-fmt</code>(1),
+<code>jose-jwk-exc</code>(1),
+<code>jose-jwk-gen</code>(1),
+<code>jose-jwk-pub</code>(1),
+<code>jose-jwk-thp</code>(1),
+<code>jose-jwk-use</code>(1),
+<code>jose-jws-fmt</code>(1),
+<code>jose-jws-sig</code>(1),
+<code>jose-jws-ver</code>(1)</p>
+
+
+  <ol class='man-decor man-foot man foot'>
+    <li class='tl'></li>
+    <li class='tc'>May 2017</li>
+    <li class='tr'>jose(1)</li>
+  </ol>
+
+  </div>
+</body>
+</html>

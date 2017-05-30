@@ -1,0 +1,87 @@
+#!/bin/bash -ex
+
+ALGS=`../cmd/jose alg -k sign`
+
+tmpdir=`mktemp -d`
+
+function onexit() {
+    rm -rf $tmpdir
+}
+
+trap exit ERR
+trap onexit EXIT
+
+msg=$tmpdir/msg.txt
+echo -n hi > $msg
+
+for a in $ALGS; do
+    jwk=$tmpdir/$a.jwk
+    jws=$tmpdir/$a.jws
+
+    ../cmd/jose jwk gen -i "{\"alg\":\"$a\"}" -o $jwk
+    ../cmd/jose jwk pub -i $jwk -o $jwk.pub
+
+    old=$prv
+    prv=$jwk
+done
+
+for a in $ALGS; do
+    jwk=$tmpdir/$a.jwk
+    jws=$tmpdir/$a.jws
+
+    echo -n hi | ../cmd/jose jws sig -I- -k $jwk    | ../cmd/jose jws ver -i- -k $jwk
+    echo -n hi | ../cmd/jose jws sig -I- -k $jwk -c | ../cmd/jose jws ver -i- -k $jwk
+
+    ../cmd/jose jws sig -o $jws -k $jwk -I $msg
+    ../cmd/jose jws ver -i $jws -k $jwk
+    rm -f $jws
+
+    ../cmd/jose jws sig -o $jws -k $jwk -I $msg -c
+    ../cmd/jose jws ver -i $jws -k $jwk
+    rm -f $jws
+
+    det=`../cmd/jose jws sig -I $msg -k $jwk -o /dev/null -O-`
+    [ "$det" == "hi" ]
+
+    jws=`../cmd/jose jws sig -I $msg -k $jwk -O /dev/null`
+    ! ../cmd/jose jws ver -i "$jws" -k $jwk
+    det=`../cmd/jose jws ver -i "$jws" -k $jwk -I $msg -O-`
+    [ "$det" == "hi" ]
+
+    jws=`../cmd/jose jws sig -I $msg -k $jwk`
+    det=`../cmd/jose jws ver -i "$jws" -k $jwk`
+    [ "$det" == "" ]
+    det=`../cmd/jose jws ver -i "$jws" -k $jwk -O-`
+    [ "$det" == "hi" ]
+
+    jws=`../cmd/jose jws sig -I $msg -k $jwk -c`
+    det=`../cmd/jose jws ver -i "$jws" -k $jwk`
+    [ "$det" == "" ]
+    det=`../cmd/jose jws ver -i "$jws" -k $jwk -O-`
+    [ "$det" == "hi" ]
+
+    jws=`../cmd/jose jws sig -k $jwk -I $msg -s "{\"protected\":{\"alg\":\"$a\"}}"`
+    ../cmd/jose jws ver -i "$jws" -k $jwk
+
+    jws=`../cmd/jose jws sig -k $jwk -i "{\"payload\":\"aGkK\"}"`
+    ../cmd/jose jws ver -i "$jws" -k $jwk
+
+    for b in $ALGS; do
+        [ $a == $b ] && continue
+
+        ! ../cmd/jose jws sig -I $msg -k $jwk -s "{\"protected\":{\"alg\":\"$b\"}}"
+
+        jws=`../cmd/jose jws sig -I $msg -k $jwk`
+        ! ../cmd/jose jws ver -i "$jws" -k $tmpdir/$b.jwk
+    done
+
+    jws=`../cmd/jose jws sig -I $msg -k $jwk -k $prv`
+    ../cmd/jose jws ver -i "$jws" -k $jwk
+    ../cmd/jose jws ver -i "$jws" -k $prv
+    ! ../cmd/jose jws ver -i "$jws" -k $old
+    ../cmd/jose jws ver -i "$jws" -k $jwk -k $prv -a
+    ! ../cmd/jose jws ver -i "$jws" -k $jwk -k $prv -k $old -a
+
+    old=$prv
+    prv=$jwk
+done

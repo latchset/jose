@@ -1,0 +1,26 @@
+#!/bin/bash -ex
+
+../cmd/jose jwk use -i '{}' -u encrypt
+! ../cmd/jose jwk use -i '{}' -r -u encrypt
+
+! ../cmd/jose jwk use -i '{"use": true}' -u encrypt
+! ../cmd/jose jwk use -i '{"key_ops": []}' -u encrypt
+! ../cmd/jose jwk use -i '{"key_ops": [true]}' -u encrypt
+
+../cmd/jose jwk use -i '{"use": "enc"}' -u encrypt
+! ../cmd/jose jwk use -i '{"use": "sig"}' -u encrypt
+
+../cmd/jose jwk use -i '{"key_ops": ["encrypt", "decrypt"]}' -u encrypt
+../cmd/jose jwk use -i '{"key_ops": ["encrypt", "decrypt"]}' -u encrypt -u decrypt
+../cmd/jose jwk use -i '{"key_ops": ["encrypt", "decrypt"]}' -a -u encrypt -u decrypt
+../cmd/jose jwk use -i '{"key_ops": ["encrypt", "decrypt"]}' -u encrypt -u sign
+! ../cmd/jose jwk use -i '{"key_ops": ["encrypt", "decrypt"]}' -u sign
+! ../cmd/jose jwk use -i '{"key_ops": ["encrypt", "decrypt"]}' -a -u encrypt -u sign
+
+../cmd/jose jwk use -i '{"use": "sig", "key_ops": ["encrypt", "decrypt"]}' -u encrypt -u sign
+../cmd/jose jwk use -i '{"use": "sig", "key_ops": ["encrypt", "decrypt"]}' -a -u encrypt -u sign
+
+! ../cmd/jose jwk use -i '{"use": "enc"}' -u deriveKey
+! ../cmd/jose jwk use -i '{"use": "enc"}' -u deriveBits
+! ../cmd/jose jwk use -i '{"use": "sig"}' -u deriveKey
+! ../cmd/jose jwk use -i '{"use": "sig"}' -u deriveBits

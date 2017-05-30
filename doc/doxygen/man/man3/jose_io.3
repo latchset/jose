@@ -1,0 +1,219 @@
+.TH "jose_io" 3 "Tue May 30 2017" "José" \" -*- nroff -*-
+.ad l
+.nh
+.SH NAME
+jose_io \- IO Chaining\&.  
+
+.SH SYNOPSIS
+.br
+.PP
+.SS "Data Structures"
+
+.in +1c
+.ti -1c
+.RI "struct \fBjose_io_t\fP"
+.br
+.RI "The interface for chained IO\&. "
+.in -1c
+.SS "Typedefs"
+
+.in +1c
+.ti -1c
+.RI "typedef \fBjose_io_t\fP \fBjose_io_auto_t\fP"
+.br
+.RI "Defines a \fBjose_io_t\fP which calls \fBjose_io_decref()\fP at end of scope\&. "
+.in -1c
+.SS "Functions"
+
+.in +1c
+.ti -1c
+.RI "\fBjose_io_t\fP * \fBjose_io_incref\fP (\fBjose_io_t\fP *io)"
+.br
+.RI "Increases the reference count of an IO object\&. "
+.ti -1c
+.RI "void \fBjose_io_decref\fP (\fBjose_io_t\fP *io)"
+.br
+.RI "Decreases the reference count of an IO object\&. "
+.ti -1c
+.RI "\fBjose_io_t\fP * \fBjose_io_malloc\fP (jose_cfg_t *cfg, void **buf, size_t *len)"
+.br
+.RI "Creates a new IO object which collects data into a dynamic buffer\&. "
+.ti -1c
+.RI "void * \fBjose_io_malloc_steal\fP (void **buf)"
+.br
+.RI "Steals the buffer created by the \fBjose_io_malloc()\fP IO object\&. "
+.ti -1c
+.RI "\fBjose_io_t\fP * \fBjose_io_buffer\fP (jose_cfg_t *cfg, void *buf, size_t *len)"
+.br
+.RI "Creates a new IO object which collects data into a static buffer\&. "
+.ti -1c
+.RI "\fBjose_io_t\fP * \fBjose_io_file\fP (jose_cfg_t *cfg, FILE *file)"
+.br
+.RI "Creates a new IO object which writes data into a FILE\&. "
+.ti -1c
+.RI "\fBjose_io_t\fP * \fBjose_io_multiplex\fP (jose_cfg_t *cfg, \fBjose_io_t\fP **nexts, bool all)"
+.br
+.RI "Creates a new IO object which multiplexes data into multiple IO objects\&. "
+.in -1c
+.SH "Detailed Description"
+.PP 
+IO Chaining\&. 
+
+
+.SH "Typedef Documentation"
+.PP 
+.SS "typedef \fBjose_io_t\fP \fBjose_io_auto_t\fP"
+
+.PP
+Defines a \fBjose_io_t\fP which calls \fBjose_io_decref()\fP at end of scope\&. For example: 
+.PP
+.nf
+void foo() {
+    uint8_t *buf = NULL;
+    size_t len = 0;
+    jose_io_auto_t *io = jose_io_malloc(NULL, &buf, &len);
+    // jose_io_decref() implicitly called
+}
+.fi
+.PP
+ 
+.SH "Function Documentation"
+.PP 
+.SS "\fBjose_io_t\fP* jose_io_incref (\fBjose_io_t\fP * io)"
+
+.PP
+Increases the reference count of an IO object\&. This function always succeeds\&.
+.PP
+\fBParameters:\fP
+.RS 4
+\fIio\fP The \fBjose_io_t\fP entity you are using\&. 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+The value of \fCio\fP (for convenience)\&. 
+.RE
+.PP
+
+.SS "void jose_io_decref (\fBjose_io_t\fP * io)"
+
+.PP
+Decreases the reference count of an IO object\&. When the reference count reaches zero, io->free() is called\&.
+.PP
+\fBParameters:\fP
+.RS 4
+\fIio\fP The \fBjose_io_t\fP entity you are using\&. 
+.RE
+.PP
+
+.SS "\fBjose_io_t\fP* jose_io_malloc (jose_cfg_t * cfg, void ** buf, size_t * len)"
+
+.PP
+Creates a new IO object which collects data into a dynamic buffer\&. The dynamic buffer is allocated into the \fCbuf\fP pointer you provided and the length of the buffer is stored in \fClen\fP\&. The pointer referenced by \fCbuf\fP must remain valid for the entire duration of the returned IO object\&.
+.PP
+The default behavior is for the IO object to zero and free the buffer when it is freed\&. This means that, by default, you own the buffer pointer but the buffer itself is owned by the IO object\&. You can, however, steal the buffer by setting the buffer pointer to NULL\&.
+.PP
+\fBSee also:\fP
+.RS 4
+\fBjose_io_malloc_steal()\fP 
+.RE
+.PP
+\fBParameters:\fP
+.RS 4
+\fIcfg\fP The configuration context (optional)\&. 
+.br
+\fIbuf\fP A buffer pointer pointer\&. 
+.br
+\fIlen\fP A pointer to the length of the buffer\&. 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+The new IO object or NULL on error\&. 
+.RE
+.PP
+
+.SS "void* jose_io_malloc_steal (void ** buf)"
+
+.PP
+Steals the buffer created by the \fBjose_io_malloc()\fP IO object\&. This convenience function simply returns the value of \fC*buf\fP and then sets \fC*buf\fP to NULL\&.
+.PP
+\fBSee also:\fP
+.RS 4
+\fBjose_io_malloc()\fP 
+.RE
+.PP
+\fBParameters:\fP
+.RS 4
+\fIbuf\fP A pointer to the buffer pointer\&. 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+The value of \fC*buf\fP before it is set to NULL\&. 
+.RE
+.PP
+
+.SS "\fBjose_io_t\fP* jose_io_buffer (jose_cfg_t * cfg, void * buf, size_t * len)"
+
+.PP
+Creates a new IO object which collects data into a static buffer\&. The size of \fCbuf\fP MUST be specified in the variable pointed to by \fClen\fP\&. This will be the maximum data written\&. However, after the function returns, the variable pointed to by \fClen\fP will contain the current length of data in the buffer\&.
+.PP
+Unlike \fBjose_io_malloc()\fP, you own the buffer and it is not zeroed or freed when the IO object is freed\&.
+.PP
+\fBParameters:\fP
+.RS 4
+\fIcfg\fP The configuration context (optional)\&. 
+.br
+\fIbuf\fP A buffer pointer\&. 
+.br
+\fIlen\fP A pointer to the length of the buffer\&. 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+The new IO object or NULL on error\&. 
+.RE
+.PP
+
+.SS "\fBjose_io_t\fP* jose_io_file (jose_cfg_t * cfg, FILE * file)"
+
+.PP
+Creates a new IO object which writes data into a FILE\&. This function DOES NOT take ownership of the FILE\&. You are still responsible for calling fclose() at the appropriate time\&.
+.PP
+\fBParameters:\fP
+.RS 4
+\fIcfg\fP The configuration context (optional)\&. 
+.br
+\fIfile\fP The output file which MUST be opened for writing or appending\&. 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+The new IO object or NULL on error\&. 
+.RE
+.PP
+
+.SS "\fBjose_io_t\fP* jose_io_multiplex (jose_cfg_t * cfg, \fBjose_io_t\fP ** nexts, bool all)"
+
+.PP
+Creates a new IO object which multiplexes data into multiple IO objects\&. If \fCall\fP is true, the success of all \fCnexts\fP is required\&. Otherwise, all but one of the \fCnexts\fP can fail before the error is propagated upward\&.
+.PP
+\fBParameters:\fP
+.RS 4
+\fIcfg\fP The configuration context (optional)\&. 
+.br
+\fInexts\fP A NULL-terminated array of IO object pointers\&. 
+.br
+\fIall\fP Whether or not the success of all \fCnexts\fP is required\&. 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+The new IO object or NULL on error\&. 
+.RE
+.PP
+
+.SH "Author"
+.PP 
+Generated automatically by Doxygen for José from the source code\&.

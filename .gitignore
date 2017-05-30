@@ -27,7 +27,7 @@ depcomp
 install-sh
 libtool
 ltmain.sh
-luksmeta.pc
+Makecache
 Makefile.in
 Makefile
 missing
@@ -37,9 +37,11 @@ vgcore.*
 
 cmd/jose
 jose/jose.h
-tests/b64
-tests/jwk
-tests/jwkset
-tests/jws
-tests/jwe
-tests/rsa_oaep
+
+tests/alg_*
+tests/api_*
+!tests/alg_*.c
+!tests/api_*.c
+
+doc/doxygen/man/man3/*
+!doc/doxygen/man/man3/jose_*.3

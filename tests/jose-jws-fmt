@@ -1,0 +1,20 @@
+#!/bin/bash -ex
+
+for f in ${srcdir:-.}/vectors/*.jwsc; do
+    cmpct=`cat $f`
+    flat=`echo $f | sed 's|jwsc|jwsf|'`
+    gen=`echo $f | sed 's|jwsc|jwsg|'`
+
+    if [ -f $flat ]; then
+    	[ `../cmd/jose jws fmt -i $flat -c` == $cmpct ]
+    	[ `../cmd/jose jws fmt -i $flat | ../cmd/jose jws fmt -i- -c` == $cmpct ]
+    fi
+
+    if [ -f $gen ]; then
+    	[ `../cmd/jose jws fmt -i $gen -c` == $cmpct ]
+    	[ `../cmd/jose jws fmt -i $gen | ../cmd/jose jws fmt -i- -c` == $cmpct ]
+    fi
+
+    [ `../cmd/jose jws fmt -i $f -c` == $cmpct ]
+    [ `../cmd/jose jws fmt -i $f | ../cmd/jose jws fmt -i- -c` == $cmpct ]
+done

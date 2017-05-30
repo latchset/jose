@@ -1,0 +1,46 @@
+#!/bin/bash -ex
+
+WRAP=`../cmd/jose alg -k wrap`
+ENCR=`../cmd/jose alg -k encr`
+
+tmpdir=`mktemp -d`
+
+function onexit() {
+    rm -rf $tmpdir
+}
+
+trap exit ERR
+trap onexit EXIT
+
+jwk=$tmpdir/jwk
+jwe=$tmpdir/jwe
+
+for msg in "hi" "this is a longer message that is more than one block"; do
+    for w in $WRAP; do
+        [ $w == "dir" ] && continue
+
+        ../cmd/jose jwk gen -i "{\"alg\":\"$w\"}" -o $jwk
+
+        echo -n "$msg" | ../cmd/jose jwe enc -I- -k $jwk -o $jwe
+        [ "`../cmd/jose jwe dec -i $jwe -k $jwk -O-`" == "$msg" ]
+
+        for e in $ENCR; do
+            echo -n "$msg" | ../cmd/jose jwe enc \
+                -i "{\"protected\":{\"enc\":\"$e\"}}" -I- \
+                -k $jwk -o $jwe
+            [ "`../cmd/jose jwe dec -i $jwe -k $jwk -O-`" == "$msg" ]
+        done
+    done
+
+    for e in $ENCR; do
+        ../cmd/jose jwk gen -i "{\"alg\":\"$e\"}" -o $jwk
+
+        echo -n "$msg" | ../cmd/jose jwe enc \
+            -i "{\"protected\":{\"alg\":\"dir\"}}" -I- \
+            -k $jwk -o $jwe
+        [ "`../cmd/jose jwe dec -i $jwe -k $jwk -O-`" == "$msg" ]
+
+        echo -n "$msg" | ../cmd/jose jwe enc -I- -k $jwk -o $jwe
+        [ "`../cmd/jose jwe dec -i $jwe -k $jwk -O-`" == "$msg" ]
+    done
+done

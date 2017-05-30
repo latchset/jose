@@ -168,22 +168,22 @@ RSA_set0_crt_params(RSA *r, BIGNUM *dmp1, BIGNUM *dmq1, BIGNUM *iqmp)
 EVP_MD_CTX *
 EVP_MD_CTX_new(void)
 {
-    EVP_MD_CTX *ctx = OPENSSL_malloc(sizeof(EVP_MD_CTX));
-    if (!ctx)
+    EVP_MD_CTX *cfg = OPENSSL_malloc(sizeof(EVP_MD_CTX));
+    if (!cfg)
         return NULL;
 
-    EVP_MD_CTX_init(ctx);
-    return ctx;
+    EVP_MD_CTX_init(cfg);
+    return cfg;
 }
 
 void
-EVP_MD_CTX_free(EVP_MD_CTX *ctx)
+EVP_MD_CTX_free(EVP_MD_CTX *cfg)
 {
-    if (!ctx)
+    if (!cfg)
         return;
 
-    EVP_MD_CTX_cleanup(ctx);
-    OPENSSL_free(ctx);
+    EVP_MD_CTX_cleanup(cfg);
+    OPENSSL_free(cfg);
 }
 
 void
@@ -212,22 +212,28 @@ ECDSA_SIG_set0(ECDSA_SIG *sig, BIGNUM *r, BIGNUM *s)
 HMAC_CTX *
 HMAC_CTX_new(void)
 {
-    HMAC_CTX *ctx = OPENSSL_malloc(sizeof(HMAC_CTX));
+    HMAC_CTX *cfg = OPENSSL_malloc(sizeof(HMAC_CTX));
 
-    if (!ctx)
+    if (!cfg)
         return NULL;
 
-    HMAC_CTX_init(ctx);
-    return ctx;
+    HMAC_CTX_init(cfg);
+    return cfg;
+}
+
+const EVP_MD *
+HMAC_CTX_get_md(const HMAC_CTX *ctx)
+{
+    return ctx->md;
 }
 
 void
-HMAC_CTX_free(HMAC_CTX *ctx)
+HMAC_CTX_free(HMAC_CTX *cfg)
 {
-    if (!ctx)
+    if (!cfg)
         return;
 
-    HMAC_CTX_cleanup(ctx);
-    OPENSSL_free(ctx);
+    HMAC_CTX_cleanup(cfg);
+    OPENSSL_free(cfg);
 }
 #endif

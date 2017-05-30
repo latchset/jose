@@ -1,0 +1,31 @@
+#!/bin/bash -ex
+
+ALGS=`../cmd/jose alg -k sign -k wrap -k encr | grep -v '^dir$'`
+
+##
+### Generate a key for every supported algorithm
+##
+
+for a in $ALGS; do
+    ../cmd/jose jwk gen -i "{\"alg\": \"$a\"}"
+done
+
+##
+### Generate a key for each parameter
+##
+
+../cmd/jose jwk gen -i '{ "kty": "EC", "crv": "P-256" }'
+../cmd/jose jwk gen -i '{ "kty": "EC", "crv": "P-384" }'
+../cmd/jose jwk gen -i '{ "kty": "EC", "crv": "P-521" }'
+
+../cmd/jose jwk gen -i '{ "kty": "RSA", "bits": 3072 }'
+../cmd/jose jwk gen -i '{ "kty": "RSA", "bits": 3072, "e": 257 }'
+../cmd/jose jwk gen -i '{ "kty": "RSA", "bits": 3072, "e": "AQE" }'
+
+../cmd/jose jwk gen -i '{ "kty": "oct", "bytes": 32 }'
+
+##
+### Test the key types we can't generate
+##
+
+! ../cmd/jose jwk gen -i '{"alg": "dir"}'

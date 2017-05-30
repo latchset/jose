@@ -3,7 +3,7 @@ exec_prefix=@exec_prefix@
 libdir=@libdir@
 includedir=${prefix}/include
 
-Name: José Core Library
+Name: José Library
 Description: Library for managing JOSE objects
 Requires: jansson
 Version: @VERSION@

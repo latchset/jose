@@ -15,86 +15,124 @@
  * limitations under the License.
  */
 
+/**
+ * \brief URL-safe Base64 Encoding & Decoding
+ * \defgroup jose_b64 Base64
+ * @{
+ */
+
 #pragma once
 
-#include <jose/buf.h>
+#include "io.h"
 #include <jansson.h>
 #include <stdbool.h>
 #include <stdint.h>
 
+#define JOSE_B64_MAP "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+
 /**
- * Returns the length of data after decoding.
+ * Decodes a URL-safe Base64 JSON string to a buffer.
+ *
+ * If \p o is NULL, the number of output bytes necessary is returned.
+ *
+ * This function will never write more than \p ol bytes. If the output buffer
+ * is too small, an error will occur.
+ *
+ * \param i  The input URL-safe Base64 JSON string.
+ * \param o  The output buffer (may be NULL).
+ * \param ol The size of the output buffer.
+ * \return   The number of bytes that were (or would be) written.
+ *           If an error occurs, SIZE_MAX is returned.
  */
 size_t
-jose_b64_dlen(size_t elen);
+jose_b64_dec(const json_t *i, void *o, size_t ol);
 
 /**
- * Returns the length of data after encoding.
+ * Creates a new IO object which performs URL-safe Base64 decoding.
+ *
+ * All data written to the returned IO object will be decoded before
+ * passing it on to the next IO object in the chain.
+ *
+ * \param next The next IO object in the chain.
+ * \return     The new IO object or NULL on error.
+ */
+jose_io_t *
+jose_b64_dec_io(jose_io_t *next);
+
+/**
+ * Decodes a URL-safe Base64 buffer to an output buffer.
+ *
+ * If \p o is NULL, the number of output bytes necessary is returned.
+ *
+ * This function will never write more than \p ol bytes. If the output buffer
+ * is too small, an error will occur.
+ *
+ * \param i  The input URL-safe Base64 buffer.
+ * \param il The size of the data in the input buffer.
+ * \param o  The output buffer.
+ * \param ol The size of the output buffer.
+ * \return   The number of bytes that were (or would be) written.
+ *           If an error occurs, SIZE_MAX is returned.
  */
 size_t
-jose_b64_elen(size_t dlen);
+jose_b64_dec_buf(const void *i, size_t il, void *o, size_t ol);
 
 /**
- * Decodes the encoded C string to an allocated byte array.
- */
-jose_buf_t *
-jose_b64_decode(const char *enc);
-
-/**
- * Decodes the encoded C string to a byte array.
+ * Decodes a JSON string from a URL-safe Base64 JSON string.
  *
- * NOTE: The buffer MUST be at least as long as
- *       jose_b64_dlen(strlen(enc)).
- */
-bool
-jose_b64_decode_buf(const char *enc, uint8_t dec[]);
-
-/**
- * Decodes the encoded JSON string to an allocated byte array.
- */
-jose_buf_t *
-jose_b64_decode_json(const json_t *enc);
-
-/**
- * Decodes the encoded JSON string to a byte array.
- *
- * NOTE: The buffer MUST be at least as long as
- *       jose_b64_dlen(json_string_length(enc)).
- */
-bool
-jose_b64_decode_json_buf(const json_t *enc, uint8_t dec[]);
-
-/**
- * Decodes the encoded JSON string containing a JSON serialization.
- *
- * Upon successful decoding, the serialization is deserialized.
+ * \param i The input URL-safe Base64 JSON string containing JSON data.
+ * \return  The output JSON data.
  */
 json_t *
-jose_b64_decode_json_load(const json_t *enc);
+jose_b64_dec_load(const json_t *i);
 
 /**
- * Encodes the input byte array to an allocated C string.
- */
-char *
-jose_b64_encode(const uint8_t dec[], size_t len);
-
-/**
- * Encodes the input byte array to a C string.
+ * Encodes data to a URL-safe Base64 JSON string.
  *
- * NOTE: The enc parameter MUST be at least as long as
- *       jose_b64_elen(len) + 1.
- */
-void
-jose_b64_encode_buf(const uint8_t dec[], size_t len, char enc[]);
-
-/**
- * Encodes the input byte array to a JSON string.
+ * \param i  The input buffer.
+ * \param il The size of the data in the input buffer.
+ * \return   The decoded JSON data. If an error occurs, NULL is returned.
  */
 json_t *
-jose_b64_encode_json(const uint8_t dec[], size_t len);
+jose_b64_enc(const void *i, size_t il);
 
 /**
- * Encodes the input JSON after serializing it.
+ * Creates a new IO object which performs URL-safe Base64 encoding.
+ *
+ * All data written to the returned IO object will be encoded before passing
+ * it on to the next IO object in the chain.
+ *
+ * \param next The next IO object in the chain.
+ * \return     The new IO object or NULL on error.
+ */
+jose_io_t *
+jose_b64_enc_io(jose_io_t *next);
+
+/**
+ * Encodes data to a URL-safe Base64 buffer.
+ *
+ * If \p o is NULL, the number of output bytes necessary is returned.
+ *
+ * This function will never write more than \p ol bytes. If the output buffer
+ * is too small, an error will occur.
+ *
+ * \param i  The input buffer.
+ * \param il The size of the data in the input buffer.
+ * \param o  The output URL-safe Base64 buffer.
+ * \param ol The size of the output buffer.
+ * \return   The number of bytes that were (or would be) written.
+ *           If an error occurs, SIZE_MAX is returned.
+ */
+size_t
+jose_b64_enc_buf(const void *i, size_t il, void *o, size_t ol);
+
+/**
+ * Encodes the input JSON as a URL-safe Base64 JSON string.
+ *
+ * \param i The input JSON data.
+ * \return  The output URL-safe Base64 JSON string.
  */
 json_t *
-jose_b64_encode_json_dump(const json_t *dec);
+jose_b64_enc_dump(const json_t *i);
+
+/** @} */

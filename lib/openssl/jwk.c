@@ -16,7 +16,8 @@
  */
 
 #include "misc.h"
-#include <jose/hooks.h>
+#include <jose/b64.h>
+#include "../hooks.h"
 #include <jose/openssl.h>
 
 #include <openssl/rand.h>
@@ -33,12 +34,12 @@ static EC_POINT *
 mkpub(const EC_GROUP *grp, const json_t *x, const json_t *y, const BIGNUM *D)
 {
     openssl_auto(EC_POINT) *pub = NULL;
-    openssl_auto(BN_CTX) *ctx = NULL;
+    openssl_auto(BN_CTX) *cfg = NULL;
     openssl_auto(BIGNUM) *X = NULL;
     openssl_auto(BIGNUM) *Y = NULL;
 
-    ctx = BN_CTX_new();
-    if (!ctx)
+    cfg = BN_CTX_new();
+    if (!cfg)
         return NULL;
 
     pub = EC_POINT_new(grp);
@@ -51,10 +52,10 @@ mkpub(const EC_GROUP *grp, const json_t *x, const json_t *y, const BIGNUM *D)
         if (!X || !Y)
             return NULL;
 
-        if (EC_POINT_set_affine_coordinates_GFp(grp, pub, X, Y, ctx) < 0)
+        if (EC_POINT_set_affine_coordinates_GFp(grp, pub, X, Y, cfg) < 0)
             return NULL;
     } else if (D) {
-        if (EC_POINT_mul(grp, pub, D, NULL, NULL, ctx) < 0)
+        if (EC_POINT_mul(grp, pub, D, NULL, NULL, cfg) < 0)
             return NULL;
     } else {
         return NULL;
@@ -64,7 +65,7 @@ mkpub(const EC_GROUP *grp, const json_t *x, const json_t *y, const BIGNUM *D)
 }
 
 json_t *
-jose_openssl_jwk_from_EVP_PKEY(EVP_PKEY *key)
+jose_openssl_jwk_from_EVP_PKEY(jose_cfg_t *cfg, EVP_PKEY *key)
 {
     const uint8_t *buf = NULL;
     size_t len = 0;
@@ -76,19 +77,19 @@ jose_openssl_jwk_from_EVP_PKEY(EVP_PKEY *key)
             return NULL;
 
         return json_pack("{s:s,s:o}", "kty", "oct", "k",
-                         jose_b64_encode_json(buf, len));
+                         jose_b64_enc(buf, len));
 
     case EVP_PKEY_RSA:
-        return jose_openssl_jwk_from_RSA(EVP_PKEY_get0_RSA(key));
+        return jose_openssl_jwk_from_RSA(cfg, EVP_PKEY_get0_RSA(key));
 
     case EVP_PKEY_EC:
-        return jose_openssl_jwk_from_EC_KEY(EVP_PKEY_get0_EC_KEY(key));
+        return jose_openssl_jwk_from_EC_KEY(cfg, EVP_PKEY_get0_EC_KEY(key));
     default: return NULL;
     }
 }
 
 json_t *
-jose_openssl_jwk_from_RSA(const RSA *key)
+jose_openssl_jwk_from_RSA(jose_cfg_t *cfg, const RSA *key)
 {
     const BIGNUM *n = NULL;
     const BIGNUM *e = NULL;
@@ -137,9 +138,10 @@ jose_openssl_jwk_from_RSA(const RSA *key)
 }
 
 json_t *
-jose_openssl_jwk_from_EC_KEY(const EC_KEY *key)
+jose_openssl_jwk_from_EC_KEY(jose_cfg_t *cfg, const EC_KEY *key)
 {
     return jose_openssl_jwk_from_EC_POINT(
+        cfg,
         EC_KEY_get0_group(key),
         EC_KEY_get0_public_key(key),
         EC_KEY_get0_private_key(key)
@@ -147,8 +149,8 @@ jose_openssl_jwk_from_EC_KEY(const EC_KEY *key)
 }
 
 json_t *
-jose_openssl_jwk_from_EC_POINT(const EC_GROUP *grp, const EC_POINT *pub,
-                               const BIGNUM *prv)
+jose_openssl_jwk_from_EC_POINT(jose_cfg_t *cfg, const EC_GROUP *grp,
+                               const EC_POINT *pub, const BIGNUM *prv)
 {
     openssl_auto(EC_POINT) *p = NULL;
     openssl_auto(BN_CTX) *ctx = NULL;
@@ -203,20 +205,21 @@ jose_openssl_jwk_from_EC_POINT(const EC_GROUP *grp, const EC_POINT *pub,
 }
 
 EVP_PKEY *
-jose_openssl_jwk_to_EVP_PKEY(const json_t *jwk)
+jose_openssl_jwk_to_EVP_PKEY(jose_cfg_t *cfg, const json_t *jwk)
 {
     openssl_auto(EC_KEY) *ec = NULL;
     openssl_auto(RSA) *rsa = NULL;
-    jose_buf_auto_t *buf = NULL;
     const char *kty = NULL;
     EVP_PKEY *key = NULL;
+    uint8_t *buf = NULL;
+    size_t len = 0;
 
     if (json_unpack((json_t *) jwk, "{s:s}", "kty", &kty) == -1)
         return NULL;
 
     switch (str2enum(kty, "EC", "RSA", "oct", NULL)) {
     case 0:
-        ec = jose_openssl_jwk_to_EC_KEY(jwk);
+        ec = jose_openssl_jwk_to_EC_KEY(cfg, jwk);
         if (!ec)
             return NULL;
 
@@ -231,7 +234,7 @@ jose_openssl_jwk_to_EVP_PKEY(const json_t *jwk)
         return NULL;
 
     case 1:
-        rsa = jose_openssl_jwk_to_RSA(jwk);
+        rsa = jose_openssl_jwk_to_RSA(cfg, jwk);
         if (!rsa)
             return NULL;
 
@@ -246,18 +249,31 @@ jose_openssl_jwk_to_EVP_PKEY(const json_t *jwk)
         return NULL;
 
     case 2:
-        buf = jose_b64_decode_json(json_object_get(jwk, "k"));
+        len = jose_b64_dec(json_object_get(jwk, "k"), NULL, 0);
+        if (len == SIZE_MAX)
+            return NULL;
+
+        buf = malloc(len);
         if (!buf)
             return NULL;
 
-        return EVP_PKEY_new_mac_key(EVP_PKEY_HMAC, NULL, buf->data, buf->size);
+        if (jose_b64_dec(json_object_get(jwk, "k"), buf, len) != len) {
+            OPENSSL_cleanse(buf, len);
+            free(buf);
+            return NULL;
+        }
+
+        key = EVP_PKEY_new_mac_key(EVP_PKEY_HMAC, NULL, buf, len);
+        OPENSSL_cleanse(buf, len);
+        free(buf);
+        return key;
 
     default: return NULL;
     }
 }
 
 RSA *
-jose_openssl_jwk_to_RSA(const json_t *jwk)
+jose_openssl_jwk_to_RSA(jose_cfg_t *cfg, const json_t *jwk)
 {
     openssl_auto(RSA) *rsa = NULL;
     const json_t *n = NULL;
@@ -278,11 +294,9 @@ jose_openssl_jwk_to_RSA(const json_t *jwk)
     BIGNUM *DQ = NULL;
     BIGNUM *QI = NULL;
 
-    if (json_unpack(
-            (json_t *) jwk, "{s:s,s:o,s:o,s?o,s?o,s?o,s?o,s?o,s?o}",
-            "kty", &kty, "n", &n, "e", &e, "d", &d, "p", &p,
-            "q", &q, "dp", &dp, "dq", &dq, "qi", &qi
-        ) != 0)
+    if (json_unpack((json_t *) jwk, "{s:s,s:o,s:o,s?o,s?o,s?o,s?o,s?o,s?o}",
+                    "kty", &kty, "n", &n, "e", &e, "d", &d, "p", &p,
+                    "q", &q, "dp", &dp, "dq", &dq, "qi", &qi) != 0)
         return NULL;
 
     rsa = RSA_new();
@@ -332,7 +346,7 @@ jose_openssl_jwk_to_RSA(const json_t *jwk)
 }
 
 EC_KEY *
-jose_openssl_jwk_to_EC_KEY(const json_t *jwk)
+jose_openssl_jwk_to_EC_KEY(jose_cfg_t *cfg, const json_t *jwk)
 {
     openssl_auto(EC_POINT) *pub = NULL;
     openssl_auto(EC_KEY) *key = NULL;

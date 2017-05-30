@@ -1,0 +1,26 @@
+.\" generated with Ronn/v0.7.3
+.\" http://github.com/rtomayko/ronn/tree/0.7.3
+.
+.TH "JOSE\-ALG" "1" "May 2017" "" ""
+.
+.SH "NAME"
+\fBjose\-alg\fR \- Lists all supported algorithms
+.
+.SH "SYNOPSIS"
+\fBjose alg\fR [\-k KIND]
+.
+.SH "OVERVIEW"
+The \fBjose alg\fR command lists the algorithms supported by all \fBjose\fR commands\. When no options are provided, all algorithms are listed\. If one or more \fB\-k\fR options are provided, only the kinds of algorithms requested will be shown\.
+.
+.SH "OPTIONS"
+.
+.TP
+\fB\-k\fR \fIKIND\fR, \fB\-\-kind\fR=\fIKIND\fR
+Restrict algorithm list to a certain kind
+.
+.TP
+\fB\-k\fR ?, \fB\-\-kind\fR=?
+List valid algorithm kinds
+.
+.SH "AUTHOR"
+Nathaniel McCallum <npmccallum@redhat\.com>

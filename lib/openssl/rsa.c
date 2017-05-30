@@ -16,8 +16,10 @@
  */
 
 #include "misc.h"
-#include <jose/hooks.h>
+#include "../hooks.h"
 #include <jose/openssl.h>
+
+#include <string.h>
 
 static RSA *
 mkrsa(const json_t *jwk)
@@ -71,36 +73,45 @@ mkrsa(const json_t *jwk)
 }
 
 static bool
-generate(json_t *jwk)
+jwk_make_handles(jose_cfg_t *cfg, const json_t *jwk)
 {
-    json_auto_t *tmp = NULL;
+    const char *kty = NULL;
+
+    if (json_unpack((json_t *) jwk, "{s:s}", "kty", &kty) == -1)
+        return false;
+
+    return strcmp(kty, "RSA") == 0;
+}
+
+static json_t *
+jwk_make_execute(jose_cfg_t *cfg, const json_t *jwk)
+{
+    json_auto_t *key = NULL;
     RSA *rsa = NULL;
+
+    if (!jwk_make_handles(cfg, jwk))
+        return NULL;
 
     rsa = mkrsa(jwk);
     if (!rsa)
-        return false;
+        return NULL;
 
-    tmp = jose_openssl_jwk_from_RSA(rsa);
+    key = jose_openssl_jwk_from_RSA(cfg, rsa);
     RSA_free(rsa);
-    if (!tmp)
-        return false;
+    if (!key)
+        return NULL;
 
-    if (json_object_get(jwk, "bits") && json_object_del(jwk, "bits") == -1)
-        return false;
-
-    if (json_object_get(jwk, "e") && json_object_del(jwk, "e") == -1)
-        return false;
-
-    return json_object_update_missing(jwk, tmp) == 0;
+    return json_pack("{s:[s,s],s:O}", "del", "bits", "e", "upd", key);
 }
 
 static void __attribute__((constructor))
 constructor(void)
 {
-    static jose_jwk_generator_t generator = {
-        .kty = "RSA",
-        .generate = generate
+    static jose_hook_jwk_t jwk = {
+        .kind = JOSE_HOOK_JWK_KIND_MAKE,
+        .make.handles = jwk_make_handles,
+        .make.execute = jwk_make_execute
     };
 
-    jose_jwk_register_generator(&generator);
+    jose_hook_jwk_push(&jwk);
 }

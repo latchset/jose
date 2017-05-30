@@ -16,40 +16,57 @@
  */
 
 #include "misc.h"
-#include <jose/hooks.h>
+#include <jose/b64.h>
+#include "../hooks.h"
 
+#include <string.h>
 #include <openssl/rand.h>
 
 static bool
-generate(json_t *jwk)
+jwk_make_handles(jose_cfg_t *cfg, const json_t *jwk)
 {
-    jose_buf_auto_t *buf = NULL;
+    const char *kty = NULL;
+
+    if (json_unpack((json_t *) jwk, "{s:s}", "kty", &kty) < 0)
+        return false;
+
+    return strcmp(kty, "oct") == 0;
+}
+
+static json_t *
+jwk_make_execute(jose_cfg_t *cfg, const json_t *jwk)
+{
+    uint8_t key[KEYMAX] = {};
     json_int_t len = 0;
+    json_t *ret = NULL;
 
-    if (json_unpack(jwk, "{s:I}", "bytes", &len) == -1)
-        return false;
+    if (!jwk_make_handles(cfg, jwk))
+        return NULL;
 
-    buf = jose_buf(len, JOSE_BUF_FLAG_WIPE);
-    if (!buf)
-        return false;
+    if (json_unpack((json_t *) jwk, "{s:I}", "bytes", &len) < 0)
+        return NULL;
 
-    if (RAND_bytes(buf->data, len) <= 0)
-        return false;
+    if (len > KEYMAX)
+        return NULL;
 
-    if (json_object_set_new(jwk, "k",
-                            jose_b64_encode_json(buf->data, buf->size)) == -1)
-        return false;
+    if (RAND_bytes(key, len) > 0) {
+        ret = json_pack("{s:[s],s:{s:o}}",
+                        "del", "bytes",
+                        "upd", "k", jose_b64_enc(key, len));
+    }
 
-    return json_object_del(jwk, "bytes") == 0;
+    OPENSSL_cleanse(key, len);
+    return ret;
 }
 
 static void __attribute__((constructor))
 constructor(void)
 {
-    static jose_jwk_generator_t generator = {
-        .kty = "oct",
-        .generate = generate
+    static jose_hook_jwk_t jwk = {
+        .kind = JOSE_HOOK_JWK_KIND_MAKE,
+        .make.handles = jwk_make_handles,
+        .make.execute = jwk_make_execute
     };
 
-    jose_jwk_register_generator(&generator);
+    jose_hook_jwk_push(&jwk);
 }

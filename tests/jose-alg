@@ -1,0 +1,15 @@
+#!/bin/bash -ex
+
+../cmd/jose alg | grep -q "^A128GCM$"
+
+../cmd/jose alg -k sign | grep -q "^ES256$"
+../cmd/jose alg -k wrap | grep -q "^A128GCMKW$"
+../cmd/jose alg -k encr | grep -q "^A128GCM$"
+
+! ../cmd/jose alg -k sign | grep -q "^A128GCMKW$"
+! ../cmd/jose alg -k wrap | grep -q "^A128GCM$"
+! ../cmd/jose alg -k encr | grep -q "^ES256$"
+
+../cmd/jose alg -k encr -k sign | grep -q "^ES256$"
+../cmd/jose alg -k sign -k wrap | grep -q "^A128GCMKW$"
+../cmd/jose alg -k wrap -k encr | grep -q "^A128GCM$"
