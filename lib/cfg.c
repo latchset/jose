@@ -77,14 +77,14 @@ jose_cfg_decref(jose_cfg_t *cfg)
 }
 
 void
-jose_cfg_set_err(jose_cfg_t *cfg, jose_cfg_err_t *err, void *misc)
+jose_cfg_set_err_func(jose_cfg_t *cfg, jose_cfg_err_t *err, void *misc)
 {
     cfg->err = err ? err : dflt.err;
     cfg->misc = misc;
 }
 
 void *
-jose_cfg_get_err(jose_cfg_t *cfg)
+jose_cfg_get_err_misc(jose_cfg_t *cfg)
 {
     return cfg->err;
 }

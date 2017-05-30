@@ -86,12 +86,12 @@ Functions</h2></td></tr>
 <tr class="memitem:ga30ea7bdd659e6f8620f3d4d72ed2f87a"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__jose__cfg.html#ga30ea7bdd659e6f8620f3d4d72ed2f87a">jose_cfg_decref</a> (jose_cfg_t *cfg)</td></tr>
 <tr class="memdesc:ga30ea7bdd659e6f8620f3d4d72ed2f87a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Decreases the reference count of a configuration instance.  <a href="#ga30ea7bdd659e6f8620f3d4d72ed2f87a">More...</a><br /></td></tr>
 <tr class="separator:ga30ea7bdd659e6f8620f3d4d72ed2f87a"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ga122b3b1615bbe5f8275e27f1651ec87c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__jose__cfg.html#ga122b3b1615bbe5f8275e27f1651ec87c">jose_cfg_set_err</a> (jose_cfg_t *cfg, jose_cfg_err_t *err, void *misc)</td></tr>
-<tr class="memdesc:ga122b3b1615bbe5f8275e27f1651ec87c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Sets the error handler function for this configuration instance.  <a href="#ga122b3b1615bbe5f8275e27f1651ec87c">More...</a><br /></td></tr>
-<tr class="separator:ga122b3b1615bbe5f8275e27f1651ec87c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ga9e4fa3ec93f127213a34b87b3dc3b872"><td class="memItemLeft" align="right" valign="top">void *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__jose__cfg.html#ga9e4fa3ec93f127213a34b87b3dc3b872">jose_cfg_get_err</a> (jose_cfg_t *cfg)</td></tr>
-<tr class="memdesc:ga9e4fa3ec93f127213a34b87b3dc3b872"><td class="mdescLeft">&#160;</td><td class="mdescRight">Gets the miscelaneous data associated with the current error handler.  <a href="#ga9e4fa3ec93f127213a34b87b3dc3b872">More...</a><br /></td></tr>
-<tr class="separator:ga9e4fa3ec93f127213a34b87b3dc3b872"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ga2383b689e066b463b0e62b6f9853295f"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__jose__cfg.html#ga2383b689e066b463b0e62b6f9853295f">jose_cfg_set_err_func</a> (jose_cfg_t *cfg, jose_cfg_err_t *err, void *misc)</td></tr>
+<tr class="memdesc:ga2383b689e066b463b0e62b6f9853295f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Sets the error handler function for this configuration instance.  <a href="#ga2383b689e066b463b0e62b6f9853295f">More...</a><br /></td></tr>
+<tr class="separator:ga2383b689e066b463b0e62b6f9853295f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ga92220346ca7051fd44685b71dbc5ce3c"><td class="memItemLeft" align="right" valign="top">void *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__jose__cfg.html#ga92220346ca7051fd44685b71dbc5ce3c">jose_cfg_get_err_misc</a> (jose_cfg_t *cfg)</td></tr>
+<tr class="memdesc:ga92220346ca7051fd44685b71dbc5ce3c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Gets the miscelaneous data associated with the current error handler.  <a href="#ga92220346ca7051fd44685b71dbc5ce3c">More...</a><br /></td></tr>
+<tr class="separator:ga92220346ca7051fd44685b71dbc5ce3c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:gac4ff6f9842876740b6a2aeac8cb6f5f5"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__jose__cfg.html#gac4ff6f9842876740b6a2aeac8cb6f5f5">jose_cfg_err</a> (jose_cfg_t *cfg, const char *fmt,...)</td></tr>
 <tr class="memdesc:gac4ff6f9842876740b6a2aeac8cb6f5f5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Submit an error.  <a href="#gac4ff6f9842876740b6a2aeac8cb6f5f5">More...</a><br /></td></tr>
 <tr class="separator:gac4ff6f9842876740b6a2aeac8cb6f5f5"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -195,14 +195,14 @@ Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="ga122b3b1615bbe5f8275e27f1651ec87c"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ga122b3b1615bbe5f8275e27f1651ec87c">&#9670;&nbsp;</a></span>jose_cfg_set_err()</h2>
+<a id="ga2383b689e066b463b0e62b6f9853295f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ga2383b689e066b463b0e62b6f9853295f">&#9670;&nbsp;</a></span>jose_cfg_set_err_func()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">void jose_cfg_set_err </td>
+          <td class="memname">void jose_cfg_set_err_func </td>
           <td>(</td>
           <td class="paramtype">jose_cfg_t *&#160;</td>
           <td class="paramname"><em>cfg</em>, </td>
@@ -241,14 +241,14 @@ Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="ga9e4fa3ec93f127213a34b87b3dc3b872"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ga9e4fa3ec93f127213a34b87b3dc3b872">&#9670;&nbsp;</a></span>jose_cfg_get_err()</h2>
+<a id="ga92220346ca7051fd44685b71dbc5ce3c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ga92220346ca7051fd44685b71dbc5ce3c">&#9670;&nbsp;</a></span>jose_cfg_get_err_misc()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">void* jose_cfg_get_err </td>
+          <td class="memname">void* jose_cfg_get_err_misc </td>
           <td>(</td>
           <td class="paramtype">jose_cfg_t *&#160;</td>
           <td class="paramname"><em>cfg</em></td><td>)</td>

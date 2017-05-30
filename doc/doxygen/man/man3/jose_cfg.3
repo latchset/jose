@@ -31,11 +31,11 @@ jose_cfg \- José Configuration\&.
 .br
 .RI "Decreases the reference count of a configuration instance\&. "
 .ti -1c
-.RI "void \fBjose_cfg_set_err\fP (jose_cfg_t *cfg, jose_cfg_err_t *err, void *misc)"
+.RI "void \fBjose_cfg_set_err_func\fP (jose_cfg_t *cfg, jose_cfg_err_t *err, void *misc)"
 .br
 .RI "Sets the error handler function for this configuration instance\&. "
 .ti -1c
-.RI "void * \fBjose_cfg_get_err\fP (jose_cfg_t *cfg)"
+.RI "void * \fBjose_cfg_get_err_misc\fP (jose_cfg_t *cfg)"
 .br
 .RI "Gets the miscelaneous data associated with the current error handler\&. "
 .ti -1c
@@ -103,7 +103,7 @@ Decreases the reference count of a configuration instance\&. When the reference 
 .RE
 .PP
 
-.SS "void jose_cfg_set_err (jose_cfg_t * cfg, jose_cfg_err_t * err, void * misc)"
+.SS "void jose_cfg_set_err_func (jose_cfg_t * cfg, jose_cfg_err_t * err, void * misc)"
 
 .PP
 Sets the error handler function for this configuration instance\&. The value of \fCmisc\fP will be passed to the error handler function\&.
@@ -120,7 +120,7 @@ You may pass NULL to \fCerr\fP to return to the default error handler\&.
 .RE
 .PP
 
-.SS "void* jose_cfg_get_err (jose_cfg_t * cfg)"
+.SS "void* jose_cfg_get_err_misc (jose_cfg_t * cfg)"
 
 .PP
 Gets the miscelaneous data associated with the current error handler\&. 
