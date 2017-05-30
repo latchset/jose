@@ -32,7 +32,7 @@ typedef struct {
 } io_t;
 
 static bool
-step(jose_io_t *io, const void *in, size_t len, typeof(deflate) *func)
+feed(jose_io_t *io, const void *in, size_t len, typeof(deflate) *func)
 {
     io_t *i = containerof(io, io_t, io);
 
@@ -49,7 +49,7 @@ step(jose_io_t *io, const void *in, size_t len, typeof(deflate) *func)
         case Z_STREAM_END: /* fallthrough */
         case Z_BUF_ERROR:  /* fallthrough */
         case Z_OK:
-            if (i->next->step(i->next, buf, SIZE - i->strm.avail_out))
+            if (i->next->feed(i->next, buf, SIZE - i->strm.avail_out))
                 break;
             /* fallthrough */
         default:
@@ -79,7 +79,7 @@ done(jose_io_t *io, typeof(deflate) *func)
         case Z_STREAM_END: /* fallthrough */
         case Z_BUF_ERROR:  /* fallthrough */
         case Z_OK:
-            if (i->next->step(i->next, buf, SIZE - i->strm.avail_out))
+            if (i->next->feed(i->next, buf, SIZE - i->strm.avail_out))
                 break;
             /* fallthrough */
         default:
@@ -91,9 +91,9 @@ done(jose_io_t *io, typeof(deflate) *func)
 }
 
 static bool
-def_step(jose_io_t *io, const void *in, size_t len)
+def_feed(jose_io_t *io, const void *in, size_t len)
 {
-    return step(io, in, len, deflate);
+    return feed(io, in, len, deflate);
 }
 
 static bool
@@ -111,9 +111,9 @@ def_free(jose_io_t *io)
 }
 
 static bool
-inf_step(jose_io_t *io, const void *in, size_t len)
+inf_feed(jose_io_t *io, const void *in, size_t len)
 {
-    return step(io, in, len, inflate);
+    return feed(io, in, len, inflate);
 }
 
 static bool
@@ -141,7 +141,7 @@ alg_comp_def(const jose_hook_alg_t *alg, jose_cfg_t *cfg, jose_io_t *next)
         return NULL;
 
     io = jose_io_incref(&i->io);
-    io->step = def_step;
+    io->feed = def_feed;
     io->done = def_done;
     io->free = def_free;
 
@@ -167,7 +167,7 @@ alg_comp_inf(const jose_hook_alg_t *alg, jose_cfg_t *cfg, jose_io_t *next)
         return NULL;
 
     io = jose_io_incref(&i->io);
-    io->step = inf_step;
+    io->feed = inf_feed;
     io->done = inf_done;
     io->free = inf_free;
 

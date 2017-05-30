@@ -34,7 +34,7 @@ hsh(jose_cfg_t *cfg, const char *alg, const void *data, size_t dlen)
     buf = jose_io_buffer(cfg, b, &l);
     enc = jose_b64_enc_io(buf);
     hsh = hsh_io(cfg, alg, enc);
-    if (!buf || !enc || !hsh || !hsh->step(hsh, data, dlen) || !hsh->done(hsh))
+    if (!buf || !enc || !hsh || !hsh->feed(hsh, data, dlen) || !hsh->done(hsh))
         return NULL;
 
     return json_stringn(b, l);
@@ -72,7 +72,7 @@ hsh_buf(jose_cfg_t *cfg, const char *alg,
 
     buf = jose_io_buffer(cfg, hash, &hlen);
     hsh = a->hash.hsh(a, cfg, buf);
-    if (!buf || !hsh || !hsh->step(hsh, data, dlen) || !hsh->done(hsh))
+    if (!buf || !hsh || !hsh->feed(hsh, data, dlen) || !hsh->done(hsh))
         return SIZE_MAX;
 
     return hlen;

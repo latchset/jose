@@ -107,7 +107,7 @@ io_free(jose_io_t *io)
 }
 
 static bool
-enc_step(jose_io_t *io, const void *in, size_t len)
+enc_feed(jose_io_t *io, const void *in, size_t len)
 {
     io_t *i = containerof(io, io_t, io);
 
@@ -120,7 +120,7 @@ enc_step(jose_io_t *io, const void *in, size_t len)
         if (EVP_EncryptUpdate(i->cctx, ct, &l, &pt[j], 1) <= 0)
             return false;
 
-        if (!i->next->step(i->next, ct, l))
+        if (!i->next->feed(i->next, ct, l))
             return false;
 
         if (HMAC_Update(i->hctx, ct, l) <= 0)
@@ -141,7 +141,7 @@ enc_done(jose_io_t *io)
     if (EVP_EncryptFinal(i->cctx, ct, &l) <= 0)
         return false;
 
-    if (!i->next->step(i->next, ct, l) || !i->next->done(i->next))
+    if (!i->next->feed(i->next, ct, l) || !i->next->done(i->next))
         return false;
 
     if (HMAC_Update(i->hctx, ct, l) <= 0)
@@ -161,7 +161,7 @@ enc_done(jose_io_t *io)
 }
 
 static bool
-dec_step(jose_io_t *io, const void *in, size_t len)
+dec_feed(jose_io_t *io, const void *in, size_t len)
 {
     io_t *i = containerof(io, io_t, io);
     uint8_t pt[EVP_CIPHER_CTX_block_size(i->cctx) + 1];
@@ -176,7 +176,7 @@ dec_step(jose_io_t *io, const void *in, size_t len)
         if (EVP_DecryptUpdate(i->cctx, pt, &l, &ct[j], 1) <= 0)
             goto egress;
 
-        if (!i->next->step(i->next, pt, l))
+        if (!i->next->feed(i->next, pt, l))
             goto egress;
     }
 
@@ -219,7 +219,7 @@ dec_done(jose_io_t *io)
     if (EVP_DecryptFinal(i->cctx, pt, &l) <= 0)
         return false;
 
-    if (!i->next->step(i->next, pt, l) || !i->next->done(i->next)) {
+    if (!i->next->feed(i->next, pt, l) || !i->next->done(i->next)) {
         OPENSSL_cleanse(pt, sizeof(pt));
         return false;
     }
@@ -321,7 +321,7 @@ alg_encr_enc(const jose_hook_alg_t *alg, jose_cfg_t *cfg, json_t *jwe,
         return NULL;
 
     io = jose_io_incref(&i->io);
-    io->step = enc_step;
+    io->feed = enc_feed;
     io->done = enc_done;
     io->free = io_free;
 
@@ -368,7 +368,7 @@ alg_encr_dec(const jose_hook_alg_t *alg, jose_cfg_t *cfg, const json_t *jwe,
         return NULL;
 
     io = jose_io_incref(&i->io);
-    io->step = dec_step;
+    io->feed = dec_feed;
     io->done = dec_done;
     io->free = io_free;
 

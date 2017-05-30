@@ -261,13 +261,7 @@ jose_jwe_enc_cek(jose_cfg_t *cfg, json_t *jwe, const json_t *cek,
 
     o = jose_io_malloc(cfg, &ct, &ctl);
     i = jose_jwe_enc_cek_io(cfg, jwe, cek, o);
-    if (!o || !i)
-        return false;
-
-    if (!i->step(i, pt, ptl))
-        return false;
-
-    if (!i->done(i))
+    if (!o || !i || !i->feed(i, pt, ptl) || !i->done(i))
         return false;
 
     if (json_object_set_new(jwe, "ciphertext", jose_b64_enc(ct, ctl)) < 0)
@@ -465,13 +459,7 @@ jose_jwe_dec_cek(jose_cfg_t *cfg, const json_t *jwe, const json_t *cek,
     o = jose_io_malloc(cfg, &pt, ptl);
     d = jose_jwe_dec_cek_io(cfg, jwe, cek, o);
     i = jose_b64_dec_io(d);
-    if (!o || !d || !i)
-        return NULL;
-
-    if (!i->step(i, ct, ctl))
-        return NULL;
-
-    if (!i->done(i))
+    if (!o || !d || !i || !i->feed(i, ct, ctl) || !i->done(i))
         return NULL;
 
     return jose_io_malloc_steal(&pt);

@@ -67,9 +67,9 @@ test(const jose_hook_alg_t *alg, const char *msg,
 
     if (iter) {
         for (size_t i = 0; i < strlen(msg); i++)
-            assert(hsh->step(hsh, &msg[i], 1));
+            assert(hsh->feed(hsh, &msg[i], 1));
     } else {
-        assert(hsh->step(hsh, msg, strlen(msg)));
+        assert(hsh->feed(hsh, msg, strlen(msg)));
     }
 
     assert(hsh->done(hsh));

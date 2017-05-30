@@ -67,7 +67,7 @@ typedef struct {
      * \param len The length of the data in the input buffer.
      * \return    Returns true if all data was consumed, otherwise false.
      */
-    bool  (*step)(jose_io_t *io, const void *in, size_t len);
+    bool  (*feed)(jose_io_t *io, const void *in, size_t len);
 
     /**
      * Completes the IO chain.
@@ -85,7 +85,7 @@ typedef struct {
 typedef struct jose_io jose_io_t;
 struct jose_io {
     size_t  refs;
-    bool  (*step)(jose_io_t *io, const void *in, size_t len);
+    bool  (*feed)(jose_io_t *io, const void *in, size_t len);
     bool  (*done)(jose_io_t *io);
     void  (*free)(jose_io_t *io); /* Don't call this. Use jose_io_decref(). */
 };

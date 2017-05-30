@@ -47,9 +47,9 @@ test(const jose_hook_alg_t *a, const char *pt, json_t *cek, bool iter)
 
     if (iter) {
         for (size_t i = 0; pt[i]; i++)
-            assert(e->step(e, &pt[i], 1));
+            assert(e->feed(e, &pt[i], 1));
     } else {
-        assert(e->step(e, pt, strlen(pt)));
+        assert(e->feed(e, pt, strlen(pt)));
     }
 
     assert(e->done(e));
@@ -66,9 +66,9 @@ test(const jose_hook_alg_t *a, const char *pt, json_t *cek, bool iter)
     if (iter) {
         uint8_t *xxx = ebuf;
         for (size_t i = 0; i < elen; i++)
-            assert(d->step(d, &xxx[i], 1));
+            assert(d->feed(d, &xxx[i], 1));
     } else {
-        assert(d->step(d, ebuf, elen));
+        assert(d->feed(d, ebuf, elen));
     }
 
     assert(d->done(d));

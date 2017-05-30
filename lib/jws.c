@@ -133,7 +133,7 @@ jose_jws_sig(jose_cfg_t *cfg, json_t *jws, json_t *sig, const json_t *jwk)
     }
 
     io = jose_jws_sig_io(cfg, jws, sig, jwk);
-    return io && io->step(io, pay, payl) && io->done(io);
+    return io && io->feed(io, pay, payl) && io->done(io);
 }
 
 jose_io_t *
@@ -203,7 +203,7 @@ jose_jws_ver(jose_cfg_t *cfg, const json_t *jws, const json_t *sig,
     }
 
     io = jose_jws_ver_io(cfg, jws, sig, jwk, all);
-    return io && io->step(io, pay, payl) && io->done(io);
+    return io && io->feed(io, pay, payl) && io->done(io);
 }
 
 jose_io_t *

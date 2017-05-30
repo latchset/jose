@@ -26,7 +26,7 @@ typedef struct {
 } io_t;
 
 static bool
-hsh_step(jose_io_t *io, const void *in, size_t len)
+hsh_feed(jose_io_t *io, const void *in, size_t len)
 {
     io_t *i = containerof(io, io_t, io);
     return EVP_DigestUpdate(i->emc, in, len) > 0;
@@ -42,7 +42,7 @@ hsh_done(jose_io_t *io)
     if (EVP_DigestFinal(i->emc, hsh, &l) <= 0)
         return SIZE_MAX;
 
-    if (!i->next->step(i->next, hsh, l) || !i->next->done(i->next))
+    if (!i->next->feed(i->next, hsh, l) || !i->next->done(i->next))
         return SIZE_MAX;
 
     return l;
@@ -77,7 +77,7 @@ hsh(const jose_hook_alg_t *alg, jose_cfg_t *cfg, jose_io_t *next)
         return NULL;
 
     io = jose_io_incref(&i->io);
-    io->step = hsh_step;
+    io->feed = hsh_feed;
     io->done = hsh_done;
     io->free = hsh_free;
 

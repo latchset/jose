@@ -61,9 +61,9 @@ test(const jose_hook_alg_t *a, comp_func_t func, bool iter,
 
     if (iter) {
         for (size_t j = 0; j < il; j++)
-            assert(z->step(z, &i[j], 1));
+            assert(z->feed(z, &i[j], 1));
     } else {
-        assert(z->step(z, i, il));
+        assert(z->feed(z, i, il));
     }
 
     assert(z->done(z));

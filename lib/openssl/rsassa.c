@@ -49,7 +49,7 @@ io_free(jose_io_t *io)
 }
 
 static bool
-io_step(jose_io_t *io, const void *in, size_t len)
+io_feed(jose_io_t *io, const void *in, size_t len)
 {
     io_t *i = containerof(io, io_t, io);
     return EVP_DigestUpdate(i->emc, in, len) > 0;
@@ -232,7 +232,7 @@ alg_sign_sig(const jose_hook_alg_t *alg, jose_cfg_t *cfg, json_t *jws,
         return NULL;
 
     io = jose_io_incref(&i->io);
-    io->step = io_step;
+    io->feed = io_feed;
     io->done = sig_done;
     io->free = io_free;
 
@@ -257,7 +257,7 @@ alg_sign_ver(const jose_hook_alg_t *alg, jose_cfg_t *cfg, const json_t *jws,
         return NULL;
 
     io = jose_io_incref(&i->io);
-    io->step = io_step;
+    io->feed = io_feed;
     io->done = ver_done;
     io->free = io_free;
 

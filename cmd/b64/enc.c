@@ -78,7 +78,7 @@ jcmd_b64_enc(int argc, char *argv[])
     for (int c = fgetc(opt.input); c != EOF; c = fgetc(opt.input)) {
         uint8_t b = c;
 
-        if (!b64->step(b64, &b, sizeof(b)))
+        if (!b64->feed(b64, &b, sizeof(b)))
             return EXIT_FAILURE;
     }
 

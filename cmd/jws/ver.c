@@ -164,7 +164,7 @@ jcmd_jws_ver(int argc, char *argv[])
             if (!opt.io.detached && b == '.')
                 break;
 
-            if (!io->step(io, &b, sizeof(b)))
+            if (!io->feed(io, &b, sizeof(b)))
                 return EXIT_FAILURE;
         }
 
@@ -177,7 +177,7 @@ jcmd_jws_ver(int argc, char *argv[])
         if (json_unpack(opt.io.obj, "{s?s%}", "payload", &pay, &payl) < 0)
             return EXIT_FAILURE;
 
-        if (!io->step(io, pay ? pay : "", payl))
+        if (!io->feed(io, pay ? pay : "", payl))
             return EXIT_FAILURE;
     }
 

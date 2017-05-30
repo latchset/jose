@@ -74,7 +74,7 @@ min(size_t a, size_t b)
 }
 
 static bool
-dec_step(jose_io_t *io, const void *in, size_t len)
+dec_feed(jose_io_t *io, const void *in, size_t len)
 {
     io_t *i = containerof(io, io_t, io);
     const char *enc = in;
@@ -100,7 +100,7 @@ dec_step(jose_io_t *io, const void *in, size_t len)
         i->len -= el;
         memmove(i->eb, &i->eb[el], i->len);
 
-        if (!i->next->step(i->next, buf, dl))
+        if (!i->next->feed(i->next, buf, dl))
             return false;
     }
 
@@ -119,14 +119,14 @@ dec_done(jose_io_t *io)
         return false;
 
     i->len = 0;
-    if (!i->next->step(i->next, buf, dl))
+    if (!i->next->feed(i->next, buf, dl))
         return false;
 
     return i->next->done(i->next);
 }
 
 static bool
-enc_step(jose_io_t *io, const void *in, size_t len)
+enc_feed(jose_io_t *io, const void *in, size_t len)
 {
     io_t *i = containerof(io, io_t, io);
     const char *dec = in;
@@ -152,7 +152,7 @@ enc_step(jose_io_t *io, const void *in, size_t len)
         i->len -= dl;
         memmove(i->db, &i->db[dl], i->len);
 
-        if (!i->next->step(i->next, buf, el))
+        if (!i->next->feed(i->next, buf, el))
             return false;
     }
 
@@ -171,7 +171,7 @@ enc_done(jose_io_t *io)
         return false;
 
     i->len = 0;
-    if (!i->next->step(i->next, buf, el))
+    if (!i->next->feed(i->next, buf, el))
         return false;
 
     return i->next->done(i->next);
@@ -195,18 +195,20 @@ jose_b64_dec(const json_t *i, void *o, size_t ol)
 jose_io_t *
 jose_b64_dec_io(jose_io_t *next)
 {
-    io_t *io = NULL;
+    jose_io_auto_t *io = NULL;
+    io_t *i = NULL;
 
-    io = calloc(1, sizeof(*io));
-    if (!io)
+    i = calloc(1, sizeof(*i));
+    if (!i)
         return NULL;
 
-    io->io.step = dec_step;
-    io->io.done = dec_done;
-    io->io.free = io_free;
-    io->io.refs = 1;
-    io->next = jose_io_incref(next);
-    return &io->io;
+    io = jose_io_incref(&i->io);
+    io->feed = dec_feed;
+    io->done = dec_done;
+    io->free = io_free;
+
+    i->next = jose_io_incref(next);
+    return jose_io_incref(io);
 }
 
 size_t
@@ -315,18 +317,20 @@ jose_b64_enc(const void *i, size_t il)
 jose_io_t *
 jose_b64_enc_io(jose_io_t *next)
 {
-    io_t *io = NULL;
+    jose_io_auto_t *io = NULL;
+    io_t *i = NULL;
 
-    io = calloc(1, sizeof(*io));
-    if (!io)
+    i = calloc(1, sizeof(*i));
+    if (!i)
         return NULL;
 
-    io->io.step = enc_step;
-    io->io.done = enc_done;
-    io->io.free = io_free;
-    io->io.refs = 1;
-    io->next = jose_io_incref(next);
-    return &io->io;
+    io = jose_io_incref(&i->io);
+    io->feed = enc_feed;
+    io->done = enc_done;
+    io->free = io_free;
+
+    i->next = jose_io_incref(next);
+    return jose_io_incref(io);
 }
 
 size_t

@@ -54,10 +54,10 @@ io_free(jose_io_t *io)
 }
 
 static bool
-io_step(jose_io_t *io, const void *in, size_t len)
+io_feed(jose_io_t *io, const void *in, size_t len)
 {
     io_t *i = containerof(io, io_t, io);
-    return i->h->step(i->h, in, len);
+    return i->h->feed(i->h, in, len);
 }
 
 static bool
@@ -207,7 +207,7 @@ alg_sign_sig(const jose_hook_alg_t *alg, jose_cfg_t *cfg, json_t *jws,
         return NULL;
 
     io = jose_io_incref(&i->io);
-    io->step = io_step;
+    io->feed = io_feed;
     io->done = sig_done;
     io->free = io_free;
 
@@ -219,10 +219,10 @@ alg_sign_sig(const jose_hook_alg_t *alg, jose_cfg_t *cfg, json_t *jws,
     if (!i->b || !i->h || !i->obj || !i->sig || !i->key)
         return NULL;
 
-    if (prot && !i->h->step(i->h, prot, plen))
+    if (prot && !i->h->feed(i->h, prot, plen))
         return NULL;
 
-    if (!i->h->step(i->h, ".", 1))
+    if (!i->h->feed(i->h, ".", 1))
         return NULL;
 
     return jose_io_incref(io);
@@ -250,7 +250,7 @@ alg_sign_ver(const jose_hook_alg_t *alg, jose_cfg_t *cfg, const json_t *jws,
         return NULL;
 
     io = jose_io_incref(&i->io);
-    io->step = io_step;
+    io->feed = io_feed;
     io->done = ver_done;
     io->free = io_free;
 
@@ -261,10 +261,10 @@ alg_sign_ver(const jose_hook_alg_t *alg, jose_cfg_t *cfg, const json_t *jws,
     if (!i->b || !i->h || !i->sig || !i->key)
         return NULL;
 
-    if (prot && !i->h->step(i->h, prot, plen))
+    if (prot && !i->h->feed(i->h, prot, plen))
         return NULL;
 
-    if (!i->h->step(i->h, ".", 1))
+    if (!i->h->feed(i->h, ".", 1))
         return NULL;
 
     return jose_io_incref(io);

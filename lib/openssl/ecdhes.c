@@ -56,10 +56,10 @@ concatkdf(const jose_hook_alg_t *alg, jose_cfg_t *cfg, uint8_t dk[], size_t dkl,
         if (!h)
             return false;
 
-        if (!h->step(h, &cnt, sizeof(cnt)))
+        if (!h->feed(h, &cnt, sizeof(cnt)))
             return false;
 
-        if (!h->step(h, z, zl))
+        if (!h->feed(h, z, zl))
             return false;
 
         va_start(ap, zl);
@@ -67,19 +67,19 @@ concatkdf(const jose_hook_alg_t *alg, jose_cfg_t *cfg, uint8_t dk[], size_t dkl,
             size_t l = va_arg(ap, size_t);
             uint32_t e = htobe32(l);
 
-            if (!h->step(h, &e, sizeof(e))) {
+            if (!h->feed(h, &e, sizeof(e))) {
                 va_end(ap);
                 return false;
             }
 
-            if (!h->step(h, a, l)) {
+            if (!h->feed(h, a, l)) {
                 va_end(ap);
                 return false;
             }
         }
         va_end(ap);
 
-        if (!h->step(h, &(uint32_t) { htobe32(dkl * 8) }, 4))
+        if (!h->feed(h, &(uint32_t) { htobe32(dkl * 8) }, 4))
             return false;
 
         if (!h->done(h))

@@ -124,7 +124,7 @@ jcmd_jwe_fmt(int argc, char *argv[])
             if (!opt.detached && b == '.')
                 break;
 
-            if (!io->step(io, &b, sizeof(b)))
+            if (!io->feed(io, &b, sizeof(b)))
                 return EXIT_FAILURE;
         }
 
@@ -137,7 +137,7 @@ jcmd_jwe_fmt(int argc, char *argv[])
         if (json_unpack(opt.obj, "{s:s%}", "ciphertext", &ct, &ctl) < 0)
             return EXIT_FAILURE;
 
-        if (!io->step(io, ct, ctl))
+        if (!io->feed(io, ct, ctl))
             return EXIT_FAILURE;
     }
 

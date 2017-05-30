@@ -11,7 +11,7 @@ jose_io_t \- The interface for chained IO\&.
 
 .in +1c
 .ti -1c
-.RI "bool(* \fBstep\fP )(\fBjose_io_t\fP *io, const void *in, size_t len)"
+.RI "bool(* \fBfeed\fP )(\fBjose_io_t\fP *io, const void *in, size_t len)"
 .br
 .RI "Pushes data into the IO chain\&. "
 .ti -1c
@@ -55,7 +55,7 @@ The interface for chained IO\&.
 
 .SH "Field Documentation"
 .PP 
-.SS "bool(* jose_io_t::step) (\fBjose_io_t\fP *io, const void *in, size_t len)"
+.SS "bool(* jose_io_t::feed) (\fBjose_io_t\fP *io, const void *in, size_t len)"
 
 .PP
 Pushes data into the IO chain\&. 

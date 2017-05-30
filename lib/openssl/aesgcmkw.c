@@ -138,7 +138,7 @@ alg_wrap_wrp(const jose_hook_alg_t *alg, jose_cfg_t *cfg, json_t *jwe,
         return false;
 
     d = jose_b64_dec_io(p);
-    if (!d || !d->step(d, k, kl) || !d->done(d))
+    if (!d || !d->feed(d, k, kl) || !d->done(d))
         return false;
 
     /* Perform the wrapping. */
@@ -155,7 +155,7 @@ alg_wrap_wrp(const jose_hook_alg_t *alg, jose_cfg_t *cfg, json_t *jwe,
         return false;
 
     e = enc->encr.enc(enc, cfg, tmp, jwk, c);
-    if (!e || !e->step(e, pt, ptl) || !e->done(e))
+    if (!e || !e->feed(e, pt, ptl) || !e->done(e))
         return false;
 
     /* Save the output. */
@@ -223,9 +223,7 @@ alg_wrap_unw(const jose_hook_alg_t *alg, jose_cfg_t *cfg, const json_t *jwe,
         return false;
 
     d = jose_b64_dec_io(c);
-    if (!d ||
-        !d->step(d, ct, ctl) ||
-        !d->done(d))
+    if (!d || !d->feed(d, ct, ctl) || !d->done(d))
         return false;
 
     /* Set the output value */

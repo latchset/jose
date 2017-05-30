@@ -38,10 +38,10 @@ test(const jose_hook_alg_t *a, const char *pay, json_t *jwk, bool iter)
     sio = a->sign.sig(a, NULL, jwe, rcp, jwk);
     assert(sio);
     if (iter) {
-        assert(sio->step(sio, pay, strlen(pay)));
+        assert(sio->feed(sio, pay, strlen(pay)));
     } else {
         for (size_t i = 0; pay[i]; i++)
-            assert(sio->step(sio, &pay[i], 1));
+            assert(sio->feed(sio, &pay[i], 1));
     }
     assert(sio->done(sio));
 
@@ -50,10 +50,10 @@ test(const jose_hook_alg_t *a, const char *pay, json_t *jwk, bool iter)
     vio = a->sign.ver(a, NULL, jwe, jwe, jwk);
     assert(vio);
     if (iter) {
-        assert(vio->step(vio, pay, strlen(pay)));
+        assert(vio->feed(vio, pay, strlen(pay)));
     } else {
         for (size_t i = 0; pay[i]; i++)
-            assert(vio->step(vio, &pay[i], 1));
+            assert(vio->feed(vio, &pay[i], 1));
     }
     assert(vio->done(vio));
 }

@@ -210,7 +210,7 @@ jcmd_jwe_dec(int argc, char *argv[])
             if (!opt.io.detached && b == '.')
                 break;
 
-            if (!dec->step(dec, &b, sizeof(b)))
+            if (!dec->feed(dec, &b, sizeof(b)))
                 return EXIT_FAILURE;
         }
 
@@ -223,7 +223,7 @@ jcmd_jwe_dec(int argc, char *argv[])
         if (json_unpack(opt.io.obj, "{s:s%}", "ciphertext", &ct, &ctl) < 0)
             return EXIT_FAILURE;
 
-        if (!dec->step(dec, ct, ctl))
+        if (!dec->feed(dec, ct, ctl))
             return EXIT_FAILURE;
     }
 

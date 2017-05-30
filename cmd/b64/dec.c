@@ -82,7 +82,7 @@ jcmd_b64_dec(int argc, char *argv[])
         if (isspace(c))
             continue;
 
-        if (!b64->step(b64, &b, sizeof(b)))
+        if (!b64->feed(b64, &b, sizeof(b)))
             return EXIT_FAILURE;
     }
 

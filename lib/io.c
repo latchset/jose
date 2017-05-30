@@ -75,7 +75,7 @@ jose_io_decref(jose_io_t *io)
 }
 
 static bool
-malloc_step(jose_io_t *io, const void *in, size_t len)
+malloc_feed(jose_io_t *io, const void *in, size_t len)
 {
     io_malloc_t *i = containerof(io, io_malloc_t, io);
     uint8_t *tmp = NULL;
@@ -117,21 +117,24 @@ malloc_free(jose_io_t *io)
 jose_io_t *
 jose_io_malloc(jose_cfg_t *cfg, void **buf, size_t *len)
 {
-    io_malloc_t *io = NULL;
+    jose_io_auto_t *io = NULL;
+    io_malloc_t *i = NULL;
 
     if (!buf || !len)
         return NULL;
 
-    io = calloc(1, sizeof(*io));
-    if (!io)
+    i = calloc(1, sizeof(*i));
+    if (!i)
         return NULL;
 
-    io->io.step = malloc_step;
-    io->io.done = malloc_done;
-    io->io.free = malloc_free;
-    io->buf = buf;
-    io->len = len;
-    return jose_io_incref(&io->io);
+    io = jose_io_incref(&i->io);
+    io->feed = malloc_feed;
+    io->done = malloc_done;
+    io->free = malloc_free;
+
+    i->buf = buf;
+    i->len = len;
+    return jose_io_incref(io);
 }
 
 void *
@@ -146,7 +149,7 @@ jose_io_malloc_steal(void **buf)
 }
 
 static bool
-buffer_step(jose_io_t *io, const void *in, size_t len)
+buffer_feed(jose_io_t *io, const void *in, size_t len)
 {
     io_buffer_t *i = containerof(io, io_buffer_t, io);
 
@@ -175,28 +178,31 @@ buffer_free(jose_io_t *io)
 jose_io_t *
 jose_io_buffer(jose_cfg_t *cfg, void *buf, size_t *len)
 {
-    io_buffer_t *io = NULL;
+    jose_io_auto_t *io = NULL;
+    io_buffer_t *i = NULL;
 
     if (!buf || !len)
         return NULL;
 
-    io = calloc(1, sizeof(*io));
-    if (!io)
+    i = calloc(1, sizeof(*i));
+    if (!i)
         return NULL;
 
-    io->io.step = buffer_step;
-    io->io.done = buffer_done;
-    io->io.free = buffer_free;
-    io->buf = buf;
-    io->max = *len;
-    io->len = len;
+    io = jose_io_incref(&i->io);
+    io->feed = buffer_feed;
+    io->done = buffer_done;
+    io->free = buffer_free;
+
+    i->buf = buf;
+    i->max = *len;
+    i->len = len;
 
     *len = 0;
-    return jose_io_incref(&io->io);
+    return jose_io_incref(io);
 }
 
 static bool
-file_step(jose_io_t *io, const void *in, size_t len)
+file_feed(jose_io_t *io, const void *in, size_t len)
 {
     io_file_t *i = containerof(io, io_file_t, io);
     return fwrite(in, 1, len, i->file) == len;
@@ -219,24 +225,27 @@ file_free(jose_io_t *io)
 jose_io_t *
 jose_io_file(jose_cfg_t *cfg, FILE *file)
 {
-    io_file_t *io = NULL;
+    jose_io_auto_t *io = NULL;
+    io_file_t *i = NULL;
 
     if (!file)
         return NULL;
 
-    io = calloc(1, sizeof(*io));
-    if (!io)
+    i = calloc(1, sizeof(*i));
+    if (!i)
         return NULL;
 
-    io->io.step = file_step;
-    io->io.done = file_done;
-    io->io.free = file_free;
-    io->file = file;
-    return jose_io_incref(&io->io);
+    io = jose_io_incref(&i->io);
+    io->feed = file_feed;
+    io->done = file_done;
+    io->free = file_free;
+
+    i->file = file;
+    return jose_io_incref(&i->io);
 }
 
 static bool
-plex_step(jose_io_t *io, const void *in, size_t len)
+plex_feed(jose_io_t *io, const void *in, size_t len)
 {
     io_plex_t *i = containerof(io, io_plex_t, io);
     bool status = false;
@@ -247,7 +256,7 @@ plex_step(jose_io_t *io, const void *in, size_t len)
         if (!i->nexts[j])
             continue;
 
-        s = i->nexts[j]->step(i->nexts[j], in, len);
+        s = i->nexts[j]->feed(i->nexts[j], in, len);
         status |= s;
         if (!s) {
             jose_io_auto(&i->nexts[j]);
@@ -298,6 +307,7 @@ plex_free(jose_io_t *io)
 jose_io_t *
 jose_io_multiplex(jose_cfg_t *cfg, jose_io_t **nexts, bool all)
 {
+    jose_io_auto_t *io = NULL;
     io_plex_t *i = NULL;
     size_t nnexts = 0;
 
@@ -308,9 +318,10 @@ jose_io_multiplex(jose_cfg_t *cfg, jose_io_t **nexts, bool all)
     if (!i)
         return NULL;
 
-    i->io.step = plex_step;
-    i->io.done = plex_done;
-    i->io.free = plex_free;
+    io = jose_io_incref(&i->io);
+    io->feed = plex_feed;
+    io->done = plex_done;
+    io->free = plex_free;
 
     i->all = all;
     i->nnexts = nnexts;
