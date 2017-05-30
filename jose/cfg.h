@@ -25,6 +25,17 @@
 
 #include <stddef.h>
 #include <stdarg.h>
+#include <stdint.h>
+
+enum {
+    _JOSE_CFG_ERR_BASE = 0x1053000000000000ULL,
+    JOSE_CFG_ERR_JWK_INVALID,
+    JOSE_CFG_ERR_JWK_MISMATCH,
+    JOSE_CFG_ERR_JWK_DENIED,
+    JOSE_CFG_ERR_ALG_NOTSUP,
+    JOSE_CFG_ERR_ALG_NOINFER,
+    JOSE_CFG_ERR_JWS_INVALID,
+};
 
 #ifdef DOXYGEN
 /**
@@ -44,7 +55,7 @@ typedef jose_cfg_t jose_cfg_auto_t;
 
 typedef struct jose_cfg jose_cfg_t;
 typedef void (jose_cfg_err_t)(void *misc, const char *file, int line,
-                              const char *fmt, va_list ap);
+                              uint64_t err, const char *fmt, va_list ap);
 
 /**
  * Creates a new configuration instance.
@@ -108,17 +119,19 @@ jose_cfg_get_err_misc(jose_cfg_t *cfg);
  * The error handler will be called with the error provided.
  *
  * \param cfg  The configuration context (optional).
+ * \param err  The number corresponding to this error type.
  * \param fmt  A printf()-style format string.
  * \param ...  The printf()-style arguments.
  */
 void
-jose_cfg_err(jose_cfg_t *cfg, const char *fmt, ...);
+jose_cfg_err(jose_cfg_t *cfg, uint64_t err, const char *fmt, ...);
 #else
-void __attribute__((format(printf, 4, 5)))
-jose_cfg_err(jose_cfg_t *cfg, const char *file, int line, const char *fmt, ...);
+void __attribute__((format(printf, 5, 6)))
+jose_cfg_err(jose_cfg_t *cfg, const char *file, int line, uint64_t err,
+             const char *fmt, ...);
 
-#define jose_cfg_err(cfg, ...) \
-    jose_cfg_err(cfg, __FILE__, __LINE__, __VA_ARGS__)
+#define jose_cfg_err(cfg, err, ...) \
+    jose_cfg_err(cfg, __FILE__, __LINE__, err, __VA_ARGS__)
 #endif
 
 /** @} */

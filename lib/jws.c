@@ -23,6 +23,7 @@
 #include <jose/jws.h>
 #include "hooks.h"
 
+#include <errno.h>
 #include <string.h>
 
 static const jose_hook_alg_t *
@@ -45,7 +46,8 @@ find_alg(jose_cfg_t *cfg, json_t *jws, json_t *sig, const json_t *jwk)
         }
 
         if (!halg) {
-            jose_cfg_err(cfg, "Unable to infer signing algorithm");
+            jose_cfg_err(cfg, JOSE_CFG_ERR_ALG_NOINFER,
+                         "Unable to infer signing algorithm");
             return NULL;
         }
 
@@ -64,19 +66,24 @@ find_alg(jose_cfg_t *cfg, json_t *jws, json_t *sig, const json_t *jwk)
         alg = jose_hook_alg_find(JOSE_HOOK_ALG_KIND_SIGN, halg);
     }
 
-    if (!alg)
-        jose_cfg_err(cfg, "Signing algorithm (%s) is not supported", halg);
+    if (!alg) {
+        jose_cfg_err(cfg, JOSE_CFG_ERR_ALG_NOTSUP,
+                     "Signing algorithm (%s) is not supported", halg);
+        return NULL;
+    }
 
     if (json_unpack((json_t *) jwk, "{s?s}", "alg", &kalg) < 0)
         return NULL;
 
     if (halg && kalg && strcmp(halg, kalg) != 0) {
-        jose_cfg_err(cfg, "Algorithm mismatch (%s != %s)", halg, kalg);
+        jose_cfg_err(cfg, JOSE_CFG_ERR_JWK_MISMATCH,
+                     "Algorithm mismatch (%s != %s)", halg, kalg);
         return NULL;
     }
 
     if (!jose_jwk_prm(cfg, jwk, false, alg->sign.sprm)) {
-        jose_cfg_err(cfg, "JWK cannot be used to sign");
+        jose_cfg_err(cfg, JOSE_CFG_ERR_JWK_DENIED,
+                     "JWK cannot be used to sign");
         return NULL;
     }
 
@@ -128,7 +135,8 @@ jose_jws_sig(jose_cfg_t *cfg, json_t *jws, json_t *sig, const json_t *jwk)
     size_t payl = 0;
 
     if (json_unpack(jws, "{s:s%}", "payload", &pay, &payl) < 0) {
-        jose_cfg_err(cfg, "JWS missing payload attribute");
+        jose_cfg_err(cfg, JOSE_CFG_ERR_JWS_INVALID,
+                     "JWS missing payload attribute");
         return false;
     }
 
@@ -175,7 +183,7 @@ jose_jws_sig_io(jose_cfg_t *cfg, json_t *jws, json_t *sig, const json_t *jwk)
 
     s = sig ? json_incref(sig) : json_object();
     if (!json_is_object(s)) {
-        jose_cfg_err(cfg, "Parameter sig MUST be an object or NULL");
+        jose_cfg_err(cfg, EINVAL, "Parameter sig MUST be an object or NULL");
         return NULL;
     }
 
@@ -198,7 +206,8 @@ jose_jws_ver(jose_cfg_t *cfg, const json_t *jws, const json_t *sig,
     size_t payl = 0;
 
     if (json_unpack((json_t *) jws, "{s:s%}", "payload", &pay, &payl) < 0) {
-        jose_cfg_err(cfg, "JWS missing payload attribute");
+        jose_cfg_err(cfg, JOSE_CFG_ERR_JWS_INVALID,
+                     "JWS missing payload attribute");
         return false;
     }
 
@@ -279,24 +288,28 @@ jose_jws_ver_io(jose_cfg_t *cfg, const json_t *jws, const json_t *sig,
 
     if (!halg) {
         if (!kalg) {
-            jose_cfg_err(cfg, "Signature algorithm cannot be inferred");
+            jose_cfg_err(cfg, JOSE_CFG_ERR_ALG_NOINFER,
+                         "Signature algorithm cannot be inferred");
             return NULL;
         }
 
         halg = kalg;
     } else if (kalg && strcmp(halg, kalg) < 0) {
-        jose_cfg_err(cfg, "Signing algorithm mismatch (%s != %s)", halg, kalg);
+        jose_cfg_err(cfg, JOSE_CFG_ERR_JWK_MISMATCH,
+                     "Signing algorithm mismatch (%s != %s)", halg, kalg);
         return NULL;
     }
 
     alg = jose_hook_alg_find(JOSE_HOOK_ALG_KIND_SIGN, halg);
     if (!alg) {
-        jose_cfg_err(cfg, "Signing algorithm (%s) is not supported", halg);
+        jose_cfg_err(cfg, JOSE_CFG_ERR_ALG_NOTSUP,
+                     "Signing algorithm (%s) is not supported", halg);
         return NULL;
     }
 
     if (!jose_jwk_prm(cfg, jwk, false, alg->sign.vprm)) {
-        jose_cfg_err(cfg, "JWK cannot be used to verify");
+        jose_cfg_err(cfg, JOSE_CFG_ERR_JWK_DENIED,
+                     "JWK cannot be used to verify");
         return false;
     }
 

@@ -30,13 +30,43 @@ struct jose_cfg {
     void *misc;
 };
 
+static struct {
+    uint64_t nmbr;
+    const char *name;
+} errnames[] = {
+#define XX(n) { n, # n }
+    XX(JOSE_CFG_ERR_JWK_INVALID),
+    XX(JOSE_CFG_ERR_JWK_MISMATCH),
+    XX(JOSE_CFG_ERR_JWK_DENIED),
+    XX(JOSE_CFG_ERR_ALG_NOTSUP),
+    XX(JOSE_CFG_ERR_ALG_NOINFER),
+    XX(JOSE_CFG_ERR_JWS_INVALID),
+#undef XX
+    {}
+};
+
+static const char *
+getname(uint64_t err)
+{
+    if (err < _JOSE_CFG_ERR_BASE)
+        return strerror(err);
+
+    for (size_t i = 0; errnames[i].name; i++) {
+        if (errnames[i].nmbr == err)
+            return errnames[i].name;
+    }
+
+    return "UNKNOWN";
+}
+
 static void
-dflt_err(void *misc, const char *file, int line, const char *fmt, va_list ap)
+dflt_err(void *misc, const char *file, int line, uint64_t err,
+         const char *fmt, va_list ap)
 {
     fprintf(stderr, "%s:%d:", file, line);
 
-    if (errno != 0)
-        fprintf(stderr, "%s:", strerror(errno));
+    if (err != 0)
+        fprintf(stderr, "%s:", getname(err));
 
     vfprintf(stderr, fmt, ap);
     fprintf(stderr, "\n");
@@ -90,12 +120,13 @@ jose_cfg_get_err_misc(jose_cfg_t *cfg)
 }
 
 void
-jose_cfg_err(jose_cfg_t *cfg, const char *file, int line, const char *fmt, ...)
+jose_cfg_err(jose_cfg_t *cfg, const char *file, int line, uint64_t err,
+             const char *fmt, ...)
 {
     const jose_cfg_t *c = cfg ? cfg : &dflt;
     va_list ap;
 
     va_start(ap, fmt);
-    c->err(c->misc, file, line, fmt, ap);
+    c->err(c->misc, file, line, err, fmt, ap);
     va_end(ap);
 }

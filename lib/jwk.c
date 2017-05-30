@@ -356,23 +356,25 @@ jose_jwk_exc(jose_cfg_t *cfg, const json_t *prv, const json_t *pub)
 
     if (json_unpack((json_t *) prv, "{s:s,s?s}",
                     "kty", &ktya, "alg", &alga) < 0) {
-        jose_cfg_err(cfg, "Private JWK is invalid");
+        jose_cfg_err(cfg, JOSE_CFG_ERR_JWK_INVALID, "Private JWK is invalid");
         return NULL;
     }
 
     if (json_unpack((json_t *) pub, "{s:s,s?s}",
                     "kty", &ktyb, "alg", &algb) < 0) {
-        jose_cfg_err(cfg, "Public JWK is invalid");
+        jose_cfg_err(cfg, JOSE_CFG_ERR_JWK_INVALID, "Public JWK is invalid");
         return NULL;
     }
 
     if (strcmp(ktya, ktyb) != 0) {
-        jose_cfg_err(cfg, "Public and private JWKs are different types");
+        jose_cfg_err(cfg, JOSE_CFG_ERR_JWK_MISMATCH,
+                     "Public and private JWKs are different types");
         return NULL;
     }
 
     if (alga && algb && strcmp(alga, algb) != 0) {
-        jose_cfg_err(cfg, "Public and private JWKs have different algorithms");
+        jose_cfg_err(cfg, JOSE_CFG_ERR_JWK_MISMATCH,
+                     "Public and private JWKs have different algorithms");
         return NULL;
     }
 
@@ -385,7 +387,8 @@ jose_jwk_exc(jose_cfg_t *cfg, const json_t *prv, const json_t *pub)
     }
 
     if (!alga && !algb) {
-        jose_cfg_err(cfg, "Exchange algorithm cannot be inferred");
+        jose_cfg_err(cfg, JOSE_CFG_ERR_ALG_NOINFER,
+                     "Exchange algorithm cannot be inferred");
         return NULL;
     }
 
@@ -397,19 +400,22 @@ jose_jwk_exc(jose_cfg_t *cfg, const json_t *prv, const json_t *pub)
             continue;
 
         if (!jose_jwk_prm(cfg, prv, false, a->exch.prm)) {
-            jose_cfg_err(cfg, "Private JWK cannot be used to derive keys");
+            jose_cfg_err(cfg, JOSE_CFG_ERR_JWK_DENIED,
+                         "Private JWK cannot be used to derive keys");
             return NULL;
         }
 
         if (!jose_jwk_prm(cfg, pub, false, a->exch.prm)) {
-            jose_cfg_err(cfg, "Private JWK cannot be used to derive keys");
+            jose_cfg_err(cfg, JOSE_CFG_ERR_JWK_DENIED,
+                         "Public JWK cannot be used to derive keys");
             return NULL;
         }
 
         return a->exch.exc(a, cfg, prv, pub);
     }
 
-    jose_cfg_err(cfg, "Exchange algorithm %s is unsupported", alga ? alga : algb);
+    jose_cfg_err(cfg, JOSE_CFG_ERR_ALG_NOTSUP,
+                 "Exchange algorithm %s is unsupported", alga ? alga : algb);
     return NULL;
 }
 

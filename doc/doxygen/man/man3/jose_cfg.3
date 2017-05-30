@@ -39,7 +39,7 @@ jose_cfg \- José Configuration\&.
 .br
 .RI "Gets the miscelaneous data associated with the current error handler\&. "
 .ti -1c
-.RI "void \fBjose_cfg_err\fP (jose_cfg_t *cfg, const char *fmt,\&.\&.\&.)"
+.RI "void \fBjose_cfg_err\fP (jose_cfg_t *cfg, uint64_t err, const char *fmt,\&.\&.\&.)"
 .br
 .RI "Submit an error\&. "
 .in -1c
@@ -136,7 +136,7 @@ The miscelaneous data associated with the error handler\&.
 .RE
 .PP
 
-.SS "void jose_cfg_err (jose_cfg_t * cfg, const char * fmt,  \&.\&.\&.)"
+.SS "void jose_cfg_err (jose_cfg_t * cfg, uint64_t err, const char * fmt,  \&.\&.\&.)"
 
 .PP
 Submit an error\&. The error handler will be called with the error provided\&.
@@ -144,6 +144,8 @@ Submit an error\&. The error handler will be called with the error provided\&.
 \fBParameters:\fP
 .RS 4
 \fIcfg\fP The configuration context (optional)\&. 
+.br
+\fIerr\fP The number corresponding to this error type\&. 
 .br
 \fIfmt\fP A printf()-style format string\&. 
 .br

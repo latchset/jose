@@ -92,9 +92,9 @@ Functions</h2></td></tr>
 <tr class="memitem:ga92220346ca7051fd44685b71dbc5ce3c"><td class="memItemLeft" align="right" valign="top">void *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__jose__cfg.html#ga92220346ca7051fd44685b71dbc5ce3c">jose_cfg_get_err_misc</a> (jose_cfg_t *cfg)</td></tr>
 <tr class="memdesc:ga92220346ca7051fd44685b71dbc5ce3c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Gets the miscelaneous data associated with the current error handler.  <a href="#ga92220346ca7051fd44685b71dbc5ce3c">More...</a><br /></td></tr>
 <tr class="separator:ga92220346ca7051fd44685b71dbc5ce3c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:gac4ff6f9842876740b6a2aeac8cb6f5f5"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__jose__cfg.html#gac4ff6f9842876740b6a2aeac8cb6f5f5">jose_cfg_err</a> (jose_cfg_t *cfg, const char *fmt,...)</td></tr>
-<tr class="memdesc:gac4ff6f9842876740b6a2aeac8cb6f5f5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Submit an error.  <a href="#gac4ff6f9842876740b6a2aeac8cb6f5f5">More...</a><br /></td></tr>
-<tr class="separator:gac4ff6f9842876740b6a2aeac8cb6f5f5"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ga8193855cf711805afc0bbcfe03b9faf4"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__jose__cfg.html#ga8193855cf711805afc0bbcfe03b9faf4">jose_cfg_err</a> (jose_cfg_t *cfg, uint64_t err, const char *fmt,...)</td></tr>
+<tr class="memdesc:ga8193855cf711805afc0bbcfe03b9faf4"><td class="mdescLeft">&#160;</td><td class="mdescRight">Submit an error.  <a href="#ga8193855cf711805afc0bbcfe03b9faf4">More...</a><br /></td></tr>
+<tr class="separator:ga8193855cf711805afc0bbcfe03b9faf4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <p>José Configuration. </p>
@@ -268,8 +268,8 @@ Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="gac4ff6f9842876740b6a2aeac8cb6f5f5"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#gac4ff6f9842876740b6a2aeac8cb6f5f5">&#9670;&nbsp;</a></span>jose_cfg_err()</h2>
+<a id="ga8193855cf711805afc0bbcfe03b9faf4"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ga8193855cf711805afc0bbcfe03b9faf4">&#9670;&nbsp;</a></span>jose_cfg_err()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -279,6 +279,12 @@ Functions</h2></td></tr>
           <td>(</td>
           <td class="paramtype">jose_cfg_t *&#160;</td>
           <td class="paramname"><em>cfg</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">uint64_t&#160;</td>
+          <td class="paramname"><em>err</em>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -305,6 +311,7 @@ Functions</h2></td></tr>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
     <tr><td class="paramname">cfg</td><td>The configuration context (optional). </td></tr>
+    <tr><td class="paramname">err</td><td>The number corresponding to this error type. </td></tr>
     <tr><td class="paramname">fmt</td><td>A printf()-style format string. </td></tr>
     <tr><td class="paramname">...</td><td>The printf()-style arguments. </td></tr>
   </table>

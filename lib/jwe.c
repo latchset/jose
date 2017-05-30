@@ -303,7 +303,8 @@ jose_jwe_enc_cek_io(jose_cfg_t *cfg, json_t *jwe, const json_t *cek,
         }
 
         if (!h) {
-            jose_cfg_err(cfg, "Unable to infer encryption algorithm");
+            jose_cfg_err(cfg, JOSE_CFG_ERR_ALG_NOINFER,
+                         "Unable to infer encryption algorithm");
             return NULL;
         }
 
@@ -312,7 +313,8 @@ jose_jwe_enc_cek_io(jose_cfg_t *cfg, json_t *jwe, const json_t *cek,
             return NULL;
     } else {
         if (k && strcmp(h, k) != 0) {
-            jose_cfg_err(cfg, "Algorithm mismatch (%s != %s)", h, k);
+            jose_cfg_err(cfg, JOSE_CFG_ERR_JWK_MISMATCH,
+                         "Algorithm mismatch (%s != %s)", h, k);
             return NULL;
         }
 
@@ -320,12 +322,14 @@ jose_jwe_enc_cek_io(jose_cfg_t *cfg, json_t *jwe, const json_t *cek,
     }
 
     if (!alg) {
-        jose_cfg_err(cfg, "Unsupported encryption algorithm (%s)", h);
+        jose_cfg_err(cfg, JOSE_CFG_ERR_ALG_NOTSUP,
+                     "Unsupported encryption algorithm (%s)", h);
         return NULL;
     }
 
     if (!jose_jwk_prm(cfg, cek, false, alg->encr.eprm)) {
-        jose_cfg_err(cfg, "CEK is not allowed to encrypt");
+        jose_cfg_err(cfg, JOSE_CFG_ERR_JWK_DENIED,
+                     "CEK is not allowed to encrypt");
         return NULL;
     }
 
@@ -491,10 +495,12 @@ jose_jwe_dec_cek_io(jose_cfg_t *cfg, const json_t *jwe, const json_t *cek,
         return NULL;
 
     if (!halg && !kalg) {
-        jose_cfg_err(cfg, "Decryption algorithm cannot be inferred");
+        jose_cfg_err(cfg, JOSE_CFG_ERR_ALG_NOINFER,
+                     "Decryption algorithm cannot be inferred");
         return NULL;
     } else if (halg && kalg && strcmp(halg, kalg) != 0) {
-        jose_cfg_err(cfg, "Algorithm mismatch (%s != %s)", halg, kalg);
+        jose_cfg_err(cfg, JOSE_CFG_ERR_JWK_MISMATCH,
+                     "Algorithm mismatch (%s != %s)", halg, kalg);
         return NULL;
     }
 

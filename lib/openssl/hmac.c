@@ -116,23 +116,25 @@ hmac(const jose_hook_alg_t *alg, jose_cfg_t *cfg,
 
     keyl = jose_b64_dec(json_object_get(jwk, "k"), NULL, 0);
     if (keyl == SIZE_MAX) {
-        jose_cfg_err(cfg, "Error decoding JWK");
+        jose_cfg_err(cfg, JOSE_CFG_ERR_JWK_INVALID, "Error decoding JWK");
         return NULL;
     }
 
     /* Per RFC 7518 Section 3.2 */
     if (keyl < (size_t) EVP_MD_size(md)) {
-        jose_cfg_err(cfg, "Key is too small (cf. RFC 7518 Section 3.2)");
+        jose_cfg_err(cfg, JOSE_CFG_ERR_JWK_INVALID,
+                     "Key is too small (cf. RFC 7518 Section 3.2)");
         return NULL;
     }
 
     if (keyl > KEYMAX) {
-        jose_cfg_err(cfg, "Key is too large");
+        jose_cfg_err(cfg, JOSE_CFG_ERR_JWK_INVALID, "Key is too large");
         return NULL;
     }
 
     if (jose_b64_dec(json_object_get(jwk, "k"), key, sizeof(key)) != keyl) {
-        jose_cfg_err(cfg, "JWK 'k' parameter contains invalid Base64");
+        jose_cfg_err(cfg, JOSE_CFG_ERR_JWK_INVALID,
+                     "JWK 'k' parameter contains invalid Base64");
         goto error;
     }
 
@@ -140,10 +142,8 @@ hmac(const jose_hook_alg_t *alg, jose_cfg_t *cfg,
     if (!hctx)
         goto error;
 
-    if (HMAC_Init_ex(hctx, key, keyl, md, NULL) <= 0) {
-        jose_cfg_err(cfg, "Error initializing HMAC_CTX");
+    if (HMAC_Init_ex(hctx, key, keyl, md, NULL) <= 0)
         goto error;
-    }
 
     if (prot && HMAC_Update(hctx, (uint8_t *) prot, strlen(prot)) <= 0)
         goto error;
