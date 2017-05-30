@@ -47,7 +47,7 @@ int
 main(int argc, char *argv[])
 {
     json_auto_t *jwke = json_pack("{s:s}", "alg", "ECDH-ES+A128KW");
-    json_auto_t *jwkr = json_pack("{s:s}", "alg", "RSA-OAEP-256");
+    json_auto_t *jwkr = json_pack("{s:s}", "alg", "RSA1_5");
     json_auto_t *jwko = json_pack("{s:s}", "alg", "A128KW");
     json_auto_t *set0 = json_pack("{s:[O,O]}", "keys", jwke, jwko);
     json_auto_t *set1 = json_pack("{s:[O,O]}", "keys", jwkr, jwko);
