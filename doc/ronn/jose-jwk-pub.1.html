@@ -57,6 +57,7 @@
     <a href="#SYNOPSIS">SYNOPSIS</a>
     <a href="#OVERVIEW">OVERVIEW</a>
     <a href="#OPTIONS">OPTIONS</a>
+    <a href="#EXAMPLES">EXAMPLES</a>
     <a href="#AUTHOR">AUTHOR</a>
     <a href="#SEE-ALSO">SEE ALSO</a>
   </div>
@@ -94,6 +95,18 @@ to include only operations relevant to public keys.</p>
 <dt><code>-o</code> -, <code>--output</code>=- </dt><dd><p>Write JWK(Set) to standard input</p></dd>
 </dl>
 
+
+<h2 id="EXAMPLES">EXAMPLES</h2>
+
+<p>Clean private key material from a JWK:</p>
+
+<pre><code>$ jose jwk gen -i '{"alg":"ES256"}' -o prv.jwk
+$ cat prv.jwk
+{"alg":"ES256","crv":"P-256","key_ops":["sign","verify"],"kty":"EC", ...}
+$ jose jwk pub -i prv.jwk -o pub.jwk
+$ cat pub.jwk
+{"alg":"ES256","crv":"P-256","key_ops":["verify"],"kty":"EC", ...}
+</code></pre>
 
 <h2 id="AUTHOR">AUTHOR</h2>
 

@@ -12,23 +12,18 @@ If a single template is given as input, a single JWK will be output. However,
 if multiple templates are given as input, a single JWKSet will be output
 containing all the keys.
 
-The best way to generate a key is to use an algorithm, for example:
+The best way to generate a key is to specify the algorithm it will be used with
+in the "alg" property of the JWK template. This method should be preferred
+since, when generating from an algorithm, an appropriate "key_ops"
+parameter will be emitted automatically. Further, having a JWK with the
+algorithm already specified will assist algorithm inference when encrypting or
+signing.
 
-    $ jose jwk gen -i '{"alg":"HS256"}' ...
-    $ jose jwk gen -i '{"alg":"RS256"}' ...
-    $ jose jwk gen -i '{"alg":"ES256"}' ...
-
-Note that when generating from an algorithm, an appropriate "key_ops"
-parameter is also emitted automatically.
-
-However, you may also specify key parameters:
-
-    $ jose jwk gen -i '{"kty":"EC","crv":"P-256"}' ...
-    $ jose jwk gen -i '{"kty":"oct","bytes":32}' ...
-    $ jose jwk gen -i '{"kty":"RSA","bits":4096}' ...
-
-Note that the "bytes" and "bits" parameters are non-standard, so they will
-be removed from the output JWK(Set).
+Alternatively, you can generate a key by specifying its key type ("kty") JWK
+property, along with the required type-specific generation parameter. See the
+examples below for how to do this for each key type. If the type-specific
+generation parameter is non-standard (for example: "bytes" and "bits"), it will
+be removed excluded from the output.
 
 ## OPTIONS
 
@@ -46,6 +41,33 @@ be removed from the output JWK(Set).
 
 * `-o` -, `--output`=- :
   Write JWK(Set) to standard input
+
+## EXAMPLES
+
+Generate three keys, each targeting a different algorithm:
+
+    $ jose jwk gen -i '{"alg":"HS256"}' -o oct.jwk
+    $ jose jwk gen -i '{"alg":"RS256"}' -o rsa.jwk
+    $ jose jwk gen -i '{"alg":"ES256"}' -o ec.jwk
+
+Generate three keys using key parameters rather than algorithms:
+
+    $ jose jwk gen -i '{"kty":"oct","bytes":32}' -o oct.jwk
+    $ jose jwk gen -i '{"kty":"RSA","bits":4096}' -o rsa.jwk
+    $ jose jwk gen -i '{"kty":"EC","crv":"P-256"}' -o ec.jwk
+
+Create multiple keys at once using a JWKSet template:
+
+    $ jose jwk gen \
+      -i '{"keys":[{"alg":"HS256"},{"alg":"ES256"}]}' \
+      -o keys.jwkset
+
+Create multiple keys at once using multiple JWK templates:
+
+    $ jose jwk gen \
+      -i '{"alg":"HS256"}' \
+      -i '{"alg":"ES256"}' \
+      -o keys.jwkset
 
 ## AUTHOR
 

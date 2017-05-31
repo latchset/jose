@@ -68,6 +68,32 @@ Detach payload and decode to standard output
 \fB\-c\fR, \fB\-\-compact\fR
 Output JWS using compact serialization
 .
+.SH "EXAMPLES"
+Attach payload to a detached JWS and emit JWS Compact Serialization:
+.
+.IP "" 4
+.
+.nf
+
+$ jose jws fmt \-i msg\.jws \-I msg\.txt \-o compact\.jws \-c
+.
+.fi
+.
+.IP "" 0
+.
+.P
+Detach payload from a JWS:
+.
+.IP "" 4
+.
+.nf
+
+$ jose jws fmt \-i msg\.jws \-o detached\.jws \-O msg\.txt
+.
+.fi
+.
+.IP "" 0
+.
 .SH "AUTHOR"
 Nathaniel McCallum <npmccallum@redhat\.com>
 .

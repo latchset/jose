@@ -57,6 +57,7 @@
     <a href="#SYNOPSIS">SYNOPSIS</a>
     <a href="#OVERVIEW">OVERVIEW</a>
     <a href="#OPTIONS">OPTIONS</a>
+    <a href="#EXAMPLES">EXAMPLES</a>
     <a href="#AUTHOR">AUTHOR</a>
   </div>
 
@@ -77,9 +78,13 @@
 
 <h2 id="OVERVIEW">OVERVIEW</h2>
 
-<p>The <code>jose alg</code> command lists the algorithms supported by all <code>jose</code> commands.
-When no options are provided, all algorithms are listed. If one or more <code>-k</code>
-options are provided, only the kinds of algorithms requested will be shown.</p>
+<p>The <code>jose alg</code> command lists the algorithms supported by all <code>jose</code> commands.</p>
+
+<p>Since <code>jose</code> supports different kinds of algorithms (encryption, signing,
+hashing, etc.), you can limit the kinds of algorithms you would like to see
+using the <code>-k</code> option (which can be specified multiple times). For a list of
+the different kinds of algorithms, use the <code>-k ?</code> option. If the <code>-k</code> option is
+not used, all algorithms, regardless of their kind, will be listed.</p>
 
 <h2 id="OPTIONS">OPTIONS</h2>
 
@@ -88,6 +93,19 @@ options are provided, only the kinds of algorithms requested will be shown.</p>
 <dt><code>-k</code> ?, <code>--kind</code>=? </dt><dd><p>List valid algorithm kinds</p></dd>
 </dl>
 
+
+<h2 id="EXAMPLES">EXAMPLES</h2>
+
+<p>List all encryption algorithms:</p>
+
+<pre><code>$ jose alg -k encr
+A128CBC-HS256
+A128GCM
+A192CBC-HS384
+A192GCM
+A256CBC-HS512
+A256GCM
+</code></pre>
 
 <h2 id="AUTHOR">AUTHOR</h2>
 

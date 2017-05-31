@@ -8,8 +8,12 @@ jose-alg(1) -- Lists all supported algorithms
 ## OVERVIEW
 
 The `jose alg` command lists the algorithms supported by all `jose` commands.
-When no options are provided, all algorithms are listed. If one or more `-k`
-options are provided, only the kinds of algorithms requested will be shown.
+
+Since `jose` supports different kinds of algorithms (encryption, signing,
+hashing, etc.), you can limit the kinds of algorithms you would like to see
+using the `-k` option (which can be specified multiple times). For a list of
+the different kinds of algorithms, use the `-k ?` option. If the `-k` option is
+not used, all algorithms, regardless of their kind, will be listed.
 
 ## OPTIONS
 
@@ -18,6 +22,18 @@ options are provided, only the kinds of algorithms requested will be shown.
 
 * `-k` ?, `--kind`=? :
   List valid algorithm kinds
+
+## EXAMPLES
+
+List all encryption algorithms:
+
+    $ jose alg -k encr
+    A128CBC-HS256
+    A128GCM
+    A192CBC-HS384
+    A192GCM
+    A256CBC-HS512
+    A256GCM
 
 ## AUTHOR
 

@@ -10,7 +10,10 @@
 \fBjose alg\fR [\-k KIND]
 .
 .SH "OVERVIEW"
-The \fBjose alg\fR command lists the algorithms supported by all \fBjose\fR commands\. When no options are provided, all algorithms are listed\. If one or more \fB\-k\fR options are provided, only the kinds of algorithms requested will be shown\.
+The \fBjose alg\fR command lists the algorithms supported by all \fBjose\fR commands\.
+.
+.P
+Since \fBjose\fR supports different kinds of algorithms (encryption, signing, hashing, etc\.), you can limit the kinds of algorithms you would like to see using the \fB\-k\fR option (which can be specified multiple times)\. For a list of the different kinds of algorithms, use the \fB\-k ?\fR option\. If the \fB\-k\fR option is not used, all algorithms, regardless of their kind, will be listed\.
 .
 .SH "OPTIONS"
 .
@@ -21,6 +24,25 @@ Restrict algorithm list to a certain kind
 .TP
 \fB\-k\fR ?, \fB\-\-kind\fR=?
 List valid algorithm kinds
+.
+.SH "EXAMPLES"
+List all encryption algorithms:
+.
+.IP "" 4
+.
+.nf
+
+$ jose alg \-k encr
+A128CBC\-HS256
+A128GCM
+A192CBC\-HS384
+A192GCM
+A256CBC\-HS512
+A256GCM
+.
+.fi
+.
+.IP "" 0
 .
 .SH "AUTHOR"
 Nathaniel McCallum <npmccallum@redhat\.com>

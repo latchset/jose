@@ -68,6 +68,32 @@ Detach ciphertext and decode to standard output
 \fB\-c\fR, \fB\-\-compact\fR
 Output JWE using compact serialization
 .
+.SH "EXAMPLES"
+Attach ciphertext to a detached JWE and emit JWE Compact Serialization:
+.
+.IP "" 4
+.
+.nf
+
+$ jose jwe fmt \-i msg\.jwe \-I msg\.ct \-o compact\.jwe \-c
+.
+.fi
+.
+.IP "" 0
+.
+.P
+Detach ciphertext from a JWE:
+.
+.IP "" 4
+.
+.nf
+
+$ jose jwe fmt \-i msg\.jwe \-o detached\.jwe \-O detached\.ct
+.
+.fi
+.
+.IP "" 0
+.
 .SH "AUTHOR"
 Nathaniel McCallum <npmccallum@redhat\.com>
 .

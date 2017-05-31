@@ -57,6 +57,7 @@
     <a href="#SYNOPSIS">SYNOPSIS</a>
     <a href="#OVERVIEW">OVERVIEW</a>
     <a href="#OPTIONS">OPTIONS</a>
+    <a href="#EXAMPLES">EXAMPLES</a>
     <a href="#AUTHOR">AUTHOR</a>
     <a href="#SEE-ALSO">SEE ALSO</a>
   </div>
@@ -86,12 +87,27 @@
 <dt><code>-i</code> JSON, <code>--input</code>=JSON </dt><dd><p>Parse JWK(Set) from JSON</p></dd>
 <dt><code>-i</code> FILE, <code>--input</code>=FILE </dt><dd><p>Read JWK(Set) from FILE</p></dd>
 <dt><code>-i</code> -, <code>--input</code>=- </dt><dd><p>Read JWK(Set) standard input</p></dd>
-<dt><code>-H</code> HASH, <code>--hash</code>=HASH </dt><dd><p>Use the specified hash algorithm</p></dd>
-<dt><code>-H</code> ?, <code>--hash</code>=? </dt><dd><p>List available hash algorithms</p></dd>
+<dt><code>-a</code> ALG, <code>--algorithm</code>=ALG </dt><dd><p>Use the specified hash algorithm (case sensitive)</p></dd>
+<dt><code>-a</code> ?, <code>--algorithm</code>=? </dt><dd><p>List available hash algorithms</p></dd>
 <dt><code>-o</code> FILE, <code>--output</code>=FILE </dt><dd><p>Write thumbprint(s) to FILE</p></dd>
 <dt><code>-o</code> -, <code>--output</code>=- </dt><dd><p>Write thumbprint(s) to standard input</p></dd>
 </dl>
 
+
+<h2 id="EXAMPLES">EXAMPLES</h2>
+
+<p>Calculate the S1 thumbprint of a newly generated key:</p>
+
+<pre><code>$ jose jwk gen -i '{"alg":"ES256"}' -a S1 | jose jwk thp -i-
+BzmSH6W8a8LlbQ1mD0iBJdYj4x4
+</code></pre>
+
+<p>Calculate the S256 thumbprints of a JWKSet containing two keys:</p>
+
+<pre><code>$ jose jwk thp -i keys.jwkset -a S256
+6HJwXEuRh8gAkTz4BodEvcEj_KXkgjc-7Qez3d4VNMs
+jo_j_O5gqYpKcZKHPp3miTszAeV60MXHvdb_kkjjTWE
+</code></pre>
 
 <h2 id="AUTHOR">AUTHOR</h2>
 

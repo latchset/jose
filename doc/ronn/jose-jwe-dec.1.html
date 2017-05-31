@@ -57,6 +57,7 @@
     <a href="#SYNOPSIS">SYNOPSIS</a>
     <a href="#OVERVIEW">OVERVIEW</a>
     <a href="#OPTIONS">OPTIONS</a>
+    <a href="#EXAMPLES">EXAMPLES</a>
     <a href="#AUTHOR">AUTHOR</a>
     <a href="#SEE-ALSO">SEE ALSO</a>
   </div>
@@ -85,6 +86,10 @@ password (<code>-p</code>). Decryption succeeds if any key is able to perform de
 binary form external to the JWE itself, the ciphertext can be loaded using
 the <code>-I</code> parameter.</p>
 
+<p>Please note that, when specifying the <code>-O</code> option to output the plaintext,
+plaintext output begins before ciphertext validation. Therefore,
+you must check the return value of the command before using the data.</p>
+
 <h2 id="OPTIONS">OPTIONS</h2>
 
 <dl>
@@ -101,6 +106,24 @@ the <code>-I</code> parameter.</p>
 <dt><code>-O</code> -, <code>--detach</code>=- </dt><dd><p>Read JWE from standard input</p></dd>
 </dl>
 
+
+<h2 id="EXAMPLES">EXAMPLES</h2>
+
+<p>Decrypt a JWE with a JWK:</p>
+
+<pre><code>$ jose jwe dec -i msg.jwe -k rsa.key -O msg.txt
+</code></pre>
+
+<p>Decrypt a JWE with a password:</p>
+
+<pre><code>$ jose jwe dec -i msg.jwe -p -O msg.txt
+Please enter decryption password:
+</code></pre>
+
+<p>Decrypt a JWE with either of two JWKs:</p>
+
+<pre><code>$ jose jwe dec -i msg.jwe -k ec.jwk -k rsa.jwk -O msg.txt
+</code></pre>
 
 <h2 id="AUTHOR">AUTHOR</h2>
 

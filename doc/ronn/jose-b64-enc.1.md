@@ -23,6 +23,13 @@ The `jose b64 enc` command encodes binary data to URL-safe Base64 format.
 * `-o` -, `--base64`=- :
   Write Base64 (URL-safe) to standard output
 
+## EXAMPLES
+
+Encode a simple message:
+
+    $ echo "Hello, World" | jose b64 enc -I-
+    SGVsbG8sIFdvcmxkCg
+
 ## AUTHOR
 
 Nathaniel McCallum &lt;npmccallum@redhat.com&gt;

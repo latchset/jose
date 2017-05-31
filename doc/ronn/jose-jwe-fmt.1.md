@@ -47,6 +47,16 @@ formats. For example, it can:
 *  `-c`, `--compact` :
   Output JWE using compact serialization
 
+## EXAMPLES
+
+Attach ciphertext to a detached JWE and emit JWE Compact Serialization:
+
+    $ jose jwe fmt -i msg.jwe -I msg.ct -o compact.jwe -c
+
+Detach ciphertext from a JWE:
+
+    $ jose jwe fmt -i msg.jwe -o detached.jwe -O detached.ct
+
 ## AUTHOR
 
 Nathaniel McCallum &lt;npmccallum@redhat.com&gt;

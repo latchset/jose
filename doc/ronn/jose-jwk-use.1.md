@@ -56,6 +56,19 @@ be allowed unless it explicitly permits the option.
 * `-r`, `--required` :
   Operations must be explicitly allowed
 
+## EXAMPLES
+
+Examples of both success and failure from a private and public key:
+
+    $ jose jwk gen -i '{"alg":"ES256"}' -o prv.jwk
+    $ jose jwk pub -i prv.jwk -o pub.jwk
+    $ jose jwk use -i prv.jwk -u sign
+    $ echo $?
+    0
+    $ jose jwk use -i pub.jwk -u sign
+    $ echo $?
+    1
+
 ## AUTHOR
 
 Nathaniel McCallum &lt;npmccallum@redhat.com&gt;

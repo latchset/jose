@@ -21,7 +21,7 @@ jose(1) -- Toolkit for performing JSON Object Signing and Encryption
 
 `jose jwk pub` -i JWK [-o JWK]
 
-`jose jwk thp` -i JWK [-H ALG] [-o THP]
+`jose jwk thp` -i JWK [-a ALG] [-o THP]
 
 `jose jwk use` -i JWK [-a] [-r] -u OP
 

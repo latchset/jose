@@ -57,6 +57,7 @@
     <a href="#SYNOPSIS">SYNOPSIS</a>
     <a href="#OVERVIEW">OVERVIEW</a>
     <a href="#OPTIONS">OPTIONS</a>
+    <a href="#EXAMPLES">EXAMPLES</a>
     <a href="#AUTHOR">AUTHOR</a>
     <a href="#SEE-ALSO">SEE ALSO</a>
   </div>
@@ -89,6 +90,14 @@
 <dt><code>-O</code> -, <code>--binary</code>=- </dt><dd><p>Write binary data to standard output</p></dd>
 </dl>
 
+
+<h2 id="EXAMPLES">EXAMPLES</h2>
+
+<p>Decode a simple message:</p>
+
+<pre><code>$ echo SGVsbG8sIFdvcmxkCg | jose b64 dec -i-
+Hello, World
+</code></pre>
 
 <h2 id="AUTHOR">AUTHOR</h2>
 

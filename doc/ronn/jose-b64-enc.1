@@ -30,6 +30,20 @@ Write Base64 (URL\-safe) to FILE
 \fB\-o\fR \-, \fB\-\-base64\fR=\-
 Write Base64 (URL\-safe) to standard output
 .
+.SH "EXAMPLES"
+Encode a simple message:
+.
+.IP "" 4
+.
+.nf
+
+$ echo "Hello, World" | jose b64 enc \-I\-
+SGVsbG8sIFdvcmxkCg
+.
+.fi
+.
+.IP "" 0
+.
 .SH "AUTHOR"
 Nathaniel McCallum <npmccallum@redhat\.com>
 .

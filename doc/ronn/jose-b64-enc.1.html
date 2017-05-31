@@ -57,6 +57,7 @@
     <a href="#SYNOPSIS">SYNOPSIS</a>
     <a href="#OVERVIEW">OVERVIEW</a>
     <a href="#OPTIONS">OPTIONS</a>
+    <a href="#EXAMPLES">EXAMPLES</a>
     <a href="#AUTHOR">AUTHOR</a>
     <a href="#SEE-ALSO">SEE ALSO</a>
   </div>
@@ -89,6 +90,14 @@
 <dt><code>-o</code> -, <code>--base64</code>=- </dt><dd><p>Write Base64 (URL-safe) to standard output</p></dd>
 </dl>
 
+
+<h2 id="EXAMPLES">EXAMPLES</h2>
+
+<p>Encode a simple message:</p>
+
+<pre><code>$ echo "Hello, World" | jose b64 enc -I-
+SGVsbG8sIFdvcmxkCg
+</code></pre>
 
 <h2 id="AUTHOR">AUTHOR</h2>
 

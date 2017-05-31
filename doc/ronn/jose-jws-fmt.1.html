@@ -57,6 +57,7 @@
     <a href="#SYNOPSIS">SYNOPSIS</a>
     <a href="#OVERVIEW">OVERVIEW</a>
     <a href="#OPTIONS">OPTIONS</a>
+    <a href="#EXAMPLES">EXAMPLES</a>
     <a href="#AUTHOR">AUTHOR</a>
     <a href="#SEE-ALSO">SEE ALSO</a>
   </div>
@@ -104,6 +105,18 @@ formats. For example, it can:</p>
 <dt><code>-c</code>, <code>--compact</code> </dt><dd><p>Output JWS using compact serialization</p></dd>
 </dl>
 
+
+<h2 id="EXAMPLES">EXAMPLES</h2>
+
+<p>Attach payload to a detached JWS and emit JWS Compact Serialization:</p>
+
+<pre><code>$ jose jws fmt -i msg.jws -I msg.txt -o compact.jws -c
+</code></pre>
+
+<p>Detach payload from a JWS:</p>
+
+<pre><code>$ jose jws fmt -i msg.jws -o detached.jws -O msg.txt
+</code></pre>
 
 <h2 id="AUTHOR">AUTHOR</h2>
 

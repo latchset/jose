@@ -57,6 +57,7 @@
     <a href="#SYNOPSIS">SYNOPSIS</a>
     <a href="#OVERVIEW">OVERVIEW</a>
     <a href="#OPTIONS">OPTIONS</a>
+    <a href="#EXAMPLES">EXAMPLES</a>
     <a href="#AUTHOR">AUTHOR</a>
     <a href="#SEE-ALSO">SEE ALSO</a>
   </div>
@@ -80,7 +81,7 @@
 
 <p>The <code>jose jws sig</code> command signs a payload using one or more JWKs. The payload
 can be provided either in its decoded form (<code>-I</code>) or embedded in an existing
-JWS ('-i').</p>
+JWS (<code>-i</code>).</p>
 
 <p>A detached JWS can be created by specifying the <code>-O</code> option. In this case,
 the decoded payload will be written to the output specified and will not be
@@ -96,6 +97,17 @@ unmodified in the output. One exception to this rule is that the JWS Protected
 Header should be specified in its decoded form in the JWS Signature Object
 template. This command will automatically encode it as part of the encryption
 process.</p>
+
+<p>If you specify a JOSE Header Parameter (via either the <code>-i</code> or <code>-r</code> options)
+that affects the construction of the JWE, this command will attempt to behave
+according to this parameter as if it were configuration. Currently, <code>jose</code> will
+modify its behavior for the "alg" JOSE Header Parameter (see RFC 7515 Section
+4.1.1).</p>
+
+<p>However, it is not necessary to provide any templates: <code>jose jwe enc</code> will
+automatically fill in the "alg" parameter by inferring the correct algorithm
+from the provided input JWKs. Therefore, the <code>-i</code> and <code>-r</code> options should
+generally be used for providing extended JWE metadata.</p>
 
 <p>It is possible to specify an existing JWS as the JWS template input (<code>-i</code>).
 This allows the addition of new signatures to an existing JWS.</p>
@@ -135,6 +147,24 @@ Detach payload and decode to standard output</p></li>
 Output JWS using compact serialization</p></li>
 </ul>
 
+
+<h2 id="EXAMPLES">EXAMPLES</h2>
+
+<p>Sign data with a symmetric key using JWE JSON Serialization:</p>
+
+<pre><code>$ jose jwk gen -i '{"alg":"HS256"}' -o key.jwk
+$ jose jws sig -I msg.txt -k key.jwk -o msg.jws
+</code></pre>
+
+<p>Sign data using detached JWE Compact Serialization:</p>
+
+<pre><code>$ jose jws sig -I msg.txt -k key.jwk -O /dev/null -c -o msg.jws
+</code></pre>
+
+<p>Sign with two keys:
+    $ jose jwk gen -i '{"alg":"ES256"}' -o ec.jwk
+    $ jose jwk gen -i '{"alg":"RS256"}' -o rsa.jwk
+    $ jose jws sig -I msg.txt -k ec.jwk -k rsa.jwk -o msg.jws</p>
 
 <h2 id="AUTHOR">AUTHOR</h2>
 

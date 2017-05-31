@@ -23,6 +23,13 @@ The `jose b64 dec` command decodes URL-safe Base64 data to binary format.
 * `-O` -, `--binary`=- :
   Write binary data to standard output
 
+## EXAMPLES
+
+Decode a simple message:
+
+    $ echo SGVsbG8sIFdvcmxkCg | jose b64 dec -i-
+    Hello, World
+
 ## AUTHOR
 
 Nathaniel McCallum &lt;npmccallum@redhat.com&gt;

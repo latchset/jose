@@ -57,6 +57,7 @@
     <a href="#SYNOPSIS">SYNOPSIS</a>
     <a href="#OVERVIEW">OVERVIEW</a>
     <a href="#OPTIONS">OPTIONS</a>
+    <a href="#EXAMPLES">EXAMPLES</a>
     <a href="#AUTHOR">AUTHOR</a>
     <a href="#SEE-ALSO">SEE ALSO</a>
   </div>
@@ -83,25 +84,18 @@ If a single template is given as input, a single JWK will be output. However,
 if multiple templates are given as input, a single JWKSet will be output
 containing all the keys.</p>
 
-<p>The best way to generate a key is to use an algorithm, for example:</p>
+<p>The best way to generate a key is to specify the algorithm it will be used with
+in the "alg" property of the JWK template. This method should be preferred
+since, when generating from an algorithm, an appropriate "key_ops"
+parameter will be emitted automatically. Further, having a JWK with the
+algorithm already specified will assist algorithm inference when encrypting or
+signing.</p>
 
-<pre><code>$ jose jwk gen -i '{"alg":"HS256"}' ...
-$ jose jwk gen -i '{"alg":"RS256"}' ...
-$ jose jwk gen -i '{"alg":"ES256"}' ...
-</code></pre>
-
-<p>Note that when generating from an algorithm, an appropriate "key_ops"
-parameter is also emitted automatically.</p>
-
-<p>However, you may also specify key parameters:</p>
-
-<pre><code>$ jose jwk gen -i '{"kty":"EC","crv":"P-256"}' ...
-$ jose jwk gen -i '{"kty":"oct","bytes":32}' ...
-$ jose jwk gen -i '{"kty":"RSA","bits":4096}' ...
-</code></pre>
-
-<p>Note that the "bytes" and "bits" parameters are non-standard, so they will
-be removed from the output JWK(Set).</p>
+<p>Alternatively, you can generate a key by specifying its key type ("kty") JWK
+property, along with the required type-specific generation parameter. See the
+examples below for how to do this for each key type. If the type-specific
+generation parameter is non-standard (for example: "bytes" and "bits"), it will
+be removed excluded from the output.</p>
 
 <h2 id="OPTIONS">OPTIONS</h2>
 
@@ -113,6 +107,37 @@ be removed from the output JWK(Set).</p>
 <dt><code>-o</code> -, <code>--output</code>=- </dt><dd><p>Write JWK(Set) to standard input</p></dd>
 </dl>
 
+
+<h2 id="EXAMPLES">EXAMPLES</h2>
+
+<p>Generate three keys, each targeting a different algorithm:</p>
+
+<pre><code>$ jose jwk gen -i '{"alg":"HS256"}' -o oct.jwk
+$ jose jwk gen -i '{"alg":"RS256"}' -o rsa.jwk
+$ jose jwk gen -i '{"alg":"ES256"}' -o ec.jwk
+</code></pre>
+
+<p>Generate three keys using key parameters rather than algorithms:</p>
+
+<pre><code>$ jose jwk gen -i '{"kty":"oct","bytes":32}' -o oct.jwk
+$ jose jwk gen -i '{"kty":"RSA","bits":4096}' -o rsa.jwk
+$ jose jwk gen -i '{"kty":"EC","crv":"P-256"}' -o ec.jwk
+</code></pre>
+
+<p>Create multiple keys at once using a JWKSet template:</p>
+
+<pre><code>$ jose jwk gen \
+  -i '{"keys":[{"alg":"HS256"},{"alg":"ES256"}]}' \
+  -o keys.jwkset
+</code></pre>
+
+<p>Create multiple keys at once using multiple JWK templates:</p>
+
+<pre><code>$ jose jwk gen \
+  -i '{"alg":"HS256"}' \
+  -i '{"alg":"ES256"}' \
+  -o keys.jwkset
+</code></pre>
 
 <h2 id="AUTHOR">AUTHOR</h2>
 

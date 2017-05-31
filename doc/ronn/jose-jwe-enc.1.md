@@ -25,10 +25,20 @@ unmodified in the output. One exception to this rule is that the JWE Protected
 Header should be specified in its decoded form in the template. This command
 will automatically encode it as part of the encryption process.
 
-If you specify a JOSE Header Parameter that affects the construction of the
-JWE, this command will attempt to behave according to this parameter as if it
-were configuration. For example, specifying the "zip" parameter in the JWE
-Protected Header will cause the plaintext to be compressed before encryption.
+If you specify a JOSE Header Parameter (via either the `-i` or `-r` options)
+that affects the construction of the JWE, this command will attempt to behave
+according to this parameter as if it were configuration. For example,
+specifying the "zip" parameter in the JWE Protected Header will cause the
+plaintext to be compressed before encryption. Currently, `jose` will modify its
+behavior for the "alg", "enc" and "zip" JOSE Header Parameters (see RFC 7516
+Section 4.1.3), as well as the algorithm-specific parameters for the algorithms
+we support (see RFC 7518 Section 4).
+
+However, it is not necessary to provide any templates: `jose jwe enc` will
+automatically fill in the "alg" and "enc" parameters by inferring the correct
+algorithms from the provided input keys (JWK or password). Therefore, the `-i`
+and `-r` options should generally be used for providing extended JWE metadata.
+
 
 ## OPTIONS
 
@@ -76,6 +86,32 @@ Protected Header will cause the plaintext to be compressed before encryption.
 
 *  `-c`, `--compact` :
   Output JWE using compact serialization
+
+## EXAMPLES
+
+Encrypt data with a symmetric key using JWE JSON Serialization:
+
+    $ jose jwk gen -i '{"alg":"A128GCM"}' -o key.jwk
+    $ jose jwe enc -I msg.txt -k key.jwk -o msg.jwe
+
+Encrypt data with a password using JWE Compact Serialization:
+
+    $ jose jwe enc -I msg.txt -p -c -o msg.jwe
+    Please enter an encryption password:
+    Please re-enter the previous password:
+
+Compress plaintext before encryption:
+
+    $ jose jwe enc -i '{"protected":{"zip":"DEF"}}' ...
+
+Encrypt with two keys and two passwords:
+    $ jose jwk gen -i '{"alg":"ECDH-ES+A128KW"}' -o ec.jwk
+    $ jose jwk gen -i '{"alg":"RSA1_5"}' -o rsa.jwk
+    $ jose jwe enc -I msg.txt -p -k ec.jwk -p -k rsa.jwk -o msg.jwe
+    Please enter a password:
+    Please re-enter the previous password:
+    Please enter a password:
+    Please re-enter the previous password:
 
 ## AUTHOR
 

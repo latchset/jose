@@ -57,6 +57,7 @@
     <a href="#SYNOPSIS">SYNOPSIS</a>
     <a href="#OVERVIEW">OVERVIEW</a>
     <a href="#OPTIONS">OPTIONS</a>
+    <a href="#EXAMPLES">EXAMPLES</a>
     <a href="#AUTHOR">AUTHOR</a>
     <a href="#SEE-ALSO">SEE ALSO</a>
   </div>
@@ -107,6 +108,23 @@ you must check the return value of the command before trusting the data.</p>
 <dt><code>-a</code>, <code>--all</code> </dt><dd><p>Ensure the JWS validates with all keys</p></dd>
 </dl>
 
+
+<h2 id="EXAMPLES">EXAMPLES</h2>
+
+<p>Verify a regular JWS and output the payload:</p>
+
+<pre><code>$ jose jws ver -i msg.jws -k key.jwk -O msg.txt
+</code></pre>
+
+<p>Verify a detached JWS without outputting the payload:</p>
+
+<pre><code>$ jose jws ver -i msg.jws -I msg.txt -k key.jwk
+</code></pre>
+
+<p>Ensure that a JWS is signed with all specified keys:</p>
+
+<pre><code>$ jose jws ver -i msg.jws -k ec.jwk -k rsa.jwk -a
+</code></pre>
 
 <h2 id="AUTHOR">AUTHOR</h2>
 

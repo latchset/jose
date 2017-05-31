@@ -60,6 +60,45 @@ Decode payload to standard output
 \fB\-a\fR, \fB\-\-all\fR
 Ensure the JWS validates with all keys
 .
+.SH "EXAMPLES"
+Verify a regular JWS and output the payload:
+.
+.IP "" 4
+.
+.nf
+
+$ jose jws ver \-i msg\.jws \-k key\.jwk \-O msg\.txt
+.
+.fi
+.
+.IP "" 0
+.
+.P
+Verify a detached JWS without outputting the payload:
+.
+.IP "" 4
+.
+.nf
+
+$ jose jws ver \-i msg\.jws \-I msg\.txt \-k key\.jwk
+.
+.fi
+.
+.IP "" 0
+.
+.P
+Ensure that a JWS is signed with all specified keys:
+.
+.IP "" 4
+.
+.nf
+
+$ jose jws ver \-i msg\.jws \-k ec\.jwk \-k rsa\.jwk \-a
+.
+.fi
+.
+.IP "" 0
+.
 .SH "AUTHOR"
 Nathaniel McCallum <npmccallum@redhat\.com>
 .

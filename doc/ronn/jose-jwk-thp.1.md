@@ -20,10 +20,10 @@ The `jose jwk thp` command calculates the thumbprint of one or more JWKs.
 * `-i` -, `--input`=- :
   Read JWK(Set) standard input
 
-* `-H` HASH, `--hash`=HASH :
-  Use the specified hash algorithm
+* `-a` ALG, `--algorithm`=ALG :
+  Use the specified hash algorithm (case sensitive)
 
-* `-H` ?, `--hash`=? :
+* `-a` ?, `--algorithm`=? :
   List available hash algorithms
 
 * `-o` FILE, `--output`=FILE :
@@ -31,6 +31,19 @@ The `jose jwk thp` command calculates the thumbprint of one or more JWKs.
 
 * `-o` -, `--output`=- :
   Write thumbprint(s) to standard input
+
+## EXAMPLES
+
+Calculate the S1 thumbprint of a newly generated key:
+
+    $ jose jwk gen -i '{"alg":"ES256"}' -a S1 | jose jwk thp -i-
+    BzmSH6W8a8LlbQ1mD0iBJdYj4x4
+
+Calculate the S256 thumbprints of a JWKSet containing two keys:
+
+    $ jose jwk thp -i keys.jwkset -a S256
+    6HJwXEuRh8gAkTz4BodEvcEj_KXkgjc-7Qez3d4VNMs
+    jo_j_O5gqYpKcZKHPp3miTszAeV60MXHvdb_kkjjTWE
 
 ## AUTHOR
 

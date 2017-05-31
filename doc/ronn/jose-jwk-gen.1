@@ -13,40 +13,10 @@
 The \fBjose jwk gen\fR command generates a key from one or more JWK(Set) templates\. If a single template is given as input, a single JWK will be output\. However, if multiple templates are given as input, a single JWKSet will be output containing all the keys\.
 .
 .P
-The best way to generate a key is to use an algorithm, for example:
-.
-.IP "" 4
-.
-.nf
-
-$ jose jwk gen \-i \'{"alg":"HS256"}\' \.\.\.
-$ jose jwk gen \-i \'{"alg":"RS256"}\' \.\.\.
-$ jose jwk gen \-i \'{"alg":"ES256"}\' \.\.\.
-.
-.fi
-.
-.IP "" 0
+The best way to generate a key is to specify the algorithm it will be used with in the "alg" property of the JWK template\. This method should be preferred since, when generating from an algorithm, an appropriate "key_ops" parameter will be emitted automatically\. Further, having a JWK with the algorithm already specified will assist algorithm inference when encrypting or signing\.
 .
 .P
-Note that when generating from an algorithm, an appropriate "key_ops" parameter is also emitted automatically\.
-.
-.P
-However, you may also specify key parameters:
-.
-.IP "" 4
-.
-.nf
-
-$ jose jwk gen \-i \'{"kty":"EC","crv":"P\-256"}\' \.\.\.
-$ jose jwk gen \-i \'{"kty":"oct","bytes":32}\' \.\.\.
-$ jose jwk gen \-i \'{"kty":"RSA","bits":4096}\' \.\.\.
-.
-.fi
-.
-.IP "" 0
-.
-.P
-Note that the "bytes" and "bits" parameters are non\-standard, so they will be removed from the output JWK(Set)\.
+Alternatively, you can generate a key by specifying its key type ("kty") JWK property, along with the required type\-specific generation parameter\. See the examples below for how to do this for each key type\. If the type\-specific generation parameter is non\-standard (for example: "bytes" and "bits"), it will be removed excluded from the output\.
 .
 .SH "OPTIONS"
 .
@@ -69,6 +39,67 @@ Write JWK(Set) to FILE
 .TP
 \fB\-o\fR \-, \fB\-\-output\fR=\-
 Write JWK(Set) to standard input
+.
+.SH "EXAMPLES"
+Generate three keys, each targeting a different algorithm:
+.
+.IP "" 4
+.
+.nf
+
+$ jose jwk gen \-i \'{"alg":"HS256"}\' \-o oct\.jwk
+$ jose jwk gen \-i \'{"alg":"RS256"}\' \-o rsa\.jwk
+$ jose jwk gen \-i \'{"alg":"ES256"}\' \-o ec\.jwk
+.
+.fi
+.
+.IP "" 0
+.
+.P
+Generate three keys using key parameters rather than algorithms:
+.
+.IP "" 4
+.
+.nf
+
+$ jose jwk gen \-i \'{"kty":"oct","bytes":32}\' \-o oct\.jwk
+$ jose jwk gen \-i \'{"kty":"RSA","bits":4096}\' \-o rsa\.jwk
+$ jose jwk gen \-i \'{"kty":"EC","crv":"P\-256"}\' \-o ec\.jwk
+.
+.fi
+.
+.IP "" 0
+.
+.P
+Create multiple keys at once using a JWKSet template:
+.
+.IP "" 4
+.
+.nf
+
+$ jose jwk gen \e
+  \-i \'{"keys":[{"alg":"HS256"},{"alg":"ES256"}]}\' \e
+  \-o keys\.jwkset
+.
+.fi
+.
+.IP "" 0
+.
+.P
+Create multiple keys at once using multiple JWK templates:
+.
+.IP "" 4
+.
+.nf
+
+$ jose jwk gen \e
+  \-i \'{"alg":"HS256"}\' \e
+  \-i \'{"alg":"ES256"}\' \e
+  \-o keys\.jwkset
+.
+.fi
+.
+.IP "" 0
 .
 .SH "AUTHOR"
 Nathaniel McCallum <npmccallum@redhat\.com>

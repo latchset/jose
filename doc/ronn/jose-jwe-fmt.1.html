@@ -57,6 +57,7 @@
     <a href="#SYNOPSIS">SYNOPSIS</a>
     <a href="#OVERVIEW">OVERVIEW</a>
     <a href="#OPTIONS">OPTIONS</a>
+    <a href="#EXAMPLES">EXAMPLES</a>
     <a href="#AUTHOR">AUTHOR</a>
     <a href="#SEE-ALSO">SEE ALSO</a>
   </div>
@@ -104,6 +105,18 @@ formats. For example, it can:</p>
 <dt><code>-c</code>, <code>--compact</code> </dt><dd><p>Output JWE using compact serialization</p></dd>
 </dl>
 
+
+<h2 id="EXAMPLES">EXAMPLES</h2>
+
+<p>Attach ciphertext to a detached JWE and emit JWE Compact Serialization:</p>
+
+<pre><code>$ jose jwe fmt -i msg.jwe -I msg.ct -o compact.jwe -c
+</code></pre>
+
+<p>Detach ciphertext from a JWE:</p>
+
+<pre><code>$ jose jwe fmt -i msg.jwe -o detached.jwe -O detached.ct
+</code></pre>
 
 <h2 id="AUTHOR">AUTHOR</h2>
 

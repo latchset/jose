@@ -57,6 +57,7 @@
     <a href="#SYNOPSIS">SYNOPSIS</a>
     <a href="#OVERVIEW">OVERVIEW</a>
     <a href="#OPTIONS">OPTIONS</a>
+    <a href="#EXAMPLES">EXAMPLES</a>
     <a href="#AUTHOR">AUTHOR</a>
     <a href="#SEE-ALSO">SEE ALSO</a>
   </div>
@@ -83,6 +84,14 @@ and provides the result of the exchange as output. The user can specify a JWK
 template as input and the specified properties will appear in the output JWK
 unmodified.</p>
 
+<p>A key exchange requires two keys:</p>
+
+<ol>
+<li>The local key, which contains private key material.</li>
+<li>The remote key, which contains public key material.</li>
+</ol>
+
+
 <h2 id="OPTIONS">OPTIONS</h2>
 
 <dl>
@@ -97,6 +106,15 @@ unmodified.</p>
 <dt><code>-r</code> -, <code>--remote</code>=- </dt><dd><p>Read remote JWK from standard input</p></dd>
 </dl>
 
+
+<h2 id="EXAMPLES">EXAMPLES</h2>
+
+<p>Perform a key exchange:</p>
+
+<pre><code>$ jose jwk gen -i '{"alg":"ECDH"}' -o local.jwk
+$ jose jwk gen -i '{"alg":"ECDH"}' | jose jwk pub -i- -o remote.jwk
+$ jose jwk exc -l local.jwk -r remote.jwk -o exchanged.jwk
+</code></pre>
 
 <h2 id="AUTHOR">AUTHOR</h2>
 

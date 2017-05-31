@@ -14,6 +14,10 @@ If the JWE is a detached JWE, meaning that the ciphertext is stored in
 binary form external to the JWE itself, the ciphertext can be loaded using
 the `-I` parameter.
 
+Please note that, when specifying the `-O` option to output the plaintext,
+plaintext output begins before ciphertext validation. Therefore,
+you must check the return value of the command before using the data.
+
 ## OPTIONS
 
 * `-i` _JSON_, `--input`=_JSON_ :
@@ -48,6 +52,21 @@ the `-I` parameter.
 
 * `-O` -, `--detach`=- :
   Read JWE from standard input
+
+## EXAMPLES
+
+Decrypt a JWE with a JWK:
+
+    $ jose jwe dec -i msg.jwe -k rsa.key -O msg.txt
+
+Decrypt a JWE with a password:
+
+    $ jose jwe dec -i msg.jwe -p -O msg.txt
+    Please enter decryption password:
+
+Decrypt a JWE with either of two JWKs:
+
+    $ jose jwe dec -i msg.jwe -k ec.jwk -k rsa.jwk -O msg.txt
 
 ## AUTHOR
 

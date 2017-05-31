@@ -57,6 +57,7 @@
     <a href="#SYNOPSIS">SYNOPSIS</a>
     <a href="#OVERVIEW">OVERVIEW</a>
     <a href="#OPTIONS">OPTIONS</a>
+    <a href="#EXAMPLES">EXAMPLES</a>
     <a href="#AUTHOR">AUTHOR</a>
     <a href="#SEE-ALSO">SEE ALSO</a>
   </div>
@@ -96,10 +97,19 @@ unmodified in the output. One exception to this rule is that the JWE Protected
 Header should be specified in its decoded form in the template. This command
 will automatically encode it as part of the encryption process.</p>
 
-<p>If you specify a JOSE Header Parameter that affects the construction of the
-JWE, this command will attempt to behave according to this parameter as if it
-were configuration. For example, specifying the "zip" parameter in the JWE
-Protected Header will cause the plaintext to be compressed before encryption.</p>
+<p>If you specify a JOSE Header Parameter (via either the <code>-i</code> or <code>-r</code> options)
+that affects the construction of the JWE, this command will attempt to behave
+according to this parameter as if it were configuration. For example,
+specifying the "zip" parameter in the JWE Protected Header will cause the
+plaintext to be compressed before encryption. Currently, <code>jose</code> will modify its
+behavior for the "alg", "enc" and "zip" JOSE Header Parameters (see RFC 7516
+Section 4.1.3), as well as the algorithm-specific parameters for the algorithms
+we support (see RFC 7518 Section 4).</p>
+
+<p>However, it is not necessary to provide any templates: <code>jose jwe enc</code> will
+automatically fill in the "alg" and "enc" parameters by inferring the correct
+algorithms from the provided input keys (JWK or password). Therefore, the <code>-i</code>
+and <code>-r</code> options should generally be used for providing extended JWE metadata.</p>
 
 <h2 id="OPTIONS">OPTIONS</h2>
 
@@ -121,6 +131,35 @@ Protected Header will cause the plaintext to be compressed before encryption.</p
 <dt><code>-c</code>, <code>--compact</code> </dt><dd><p>Output JWE using compact serialization</p></dd>
 </dl>
 
+
+<h2 id="EXAMPLES">EXAMPLES</h2>
+
+<p>Encrypt data with a symmetric key using JWE JSON Serialization:</p>
+
+<pre><code>$ jose jwk gen -i '{"alg":"A128GCM"}' -o key.jwk
+$ jose jwe enc -I msg.txt -k key.jwk -o msg.jwe
+</code></pre>
+
+<p>Encrypt data with a password using JWE Compact Serialization:</p>
+
+<pre><code>$ jose jwe enc -I msg.txt -p -c -o msg.jwe
+Please enter an encryption password:
+Please re-enter the previous password:
+</code></pre>
+
+<p>Compress plaintext before encryption:</p>
+
+<pre><code>$ jose jwe enc -i '{"protected":{"zip":"DEF"}}' ...
+</code></pre>
+
+<p>Encrypt with two keys and two passwords:
+    $ jose jwk gen -i '{"alg":"ECDH-ES+A128KW"}' -o ec.jwk
+    $ jose jwk gen -i '{"alg":"RSA1_5"}' -o rsa.jwk
+    $ jose jwe enc -I msg.txt -p -k ec.jwk -p -k rsa.jwk -o msg.jwe
+    Please enter a password:
+    Please re-enter the previous password:
+    Please enter a password:
+    Please re-enter the previous password:</p>
 
 <h2 id="AUTHOR">AUTHOR</h2>
 

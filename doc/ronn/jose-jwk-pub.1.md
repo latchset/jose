@@ -30,6 +30,17 @@ to include only operations relevant to public keys.
 * `-o` -, `--output`=- :
   Write JWK(Set) to standard input
 
+## EXAMPLES
+
+Clean private key material from a JWK:
+
+    $ jose jwk gen -i '{"alg":"ES256"}' -o prv.jwk
+    $ cat prv.jwk
+    {"alg":"ES256","crv":"P-256","key_ops":["sign","verify"],"kty":"EC", ...}
+    $ jose jwk pub -i prv.jwk -o pub.jwk
+    $ cat pub.jwk
+    {"alg":"ES256","crv":"P-256","key_ops":["verify"],"kty":"EC", ...}
+
 ## AUTHOR
 
 Nathaniel McCallum &lt;npmccallum@redhat.com&gt;

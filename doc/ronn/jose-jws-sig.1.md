@@ -9,7 +9,7 @@ jose-jws-sig(1) -- Signs a payload using one or more JWKs
 
 The `jose jws sig` command signs a payload using one or more JWKs. The payload
 can be provided either in its decoded form (`-I`) or embedded in an existing
-JWS ('-i').
+JWS (`-i`).
 
 A detached JWS can be created by specifying the `-O` option. In this case,
 the decoded payload will be written to the output specified and will not be
@@ -25,6 +25,17 @@ unmodified in the output. One exception to this rule is that the JWS Protected
 Header should be specified in its decoded form in the JWS Signature Object
 template. This command will automatically encode it as part of the encryption
 process.
+
+If you specify a JOSE Header Parameter (via either the `-i` or `-r` options)
+that affects the construction of the JWE, this command will attempt to behave
+according to this parameter as if it were configuration. Currently, `jose` will
+modify its behavior for the "alg" JOSE Header Parameter (see RFC 7515 Section
+4.1.1).
+
+However, it is not necessary to provide any templates: `jose jwe enc` will
+automatically fill in the "alg" parameter by inferring the correct algorithm
+from the provided input JWKs. Therefore, the `-i` and `-r` options should
+generally be used for providing extended JWE metadata.
 
 It is possible to specify an existing JWS as the JWS template input (`-i`).
 This allows the addition of new signatures to an existing JWS.
@@ -75,6 +86,22 @@ This allows the addition of new signatures to an existing JWS.
 
 * `-c`, `--compact` :
   Output JWS using compact serialization
+
+## EXAMPLES
+
+Sign data with a symmetric key using JWE JSON Serialization:
+
+    $ jose jwk gen -i '{"alg":"HS256"}' -o key.jwk
+    $ jose jws sig -I msg.txt -k key.jwk -o msg.jws
+
+Sign data using detached JWE Compact Serialization:
+
+    $ jose jws sig -I msg.txt -k key.jwk -O /dev/null -c -o msg.jws
+
+Sign with two keys:
+    $ jose jwk gen -i '{"alg":"ES256"}' -o ec.jwk
+    $ jose jwk gen -i '{"alg":"RS256"}' -o rsa.jwk
+    $ jose jws sig -I msg.txt -k ec.jwk -k rsa.jwk -o msg.jws
 
 ## AUTHOR
 

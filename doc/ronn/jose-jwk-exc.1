@@ -12,6 +12,17 @@
 .SH "OVERVIEW"
 The \fBjose jwk exc\fR command performs a key exchange using the two input keys and provides the result of the exchange as output\. The user can specify a JWK template as input and the specified properties will appear in the output JWK unmodified\.
 .
+.P
+A key exchange requires two keys:
+.
+.IP "1." 4
+The local key, which contains private key material\.
+.
+.IP "2." 4
+The remote key, which contains public key material\.
+.
+.IP "" 0
+.
 .SH "OPTIONS"
 .
 .TP
@@ -49,6 +60,21 @@ Read remote JWK from FILE
 .TP
 \fB\-r\fR \-, \fB\-\-remote\fR=\-
 Read remote JWK from standard input
+.
+.SH "EXAMPLES"
+Perform a key exchange:
+.
+.IP "" 4
+.
+.nf
+
+$ jose jwk gen \-i \'{"alg":"ECDH"}\' \-o local\.jwk
+$ jose jwk gen \-i \'{"alg":"ECDH"}\' | jose jwk pub \-i\- \-o remote\.jwk
+$ jose jwk exc \-l local\.jwk \-r remote\.jwk \-o exchanged\.jwk
+.
+.fi
+.
+.IP "" 0
 .
 .SH "AUTHOR"
 Nathaniel McCallum <npmccallum@redhat\.com>

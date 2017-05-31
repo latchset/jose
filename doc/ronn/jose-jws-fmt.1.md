@@ -47,6 +47,16 @@ formats. For example, it can:
 *  `-c`, `--compact` :
   Output JWS using compact serialization
 
+## EXAMPLES
+
+Attach payload to a detached JWS and emit JWS Compact Serialization:
+
+    $ jose jws fmt -i msg.jws -I msg.txt -o compact.jws -c
+
+Detach payload from a JWS:
+
+    $ jose jws fmt -i msg.jws -o detached.jws -O msg.txt
+
 ## AUTHOR
 
 Nathaniel McCallum &lt;npmccallum@redhat.com&gt;

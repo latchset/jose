@@ -30,6 +30,20 @@ Write binary data to FILE
 \fB\-O\fR \-, \fB\-\-binary\fR=\-
 Write binary data to standard output
 .
+.SH "EXAMPLES"
+Decode a simple message:
+.
+.IP "" 4
+.
+.nf
+
+$ echo SGVsbG8sIFdvcmxkCg | jose b64 dec \-i\-
+Hello, World
+.
+.fi
+.
+.IP "" 0
+.
 .SH "AUTHOR"
 Nathaniel McCallum <npmccallum@redhat\.com>
 .

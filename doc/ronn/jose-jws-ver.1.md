@@ -53,6 +53,20 @@ you must check the return value of the command before trusting the data.
 * `-a`, `--all` :
   Ensure the JWS validates with all keys
 
+## EXAMPLES
+
+Verify a regular JWS and output the payload:
+
+    $ jose jws ver -i msg.jws -k key.jwk -O msg.txt
+
+Verify a detached JWS without outputting the payload:
+
+    $ jose jws ver -i msg.jws -I msg.txt -k key.jwk
+
+Ensure that a JWS is signed with all specified keys:
+
+    $ jose jws ver -i msg.jws -k ec.jwk -k rsa.jwk -a
+
 ## AUTHOR
 
 Nathaniel McCallum &lt;npmccallum@redhat.com&gt;

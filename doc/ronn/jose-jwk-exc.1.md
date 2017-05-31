@@ -12,6 +12,11 @@ and provides the result of the exchange as output. The user can specify a JWK
 template as input and the specified properties will appear in the output JWK
 unmodified.
 
+A key exchange requires two keys:
+
+1. The local key, which contains private key material.
+2. The remote key, which contains public key material.
+
 ## OPTIONS
 
 * `-i` _JSON_, `--input`=_JSON_ :
@@ -40,6 +45,14 @@ unmodified.
 
 * `-r` -, `--remote`=- :
   Read remote JWK from standard input
+
+## EXAMPLES
+
+Perform a key exchange:
+
+    $ jose jwk gen -i '{"alg":"ECDH"}' -o local.jwk
+    $ jose jwk gen -i '{"alg":"ECDH"}' | jose jwk pub -i- -o remote.jwk
+    $ jose jwk exc -l local.jwk -r remote.jwk -o exchanged.jwk
 
 ## AUTHOR
 

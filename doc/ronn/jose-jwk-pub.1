@@ -37,6 +37,24 @@ Write JWK(Set) to FILE
 \fB\-o\fR \-, \fB\-\-output\fR=\-
 Write JWK(Set) to standard input
 .
+.SH "EXAMPLES"
+Clean private key material from a JWK:
+.
+.IP "" 4
+.
+.nf
+
+$ jose jwk gen \-i \'{"alg":"ES256"}\' \-o prv\.jwk
+$ cat prv\.jwk
+{"alg":"ES256","crv":"P\-256","key_ops":["sign","verify"],"kty":"EC", \.\.\.}
+$ jose jwk pub \-i prv\.jwk \-o pub\.jwk
+$ cat pub\.jwk
+{"alg":"ES256","crv":"P\-256","key_ops":["verify"],"kty":"EC", \.\.\.}
+.
+.fi
+.
+.IP "" 0
+.
 .SH "AUTHOR"
 Nathaniel McCallum <npmccallum@redhat\.com>
 .
