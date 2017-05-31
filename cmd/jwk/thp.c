@@ -54,8 +54,8 @@ opt_set_hash(void *vopt, const char *arg)
 }
 
 static const jcmd_doc_t doc_hash[] = {
-    { .arg = "HASH", .doc = "Use the specified hash algorithm" },
-    { .arg = "?",    .doc = "List available hash algorithms" },
+    { .arg = "ALG", .doc = "Use the specified hash algorithm (case sensitive)" },
+    { .arg = "?",   .doc = "List available hash algorithms" },
     {}
 };
 
@@ -73,7 +73,7 @@ static const jcmd_cfg_t cfgs[] = {
         .doc = jcmd_jwk_doc_input,
     },
     {
-        .opt = { "hash", required_argument, .val = 'H' },
+        .opt = { "algorithm", required_argument, .val = 'a' },
         .off = offsetof(jcmd_opt_t, hash),
         .set = opt_set_hash,
         .doc = doc_hash,

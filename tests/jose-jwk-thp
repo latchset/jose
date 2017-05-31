@@ -1,5 +1,5 @@
 #!/bin/bash -ex
 
-a=`../cmd/jose jwk thp -i ${srcdir:-.}/vectors/rfc7638_3.1.jwk -H S256`
+a=`../cmd/jose jwk thp -i ${srcdir:-.}/vectors/rfc7638_3.1.jwk -a S256`
 b=`cat ${srcdir:-.}/vectors/rfc7638_3.1.thp`
 [ $a == $b ]
