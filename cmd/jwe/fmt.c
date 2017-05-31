@@ -165,7 +165,8 @@ jcmd_jwe_fmt(int argc, char *argv[])
     } else {
         if (!opt.detach)
             fprintf(opt.output, "\",");
-        json_dumpf(opt.obj, opt.output, JSON_EMBED | JSON_SORT_KEYS);
+        json_dumpf(opt.obj, opt.output,
+                   JSON_EMBED | JSON_COMPACT | JSON_SORT_KEYS);
         fprintf(opt.output, "}");
     }
 

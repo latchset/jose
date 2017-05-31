@@ -370,7 +370,8 @@ jcmd_jwe_enc(int argc, char *argv[])
     } else {
         if (!opt.io.detach)
             fprintf(opt.io.output, "\",");
-        json_dumpf(opt.io.obj, opt.io.output, JSON_EMBED | JSON_SORT_KEYS);
+        json_dumpf(opt.io.obj, opt.io.output,
+                   JSON_EMBED | JSON_COMPACT | JSON_SORT_KEYS);
         fprintf(opt.io.output, "}");
     }
 
