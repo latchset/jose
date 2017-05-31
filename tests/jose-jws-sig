@@ -85,3 +85,10 @@ for a in $ALGS; do
     old=$prv
     prv=$jwk
 done
+
+for tmpl in '{"kty":"oct","bytes":32}' '{"kty":"RSA","bits":2048}' '{"kty":"EC","crv":"P-256"}'; do
+    ../cmd/jose jwk gen -i "$tmpl" -o $tmpdir/jwk
+
+    echo -n "$msg" | ../cmd/jose jws sig -I- -k $tmpdir/jwk -o $tmpdir/jws
+    [ "`../cmd/jose jws ver -i $tmpdir/jws -k $tmpdir/jwk -O-`" == "$msg" ]
+done

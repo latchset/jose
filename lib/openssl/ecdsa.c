@@ -167,7 +167,7 @@ alg_sign_sug(const jose_hook_alg_t *alg, jose_cfg_t *cfg, const json_t *jwk)
     const char *type = NULL;
     const char *curv = NULL;
 
-    if (json_unpack((json_t *) jwk, "{s?s,s?s}",
+    if (json_unpack((json_t *) jwk, "{s?s,s?s,s?s}",
                     "alg", &name, "kty", &type, "crv", &curv) < 0)
         return NULL;
 

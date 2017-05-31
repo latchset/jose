@@ -43,4 +43,11 @@ for msg in "hi" "this is a longer message that is more than one block"; do
         echo -n "$msg" | ../cmd/jose jwe enc -I- -k $jwk -o $jwe
         [ "`../cmd/jose jwe dec -i $jwe -k $jwk -O-`" == "$msg" ]
     done
+
+    for tmpl in '{"kty":"oct","bytes":32}' '{"kty":"RSA","bits":2048}' '{"kty":"EC","crv":"P-256"}'; do
+        ../cmd/jose jwk gen -i "$tmpl" -o $jwk
+
+        echo -n "$msg" | ../cmd/jose jwe enc -I- -k $jwk -o $jwe
+        [ "`../cmd/jose jwe dec -i $jwe -k $jwk -O-`" == "$msg" ]
+    done
 done

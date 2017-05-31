@@ -130,24 +130,25 @@ alg_wrap_alg(const jose_hook_alg_t *alg, jose_cfg_t *cfg, const json_t *jwk)
             return NULL;
 
         /* Defer to other algorithms if defined... */
-        for (const jose_hook_alg_t *a = alg; a; a = a->next) {
+        for (const jose_hook_alg_t *a = alg->next; a; a = a->next) {
             if (a->kind != JOSE_HOOK_ALG_KIND_WRAP)
+                continue;
+            if (a->wrap.alg == alg_wrap_alg)
                 continue;
             if (a->wrap.alg(alg, cfg, jwk))
                 return NULL;
         }
     } else if (json_is_string(jwk)) {
         len = json_string_length(jwk);
-    } else {
-        return NULL;
+        if (len > 36)
+            return "PBES2-HS512+A256KW";
+        else if (len > 27)
+            return "PBES2-HS384+A192KW";
+        else
+            return "PBES2-HS256+A128KW";
     }
 
-    if (len > 36)
-        return "PBES2-HS512+A256KW";
-    else if (len > 27)
-        return "PBES2-HS384+A192KW";
-    else
-        return "PBES2-HS256+A128KW";
+    return NULL;
 }
 
 static const char *
