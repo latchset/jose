@@ -21,8 +21,6 @@
 
 #include <string.h>
 
-#define NAMES "ECDH", "ECDH+P-256", "ECDH+P-384", "ECDH+P-521"
-
 declare_cleanup(EC_POINT)
 declare_cleanup(EC_KEY)
 declare_cleanup(BN_CTX)
@@ -35,7 +33,7 @@ jwk_prep_handles(jose_cfg_t *cfg, const json_t *jwk)
     if (json_unpack((json_t *) jwk, "{s:s}", "alg", &alg) == -1)
         return false;
 
-    return str2enum(alg, NAMES, NULL) < SIZE_MAX;
+    return strcmp(alg, "ECDH") == 0;
 }
 
 static json_t *
@@ -44,14 +42,11 @@ jwk_prep_execute(jose_cfg_t *cfg, const json_t *jwk)
     const char *crv = "P-521";
     const char *alg = NULL;
 
-    if (json_unpack((json_t *) jwk, "{s:s}", "alg", &alg) == -1)
+    if (json_unpack((json_t *) jwk, "{s:s,s?s}", "alg", &alg, "crv", &crv) < 0)
         return false;
 
-    switch (str2enum(alg, NAMES, NULL)) {
-    case 0: break;
-    case SIZE_MAX: return false;
-    default: crv = strchr(alg, '+') + 1;
-    }
+    if (strcmp(alg, "ECDH") != 0)
+        return false;
 
     return json_pack("{s:{s:s,s:s}}", "upd", "kty", "EC", "crv", crv);
 }
@@ -131,21 +126,6 @@ constructor(void)
 
     static jose_hook_alg_t ecdh[] = {
         { .name = "ECDH",
-          .kind = JOSE_HOOK_ALG_KIND_EXCH,
-          .exch.prm = "deriveKey",
-          .exch.sug = alg_exch_sug,
-          .exch.exc = alg_exch_exc },
-        { .name = "ECDH+P-256",
-          .kind = JOSE_HOOK_ALG_KIND_EXCH,
-          .exch.prm = "deriveKey",
-          .exch.sug = alg_exch_sug,
-          .exch.exc = alg_exch_exc },
-        { .name = "ECDH+P-384",
-          .kind = JOSE_HOOK_ALG_KIND_EXCH,
-          .exch.prm = "deriveKey",
-          .exch.sug = alg_exch_sug,
-          .exch.exc = alg_exch_exc },
-        { .name = "ECDH+P-521",
           .kind = JOSE_HOOK_ALG_KIND_EXCH,
           .exch.prm = "deriveKey",
           .exch.sug = alg_exch_sug,
