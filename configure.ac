@@ -36,5 +36,15 @@ JOSE_CFLAGS="\
 "
 AC_SUBST([JOSE_CFLAGS])
 
+LDVS=`$LD --help < /dev/null 2>/dev/null | grep version-script`
+if test "$LDVS"; then
+    have_ld_version_script=yes
+    AC_MSG_RESULT(yes)
+else
+    have_ld_version_script=no
+    AC_MSG_RESULT(no)
+fi
+AM_CONDITIONAL(HAVE_LD_VERSION_SCRIPT, test "$have_ld_version_script" = "yes")
+
 AC_CONFIG_FILES([jose/jose.h jose.pc jose/Makefile lib/Makefile cmd/Makefile tests/Makefile doc/Makefile Makefile])
 AC_OUTPUT
