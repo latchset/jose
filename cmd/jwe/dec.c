@@ -75,7 +75,7 @@ static const jcmd_cfg_t cfgs[] = {
         .doc = jcmd_jwe_doc_detached,
     },
     {
-        .opt = { "password", required_argument, .val = 'p' },
+        .opt = { "password", no_argument, .val = 'p' },
         .off = offsetof(jcmd_opt_t, pwd),
         .set = jcmd_opt_set_flag,
         .doc = doc_password,
@@ -171,7 +171,7 @@ jcmd_jwe_dec(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
-    if (json_array_size(opt.keys) == 0 && opt.pwd) {
+    if (json_array_size(opt.keys) == 0 && !opt.pwd) {
         fprintf(stderr, "MUST specify a JWK in non-interactive mode!\n\n");
         return EXIT_FAILURE;
     }
