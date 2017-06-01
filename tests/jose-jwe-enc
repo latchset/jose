@@ -16,7 +16,7 @@ jwk=$tmpdir/jwk
 jwe=$tmpdir/jwe
 
 function jqopt() {
-    if ! which jq 2>&1 >/dev/null; then
+    if ! which jq >/dev/null 2>&1; then
         echo "$3"
     else
         jq -r "if $2 | type | . == \"string\" then $2 else error(\"\") end" < $1
@@ -24,7 +24,7 @@ function jqopt() {
 }
 
 function jqbopt() {
-    if ! which jq 2>&1 >/dev/null; then
+    if ! which jq >/dev/null 2>&1; then
         echo "$4"
     else
         jq -r "if $2 | type | . == \"string\" then $2 else error(\"\") end" < $1 \
