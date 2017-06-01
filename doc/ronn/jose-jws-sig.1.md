@@ -51,7 +51,7 @@ This allows the addition of new signatures to an existing JWS.
 * `-i` -, `--input`=- :
   Read JWS template from standard input
 
-* `-I` _FILE_, `--detached`=_FILE_
+* `-I` _FILE_, `--detached`=_FILE_ :
   Read decoded payload from FILE
 
 * `-I` -, `--detached`=- :
@@ -99,6 +99,7 @@ Sign data using detached JWE Compact Serialization:
     $ jose jws sig -I msg.txt -k key.jwk -O /dev/null -c -o msg.jws
 
 Sign with two keys:
+
     $ jose jwk gen -i '{"alg":"ES256"}' -o ec.jwk
     $ jose jwk gen -i '{"alg":"RS256"}' -o rsa.jwk
     $ jose jws sig -I msg.txt -k ec.jwk -k rsa.jwk -o msg.jws

@@ -7,7 +7,7 @@ jose-jws-fmt(1) -- Converts a JWS between serialization formats
 
 ## OVERVIEW
 
-The `jose jwe fmt` command converts a JWS into alternative serialization
+The `jose jws fmt` command converts a JWS into alternative serialization
 formats. For example, it can:
 
 1. Attach payload to a detached JWS.

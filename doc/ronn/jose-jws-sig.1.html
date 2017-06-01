@@ -114,38 +114,23 @@ This allows the addition of new signatures to an existing JWS.</p>
 
 <h2 id="OPTIONS">OPTIONS</h2>
 
-<ul>
-<li><p><code>-i</code> <em>JSON</em>,  <code>--input</code>=<em>JSON</em> :
-Parse JWS template from JSON</p></li>
-<li><p><code>-i</code> <em>FILE</em>,  <code>--input</code>=<em>FILE</em> :
-Read JWS template from FILE</p></li>
-<li><p><code>-i</code> -, <code>--input</code>=- :
-Read JWS template from standard input</p></li>
-<li><p><code>-I</code> <em>FILE</em>, <code>--detached</code>=<em>FILE</em>
-Read decoded payload from FILE</p></li>
-<li><p><code>-I</code> -, <code>--detached</code>=- :
-Read decoded payload from standard input</p></li>
-<li><p><code>-s</code> <em>JSON</em>, <code>--signature</code>=<em>JSON</em> :
-Parse JWS signature template from JSON</p></li>
-<li><p><code>-s</code> <em>FILE</em>, <code>--signature</code>=<em>FILE</em> :
-Read JWS signature template from FILE</p></li>
-<li><p><code>-s</code> -, <code>--signature</code>=- :
-Read JWS signature template standard input</p></li>
-<li><p><code>-k</code> <em>FILE</em>, <code>--key</code>=<em>FILE</em> :
-Read JWK(Set) from FILE</p></li>
-<li><p><code>-k</code> -, <code>--key</code>=- :
-Read JWK(Set) from standard input</p></li>
-<li><p><code>-o</code> <em>FILE</em>, <code>--output</code>=<em>FILE</em> :
-Write JWS to FILE</p></li>
-<li><p><code>-o</code> -, <code>--output</code>=- :
-Write JWS to stdout (default)</p></li>
-<li><p><code>-O</code> <em>FILE</em>, <code>--detach</code>=<em>FILE</em> :
-Detach payload and decode to FILE</p></li>
-<li><p><code>-O</code> -, <code>--detach</code>=- :
-Detach payload and decode to standard output</p></li>
-<li><p><code>-c</code>, <code>--compact</code> :
-Output JWS using compact serialization</p></li>
-</ul>
+<dl>
+<dt><code>-i</code> <em>JSON</em>,  <code>--input</code>=<em>JSON</em> </dt><dd><p>Parse JWS template from JSON</p></dd>
+<dt><code>-i</code> <em>FILE</em>,  <code>--input</code>=<em>FILE</em> </dt><dd><p>Read JWS template from FILE</p></dd>
+<dt><code>-i</code> -, <code>--input</code>=- </dt><dd><p>Read JWS template from standard input</p></dd>
+<dt><code>-I</code> <em>FILE</em>, <code>--detached</code>=<em>FILE</em> </dt><dd><p>Read decoded payload from FILE</p></dd>
+<dt><code>-I</code> -, <code>--detached</code>=- </dt><dd><p>Read decoded payload from standard input</p></dd>
+<dt><code>-s</code> <em>JSON</em>, <code>--signature</code>=<em>JSON</em> </dt><dd><p>Parse JWS signature template from JSON</p></dd>
+<dt><code>-s</code> <em>FILE</em>, <code>--signature</code>=<em>FILE</em> </dt><dd><p>Read JWS signature template from FILE</p></dd>
+<dt><code>-s</code> -, <code>--signature</code>=- </dt><dd><p>Read JWS signature template standard input</p></dd>
+<dt><code>-k</code> <em>FILE</em>, <code>--key</code>=<em>FILE</em> </dt><dd><p>Read JWK(Set) from FILE</p></dd>
+<dt><code>-k</code> -, <code>--key</code>=- </dt><dd><p>Read JWK(Set) from standard input</p></dd>
+<dt><code>-o</code> <em>FILE</em>, <code>--output</code>=<em>FILE</em> </dt><dd><p>Write JWS to FILE</p></dd>
+<dt><code>-o</code> -, <code>--output</code>=- </dt><dd><p>Write JWS to stdout (default)</p></dd>
+<dt><code>-O</code> <em>FILE</em>, <code>--detach</code>=<em>FILE</em> </dt><dd><p>Detach payload and decode to FILE</p></dd>
+<dt><code>-O</code> -, <code>--detach</code>=- </dt><dd><p>Detach payload and decode to standard output</p></dd>
+<dt><code>-c</code>, <code>--compact</code> </dt><dd><p>Output JWS using compact serialization</p></dd>
+</dl>
 
 
 <h2 id="EXAMPLES">EXAMPLES</h2>
@@ -161,10 +146,12 @@ $ jose jws sig -I msg.txt -k key.jwk -o msg.jws
 <pre><code>$ jose jws sig -I msg.txt -k key.jwk -O /dev/null -c -o msg.jws
 </code></pre>
 
-<p>Sign with two keys:
-    $ jose jwk gen -i '{"alg":"ES256"}' -o ec.jwk
-    $ jose jwk gen -i '{"alg":"RS256"}' -o rsa.jwk
-    $ jose jws sig -I msg.txt -k ec.jwk -k rsa.jwk -o msg.jws</p>
+<p>Sign with two keys:</p>
+
+<pre><code>$ jose jwk gen -i '{"alg":"ES256"}' -o ec.jwk
+$ jose jwk gen -i '{"alg":"RS256"}' -o rsa.jwk
+$ jose jws sig -I msg.txt -k ec.jwk -k rsa.jwk -o msg.jws
+</code></pre>
 
 <h2 id="AUTHOR">AUTHOR</h2>
 
@@ -178,7 +165,7 @@ $ jose jws sig -I msg.txt -k key.jwk -o msg.jws
 
   <ol class='man-decor man-foot man foot'>
     <li class='tl'></li>
-    <li class='tc'>May 2017</li>
+    <li class='tc'>June 2017</li>
     <li class='tr'>jose-jws-sig(1)</li>
   </ol>
 

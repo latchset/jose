@@ -3,7 +3,7 @@ jose-b64-enc(1) -- Encodes binary data to URL-safe Base64
 
 ## SYNOPSIS
 
-`jose b64 enc` `-I` BIN [-o B64]
+`jose b64 enc` -I BIN [-o B64]
 
 ## OVERVIEW
 
