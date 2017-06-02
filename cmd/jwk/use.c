@@ -106,7 +106,7 @@ jcmd_jwk_use(int argc, char *argv[])
     jcmd_opt_auto_t opt = {};
     const json_t *jwk = NULL;
 
-    if (!jcmd_opt_parse(argc, argv, cfgs, &opt, prefix, NULL))
+    if (!jcmd_opt_parse(argc, argv, cfgs, &opt, prefix))
         return EXIT_FAILURE;
 
     if (json_array_size(opt.uses) == 0) {

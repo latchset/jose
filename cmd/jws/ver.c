@@ -31,34 +31,6 @@ typedef struct {
 static const char *prefix =
 "jose jws ver -i JWS [-I PAY] -k JWK [-a] [-O PAY]\n\n" SUMMARY;
 
-static const char *suffix =
-"\nHere are some examples. First, we create a signature with two keys:"
-"\n"
-"\n    $ echo hi | jose jws sig -I- -o /tmp/msg.jws -k rsa.jwk -k ec.jwk"
-"\n"
-"\nWe can verify this signature using an input file or stdin:"
-"\n"
-"\n    $ jose jws ver -i /tmp/msg.jws -k ec.jwk -O-"
-"\n    hi"
-"\n"
-"\n    $ cat /tmp/msg.jws | jose jws ver -i- -k rsa.jwk -O-"
-"\n    hi"
-"\n"
-"\nWhen we use a different key, validation fails:"
-"\n"
-"\n    $ jose jws ver -i /tmp/msg.jws -k oct.jwk"
-"\n    No signatures validated!"
-"\n"
-"\nNormally, we want validation to succeed if any key validates:"
-"\n"
-"\n    $ jose jws ver -i /tmp/msg.jws -k rsa.jwk -k oct.jwk -O-"
-"\n    hi"
-"\n"
-"\nHowever, we can also require validation of all specified keys:"
-"\n"
-"\n    $ jose jws ver -i /tmp/msg.jws -k rsa.jwk -k oct.jwk -O- -a"
-"\n    Signature validation failed!";
-
 static const jcmd_doc_t doc_all[] = {
     { .doc="Ensure the JWS validates with all keys" },
     {}
@@ -142,7 +114,7 @@ jcmd_jws_ver(int argc, char *argv[])
     jose_io_auto_t *io = NULL;
     json_auto_t *sigs = NULL;
 
-    if (!jcmd_opt_parse(argc, argv, cfgs, &opt, prefix, suffix))
+    if (!jcmd_opt_parse(argc, argv, cfgs, &opt, prefix))
         return EXIT_FAILURE;
 
     if (!validate_input(&opt, &sigs))

@@ -30,47 +30,6 @@ typedef struct {
 static const char *prefix =
 "jose jwe enc [-i JWE] -I PT [-r RCP] -k JWK [-p] [-o JWE] [-O CT] [-c]\n\n" SUMMARY;
 
-static const char *suffix =
-"\nWhen encrypting to multiple recipients, JWE general format is used:"
-"\n"
-"\n    $ jose enc -i msg.txt -k rsa.jwk -k oct.jwk"
-"\n    { \"ciphertext\": \"...\", \"recipients\": [{...}, {...}], ...}"
-"\n"
-"\nWith a single recipient, JWE flattened format is used:"
-"\n"
-"\n    $ jose enc -i msg.txt -k rsa.jwk"
-"\n    { \"ciphertext\": \"...\", \"encrypted_key\": \"...\", ... }"
-"\n"
-"\nAlternatively, JWE compact format may be used:"
-"\n"
-"\n    $ jose enc -c -i msg.txt -k rsa.jwk"
-"\n    eyJhbGciOiJSU0ExXzUiLCJlbmMiOiJBMTI4Q0JDLUhTMjU2In0.ZBRtX0Z0vaCMMg..."
-"\n"
-"\nBy tweaking the JWE template, you can choose alternate crypto parameters:"
-"\n"
-"\n    $ jose enc -i msg.txt -t '{\"unprotected\":{\"enc\":\"A128GCM\"}}' -k rsa.jwk"
-"\n    { \"ciphertext\": \"...\", \"unprotected\": { \"enc\": \"A128GCM\" }, ... }"
-"\n"
-"\nTransparent plaintext compression is also supported:"
-"\n"
-"\n    $ jose enc -i msg.txt -t '{\"protected\":{\"zip\":\"DEF\"}}' -k rsa.jwk"
-"\n    { \"ciphertext\": \"...\", ... }"
-"\n"
-"\nYou can encrypt to one or more passwords by using the '-p' option. This"
-"\ncan even be mixed with JWKs:"
-"\n"
-"\n    $ jose enc -i msg.txt -p"
-"\n    Please enter a password:"
-"\n    Please re-enter the previous password:"
-"\n    { \"ciphertext\": \"...\", ... }"
-"\n"
-"\n    $ jose enc -i msg.txt -p -k rsa.jwk -p -k oct.jwk"
-"\n    Please enter a password:"
-"\n    Please re-enter the previous password:"
-"\n    Please enter a password:"
-"\n    Please re-enter the previous password:"
-"\n    { \"ciphertext\": \"...\", ... }";
-
 static json_t *
 prompt(void)
 {
@@ -265,7 +224,7 @@ jcmd_jwe_enc(int argc, char *argv[])
     jose_io_auto_t *enc = NULL;
     json_auto_t *cek = NULL;
 
-    if (!jcmd_opt_parse(argc, argv, cfgs, &opt, prefix, suffix))
+    if (!jcmd_opt_parse(argc, argv, cfgs, &opt, prefix))
         return EXIT_FAILURE;
 
     if (!opt_validate(&opt))

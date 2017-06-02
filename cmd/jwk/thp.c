@@ -28,9 +28,7 @@ typedef struct {
 } jcmd_opt_t;
 
 static const char *prefix =
-"jose jwk thp -i JWK [-H ALG] [-o THP]\n\n" SUMMARY;
-
-static const char *suffix = NULL;
+"jose jwk thp -i JWK [-a ALG] [-o THP]\n\n" SUMMARY;
 
 static bool
 opt_set_hash(void *vopt, const char *arg)
@@ -103,7 +101,7 @@ jcmd_jwk_thp(int argc, char *argv[])
     size_t elen = 0;
     size_t dlen = 0;
 
-    if (!jcmd_opt_parse(argc, argv, cfgs, &opt, prefix, suffix))
+    if (!jcmd_opt_parse(argc, argv, cfgs, &opt, prefix))
         return EXIT_FAILURE;
 
     if (json_array_size(opt.keys) == 0) {

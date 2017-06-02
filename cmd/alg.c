@@ -124,7 +124,7 @@ jcmd_alg(int argc, char *argv[])
     jcmd_opt_auto_t opt = {};
     size_t len = 0;
 
-    if (!jcmd_opt_parse(argc, argv, cfgs, &opt, prefix, NULL))
+    if (!jcmd_opt_parse(argc, argv, cfgs, &opt, prefix))
         return EXIT_FAILURE;
 
     for (const jose_hook_alg_t *a = jose_hook_alg_list(); a; a = a->next) {

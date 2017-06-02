@@ -31,32 +31,6 @@ static const char *prefix =
 "jose jws sig [-i JWS] [-I PAY] [-s SIG] -k JWK [-o JWS] [-O PAY] [-c]"
 "\n\n" SUMMARY;
 
-static const char *suffix =
-"\nWhen creating multiple signatures, JWS general format is used:"
-"\n"
-"\n    $ echo hi | jose jws sig -I- -k ec.jwk -k rsa.jwk"
-"\n    { \"payload\": \"aGkK\", \"signatures\": ["
-"\n      { \"protected\": \"...\", \"signature\": \"...\" },"
-"\n      { \"protected\": \"...\", \"signature\": \"...\" } ] }"
-"\n"
-"\nWith a single signature, JWS flattened format is used:"
-"\n"
-"\n    $ echo hi | jose jws sig -I- -k ec.jwk"
-"\n    { \"payload\": \"aGkK\", \"protected\": \"...\", \"signature\": \"...\" }"
-"\n"
-"\nAlternatively, JWS compact format may be used:"
-"\n"
-"\n    $ echo hi | jose jws sig -I- -c -k ec.jwk"
-"\n    eyJhbGciOiJFUzI1NiJ9.aGkK.VauBzVLMesMtTtGfwVOHh9WN1dn6iuEkmebFpJJu..."
-"\n"
-"\nIf the payload is specified in the JWS template, '-I' is optional:"
-"\n"
-"\n    $ jose jws sig -i '{ \"payload\": \"aGkK\" }' -k rsa.jwk"
-"\n    { \"payload\": \"aGkK\", \"protected\": \"...\", \"signature\": \"...\" }"
-"\n"
-"\n    $ jose jws sig -I message.txt -k rsa.jwk"
-"\n    { \"payload\": \"aGkK\", \"protected\": \"...\", \"signature\": \"...\" }";
-
 static const jcmd_doc_t doc_input[] = {
     { .arg = "JSON", .doc="Parse JWS template from JSON" },
     { .arg = "FILE", .doc="Read JWS template from FILE" },
@@ -179,7 +153,7 @@ jcmd_jws_sig(int argc, char *argv[])
     jcmd_opt_auto_t opt = { .io.fields = jcmd_jws_fields };
     jose_io_auto_t *io = NULL;
 
-    if (!jcmd_opt_parse(argc, argv, cfgs, &opt, prefix, suffix))
+    if (!jcmd_opt_parse(argc, argv, cfgs, &opt, prefix))
         return EXIT_FAILURE;
 
     if (!validate_input(&opt))

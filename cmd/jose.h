@@ -88,7 +88,7 @@ jcmd_push(jcmd_t *cmd);
 
 bool
 jcmd_opt_parse(int argc, char *argv[], const jcmd_cfg_t *cfgs, void *arg,
-               const char *prefix, const char *suffix);
+               const char *prefix);
 
 jcmd_set_t jcmd_opt_io_set_input; /* Takes jcmd_opt_io_t* */
 jcmd_set_t jcmd_opt_set_ifile;    /* Takes FILE** */

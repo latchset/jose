@@ -64,7 +64,7 @@ jcmd_jwe_fmt(int argc, char *argv[])
     jcmd_opt_io_auto_t opt = { .fields = jcmd_jwe_fields };
     jose_io_auto_t *io = NULL;
 
-    if (!jcmd_opt_parse(argc, argv, cfgs, &opt, prefix, NULL))
+    if (!jcmd_opt_parse(argc, argv, cfgs, &opt, prefix))
         return EXIT_FAILURE;
 
     if (opt.detach) {

@@ -64,7 +64,7 @@ jcmd_jws_fmt(int argc, char *argv[])
     jcmd_opt_io_auto_t opt = { .fields = jcmd_jws_fields };
     jose_io_auto_t *io = NULL;
 
-    if (!jcmd_opt_parse(argc, argv, cfgs, &opt, prefix, NULL))
+    if (!jcmd_opt_parse(argc, argv, cfgs, &opt, prefix))
         return EXIT_FAILURE;
 
     io = jcmd_jws_prep_io(&opt, NULL);

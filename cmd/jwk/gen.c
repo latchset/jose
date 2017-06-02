@@ -19,9 +19,6 @@
 #include <unistd.h>
 
 #define SUMMARY "Creates a random JWK for each input JWK template"
-#define START "{ \"kty\": \"EC\", \"crv\": \"P-256\""
-#define KEYS ", \"x\": \"...\", \"y\": \"...\", \"d\": \"...\""
-#define END " }"
 
 typedef struct {
     FILE *output;
@@ -30,35 +27,6 @@ typedef struct {
 
 static const char *prefix =
 "jose jwk gen -i JWK [-o JWK]\n\n" SUMMARY;
-
-static const char *suffix =
-"\nThe simplest way to create a new key is to specify the algorithm that "
-"\nwill be used with the key. For example:"
-"\n"
-"\n    $ jose jwk gen -i '{\"alg\":\"A128GCM\"}'"
-"\n    { \"kty\": \"oct\", \"k\": \"...\", \"alg\": \"A128GCM\","
-"\n      \"use\": \"enc\", \"key_ops\": [\"encrypt\", \"decrypt\"] }"
-"\n"
-"\n    $ jose jwk gen -i '{\"alg\":\"RSA1_5\"}'"
-"\n    { \"kty\": \"RSA\", \"alg\": \"RSA1_5\", \"use\": \"enc\","
-"\n      \"key_ops\": [\"wrapKey\", \"unwrapKey\"], ... }"
-"\n"
-"\nNote that when specifying an algorithm, default parameters such as "
-"\n\"use\" and \"key_ops\" will be created if not specified."
-"\n"
-"\nAlternatively, key parameters can be specified directly:"
-"\n"
-"\n    $ jose jwk gen -i '" START END "'"
-"\n    " START KEYS END "\n"
-"\n    $ jose jwk gen -i '{\"kty\": \"oct\", \"bytes\": 32}'"
-"\n    { \"kty\": \"oct\", \"k\": \"...\" }\n"
-"\n    $ jose jwk gen -i '{\"kty\": \"RSA\", \"bits\": 4096}'"
-"\n    { \"kty\": \"RSA\", \"n\": \"...\", \"e\": \"...\", ... }"
-"\n"
-"\nIf there is more than one input JWK template, the output is a JWKSet:"
-"\n"
-"\n    $ jose jwk gen -i '{\"alg\":\"A128GCM\"}' -i '{\"alg\":\"RSA1_5\"}'"
-"\n    { \"keys\": [...] }";
 
 static const jcmd_doc_t doc_input[] = {
     { .arg = "JSON", .doc="Parse JWK(Set) template from JSON" },
@@ -96,7 +64,7 @@ jcmd_jwk_gen(int argc, char *argv[])
 {
     jcmd_opt_auto_t opt = {};
 
-    if (!jcmd_opt_parse(argc, argv, cfgs, &opt, prefix, suffix))
+    if (!jcmd_opt_parse(argc, argv, cfgs, &opt, prefix))
         return EXIT_FAILURE;
 
     if (json_array_size(opt.keys) == 0) {

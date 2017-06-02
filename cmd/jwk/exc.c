@@ -102,7 +102,7 @@ jcmd_jwk_exc(int argc, char *argv[])
     json_auto_t *key = NULL;
     json_t *tmpl = NULL;
 
-    if (!jcmd_opt_parse(argc, argv, cfgs, &opt, prefix, NULL))
+    if (!jcmd_opt_parse(argc, argv, cfgs, &opt, prefix))
         return EXIT_FAILURE;
 
     if (json_array_size(opt.keys) > 1 && json_array_remove(opt.keys, 0) < 0)

@@ -30,32 +30,6 @@ typedef struct {
 static const char *prefix =
 "jose jwe dec -i JWE [-I CT] -k JWK [-p] [-O PT]\n\n" SUMMARY;
 
-static const char *suffix =
-"Here are some examples. First, we encrypt a message with three keys:"
-"\n"
-"\n    $ echo hi | jose enc -i- -o /tmp/msg.jwe -p -k rsa.jwk -k oct.jwk"
-"\n    Please enter a password:"
-"\n    Please re-enter the previous password:"
-"\n"
-"\nWe can decrypt this message with any JWK using an input file or stdin:"
-"\n"
-"\n    $ jose dec -i /tmp/msg.jwe -k oct.jwk"
-"\n    hi"
-"\n"
-"\n    $ cat /tmp/msg.jwe | jose dec -i- -k rsa.jwk"
-"\n    hi"
-"\n"
-"\nWe can also decrypt this message using the password:"
-"\n"
-"\n    $ jose dec -p -i /tmp/msg.jwe"
-"\n    Please enter password:"
-"\n    hi"
-"\n"
-"\nWhen we use a different key and suppress prompting, decryption fails:"
-"\n"
-"\n    $ jose dec -i /tmp/msg.jwe -k ec.jwk"
-"\n    Decryption failed!";
-
 static const jcmd_doc_t doc_password[] = {
     { .doc="Prompt for a decryption password, if necessary" },
     {}
@@ -163,7 +137,7 @@ jcmd_jwe_dec(int argc, char *argv[])
     jose_io_auto_t *out = NULL;
     json_auto_t *cek = NULL;
 
-    if (!jcmd_opt_parse(argc, argv, cfgs, &opt, prefix, suffix))
+    if (!jcmd_opt_parse(argc, argv, cfgs, &opt, prefix))
         return EXIT_FAILURE;
 
     if (!opt.io.obj) {

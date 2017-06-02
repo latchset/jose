@@ -19,9 +19,6 @@
 #include <unistd.h>
 
 #define SUMMARY "Cleans private keys from a JWK"
-#define START "{ \"kty\": \"EC\", \"crv\": \"P-256\", "
-#define PUB "\"x\": \"...\", \"y\": \"...\""
-#define END " }"
 
 typedef struct {
     FILE *output;
@@ -30,15 +27,6 @@ typedef struct {
 
 static const char *prefix =
 "jose jwk pub -i JWK [-o JWK]\n\n" SUMMARY;
-
-static const char *suffix =
-"This command simply takes a JWK(Set) as input and outputs a JWK(Set):"
-"\n"
-"\n    $ jose pub -i ec.jwk"
-"\n    " START PUB END
-"\n"
-"\n    $ cat ec.jwk | jose pub -i-"
-"\n    " START PUB END;
 
 static const jcmd_cfg_t cfgs[] = {
     {
@@ -71,7 +59,7 @@ jcmd_jwk_pub(int argc, char *argv[])
     json_auto_t *out = NULL;
     bool fail = false;
 
-    if (!jcmd_opt_parse(argc, argv, cfgs, &opt, prefix, suffix))
+    if (!jcmd_opt_parse(argc, argv, cfgs, &opt, prefix))
         return EXIT_FAILURE;
 
     for (size_t i = 0; !fail && i < json_array_size(opt.keys); i++)

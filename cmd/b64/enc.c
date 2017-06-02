@@ -59,7 +59,7 @@ jcmd_b64_enc(int argc, char *argv[])
     jose_io_auto_t *b64 = NULL;
     jose_io_auto_t *out = NULL;
 
-    if (!jcmd_opt_parse(argc, argv, cfgs, &opt, prefix, NULL))
+    if (!jcmd_opt_parse(argc, argv, cfgs, &opt, prefix))
         return EXIT_FAILURE;
 
     if (!opt.input) {

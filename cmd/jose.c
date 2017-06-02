@@ -70,7 +70,7 @@ jcmd_push(jcmd_t *cmd)
 
 bool
 jcmd_opt_parse(int argc, char *argv[], const jcmd_cfg_t *cfgs, void *vopt,
-               const char *prefix, const char *suffix)
+               const char *prefix)
 {
     size_t ncfgs = 0;
     int maxa = 0;
@@ -174,9 +174,6 @@ usage:
 
         fprintf(stderr, "\n");
     }
-
-    if (suffix)
-        fprintf(stderr, "%s\n\n", suffix);
 
     return false;
 }
