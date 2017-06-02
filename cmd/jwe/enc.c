@@ -124,7 +124,7 @@ static const jcmd_cfg_t cfgs[] = {
         .doc = jcmd_jwe_doc_detach,
     },
     {
-        .opt = { "compact", required_argument, .val = 'c' },
+        .opt = { "compact", no_argument, .val = 'c' },
         .off = offsetof(jcmd_opt_t, io.compact),
         .set = jcmd_opt_set_flag,
         .doc = jcmd_jwe_doc_compact,
