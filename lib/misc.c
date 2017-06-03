@@ -27,7 +27,7 @@ encode_protected(json_t *obj)
     if (json_unpack(obj, "{s?o}", "protected", &p) == -1)
         return false;
 
-    if (json_is_string(p))
+    if (!p || json_is_string(p))
         return true;
 
     if (!json_is_object(p))
