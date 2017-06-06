@@ -17,6 +17,7 @@
 
 #include "jwk.h"
 #include <string.h>
+#include <unistd.h>
 
 #define SUMMARY "Validates the permissions of a key for the specified use(s)"
 
@@ -29,7 +30,7 @@ typedef struct {
 } jcmd_opt_t;
 
 static const char *prefix =
-"jose jwk use -i JWK [-a] [-r] -u OP\n\n" SUMMARY;
+"jose jwk use -i JWK [-a] [-r] -u OP [-o JWK]\n\n" SUMMARY;
 
 static void
 jcmd_opt_cleanup(jcmd_opt_t *opt)
@@ -72,6 +73,12 @@ static const jcmd_doc_t doc_req[] = {
     {}
 };
 
+static const jcmd_doc_t doc_output[] = {
+    { .arg = "FILE", .doc = "Filter keys to FILE as JWK(Set)" },
+    { .arg = "-",    .doc = "Filter keys to standard output as JWK(Set)" },
+    {}
+};
+
 static const jcmd_cfg_t cfgs[] = {
     {
         .opt = { "input", required_argument, .val = 'i' },
@@ -97,6 +104,12 @@ static const jcmd_cfg_t cfgs[] = {
         .set = jcmd_opt_set_flag,
         .doc = doc_req,
     },
+    {
+        .opt = { "output", required_argument, .val = 'o' },
+        .off = offsetof(jcmd_opt_t, output),
+        .set = jcmd_opt_set_ofile,
+        .doc = doc_output,
+    },
     {}
 };
 
@@ -104,7 +117,7 @@ static int
 jcmd_jwk_use(int argc, char *argv[])
 {
     jcmd_opt_auto_t opt = {};
-    const json_t *jwk = NULL;
+    json_auto_t *arr = NULL;
 
     if (!jcmd_opt_parse(argc, argv, cfgs, &opt, prefix))
         return EXIT_FAILURE;
@@ -119,23 +132,53 @@ jcmd_jwk_use(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
-    if (json_array_size(opt.keys) > 1) {
-        fprintf(stderr, "Too many JWKs specified!\n");
+    arr = json_array();
+    if (!arr)
         return EXIT_FAILURE;
-    }
 
-    jwk = json_array_get(opt.keys, 0);
+    for (size_t i = 0; i < json_array_size(opt.keys); i++) {
+        json_t *jwk = json_array_get(opt.keys, i);
+        bool status = false;
 
-    for (size_t i = 0; i < json_array_size(opt.uses); i++) {
-        const char *use = json_string_value(json_array_get(opt.uses, i));
-        bool allowed = jose_jwk_prm(NULL, jwk, opt.req, use);
-        if (opt.all && !allowed)
+        for (size_t j = 0; j < json_array_size(opt.uses); j++) {
+            const char *use = json_string_value(json_array_get(opt.uses, j));
+
+            if (opt.all)
+                status |= !jose_jwk_prm(NULL, jwk, opt.req, use);
+            else
+                status |= jose_jwk_prm(NULL, jwk, opt.req, use);
+        }
+
+        status = opt.all ? !status : status;
+
+        if (opt.output) {
+            if (status && json_array_append(arr, jwk) < 0)
+                return EXIT_FAILURE;
+        } else if (!status) {
             return EXIT_FAILURE;
-        if (!opt.all && allowed)
-            return EXIT_SUCCESS;
+        }
     }
 
-    return opt.all ? EXIT_SUCCESS : EXIT_FAILURE;
+    if (opt.output) {
+        json_auto_t *jwkset = NULL;
+
+        switch (json_array_size(arr)) {
+        case 0: return EXIT_FAILURE;
+        case 1: jwkset = json_incref(json_array_get(arr, 0)); break;
+        default: jwkset = json_pack("{s:O}", "keys", arr); break;
+        }
+
+        if (!jwkset)
+            return EXIT_FAILURE;
+
+        if (json_dumpf(jwkset, opt.output, JSON_COMPACT | JSON_SORT_KEYS) < 0)
+            return EXIT_FAILURE;
+
+        if (isatty(fileno(opt.output)))
+            fprintf(opt.output, "\n");
+    }
+
+    return EXIT_SUCCESS;
 }
 
 JCMD_REGISTER(SUMMARY, jcmd_jwk_use, "jwk", "use")

@@ -15,6 +15,11 @@ By default, if a JWK has no restrictions an operation will be allowed.
 However, by specifying the `-r` option you can ensure that a JWK will not
 be allowed unless it explicitly permits the option.
 
+In normal operation, `jose jwk use` will fail if any of the JWKs do not
+validate. However, if the `-o` option is used `jose jwk use` will instead
+write a JWK(Set) containing all of the input keys that validate. If no JWKs
+validate, the command will fail.
+
 ## OPTIONS
 
 * `-i` _JSON_, `--input`=_JSON_ :
@@ -55,6 +60,12 @@ be allowed unless it explicitly permits the option.
 
 * `-r`, `--required` :
   Operations must be explicitly allowed
+
+* `-o` _FILE_, `--output`=_FILE_ :
+  Filter keys to FILE as JWK(Set)
+
+* `-o` -, `--output`=- :
+  Filter keys to standard output as JWK(Set)
 
 ## EXAMPLES
 

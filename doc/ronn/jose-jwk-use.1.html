@@ -87,6 +87,11 @@ properties of each JWK.</p>
 However, by specifying the <code>-r</code> option you can ensure that a JWK will not
 be allowed unless it explicitly permits the option.</p>
 
+<p>In normal operation, <code>jose jwk use</code> will fail if any of the JWKs do not
+validate. However, if the <code>-o</code> option is used <code>jose jwk use</code> will instead
+write a JWK(Set) containing all of the input keys that validate. If no JWKs
+validate, the command will fail.</p>
+
 <h2 id="OPTIONS">OPTIONS</h2>
 
 <dl>
@@ -103,6 +108,8 @@ be allowed unless it explicitly permits the option.</p>
 <dt><code>-u</code> deriveBits, <code>--use</code>=deriveBits </dt><dd><p>Validate the key for deriving bits</p></dd>
 <dt><code>-a</code>, <code>--all</code> </dt><dd><p>Succeeds only if all operations are allowed</p></dd>
 <dt><code>-r</code>, <code>--required</code> </dt><dd><p>Operations must be explicitly allowed</p></dd>
+<dt><code>-o</code> <em>FILE</em>, <code>--output</code>=<em>FILE</em> </dt><dd><p>Filter keys to FILE as JWK(Set)</p></dd>
+<dt><code>-o</code> -, <code>--output</code>=- </dt><dd><p>Filter keys to standard output as JWK(Set)</p></dd>
 </dl>
 
 
@@ -131,7 +138,7 @@ $ echo $?
 
   <ol class='man-decor man-foot man foot'>
     <li class='tl'></li>
-    <li class='tc'>May 2017</li>
+    <li class='tc'>June 2017</li>
     <li class='tr'>jose-jwk-use(1)</li>
   </ol>
 

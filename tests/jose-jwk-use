@@ -1,26 +1,34 @@
 #!/bin/bash -ex
 
-../cmd/jose jwk use -i '{}' -u encrypt
-! ../cmd/jose jwk use -i '{}' -r -u encrypt
+export PATH=../cmd:$PATH
 
-! ../cmd/jose jwk use -i '{"use": true}' -u encrypt
-! ../cmd/jose jwk use -i '{"key_ops": []}' -u encrypt
-! ../cmd/jose jwk use -i '{"key_ops": [true]}' -u encrypt
+jose jwk use -i '{}' -u encrypt
+! jose jwk use -i '{}' -r -u encrypt
 
-../cmd/jose jwk use -i '{"use": "enc"}' -u encrypt
-! ../cmd/jose jwk use -i '{"use": "sig"}' -u encrypt
+! jose jwk use -i '{"use": true}' -u encrypt
+! jose jwk use -i '{"key_ops": []}' -u encrypt
+! jose jwk use -i '{"key_ops": [true]}' -u encrypt
 
-../cmd/jose jwk use -i '{"key_ops": ["encrypt", "decrypt"]}' -u encrypt
-../cmd/jose jwk use -i '{"key_ops": ["encrypt", "decrypt"]}' -u encrypt -u decrypt
-../cmd/jose jwk use -i '{"key_ops": ["encrypt", "decrypt"]}' -a -u encrypt -u decrypt
-../cmd/jose jwk use -i '{"key_ops": ["encrypt", "decrypt"]}' -u encrypt -u sign
-! ../cmd/jose jwk use -i '{"key_ops": ["encrypt", "decrypt"]}' -u sign
-! ../cmd/jose jwk use -i '{"key_ops": ["encrypt", "decrypt"]}' -a -u encrypt -u sign
+jose jwk use -i '{"use": "enc"}' -u encrypt
+! jose jwk use -i '{"use": "sig"}' -u encrypt
 
-../cmd/jose jwk use -i '{"use": "sig", "key_ops": ["encrypt", "decrypt"]}' -u encrypt -u sign
-../cmd/jose jwk use -i '{"use": "sig", "key_ops": ["encrypt", "decrypt"]}' -a -u encrypt -u sign
+jose jwk use -i '{"key_ops": ["encrypt", "decrypt"]}' -u encrypt
+jose jwk use -i '{"key_ops": ["encrypt", "decrypt"]}' -u encrypt -u decrypt
+jose jwk use -i '{"key_ops": ["encrypt", "decrypt"]}' -a -u encrypt -u decrypt
+jose jwk use -i '{"key_ops": ["encrypt", "decrypt"]}' -u encrypt -u sign
+! jose jwk use -i '{"key_ops": ["encrypt", "decrypt"]}' -u sign
+! jose jwk use -i '{"key_ops": ["encrypt", "decrypt"]}' -a -u encrypt -u sign
 
-! ../cmd/jose jwk use -i '{"use": "enc"}' -u deriveKey
-! ../cmd/jose jwk use -i '{"use": "enc"}' -u deriveBits
-! ../cmd/jose jwk use -i '{"use": "sig"}' -u deriveKey
-! ../cmd/jose jwk use -i '{"use": "sig"}' -u deriveBits
+jose jwk use -i '{"use": "sig", "key_ops": ["encrypt", "decrypt"]}' -u encrypt -u sign
+jose jwk use -i '{"use": "sig", "key_ops": ["encrypt", "decrypt"]}' -a -u encrypt -u sign
+
+! jose jwk use -i '{"use": "enc"}' -u deriveKey
+! jose jwk use -i '{"use": "enc"}' -u deriveBits
+! jose jwk use -i '{"use": "sig"}' -u deriveKey
+! jose jwk use -i '{"use": "sig"}' -u deriveBits
+
+jwkset=`jose jwk gen -i '{"keys":[{"alg":"A128KW"},{"alg":"ES256"}]}'`
+
+jose jwk use -i "$jwkset" -u wrapKey -o /dev/null
+jose jwk use -i "$jwkset" -u verify -o /dev/null
+! jose jwk use -i "$jwkset" -u encrypt -o /dev/null
