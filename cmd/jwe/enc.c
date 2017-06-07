@@ -56,7 +56,7 @@ prompt(void)
 }
 
 static bool
-opt_set_password(void *vopt, const char *arg)
+opt_set_password(const jcmd_cfg_t *cfg, void *vopt, const char *arg)
 {
     json_t **keys = vopt;
 

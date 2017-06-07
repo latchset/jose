@@ -51,7 +51,7 @@ name2kind(const char *name)
 }
 
 static bool
-opt_set_kind(void *vopt, const char *arg)
+opt_set_kind(const jcmd_cfg_t *cfg, void *vopt, const char *arg)
 {
     json_t **all = vopt;
 

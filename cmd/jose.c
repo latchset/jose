@@ -96,7 +96,7 @@ jcmd_opt_parse(int argc, char *argv[], const jcmd_cfg_t *cfgs, void *vopt,
 
         if (cfg->def) {
             uint8_t *buf = vopt;
-            if (!cfg->set(&buf[cfg->off], cfg->def)) {
+            if (!cfg->set(cfg, &buf[cfg->off], cfg->def)) {
                 fprintf(stderr, "Invalid default value for %s!\n", cfg->opt.name);
                 return false;
             }
@@ -133,7 +133,7 @@ jcmd_opt_parse(int argc, char *argv[], const jcmd_cfg_t *cfgs, void *vopt,
             if (cfgs[i].opt.val == c) {
                 found = true;
 
-                if (!cfgs[i].set(&buf[cfgs[i].off], optarg)) {
+                if (!cfgs[i].set(&cfgs[i], &buf[cfgs[i].off], optarg)) {
                     fprintf(stderr, "Invalid %s!\n", cfgs[i].opt.name);
                     goto usage;
                 }
@@ -220,7 +220,7 @@ parse_compact(jcmd_opt_io_t *io, const char *arg)
 }
 
 bool
-jcmd_opt_io_set_input(void *vopt, const char *arg)
+jcmd_opt_io_set_input(const jcmd_cfg_t *cfg, void *vopt, const char *arg)
 {
     jcmd_opt_io_t *io = vopt;
 
@@ -258,7 +258,7 @@ jcmd_opt_io_set_input(void *vopt, const char *arg)
 }
 
 bool
-jcmd_opt_set_ifile(void *vopt, const char *arg)
+jcmd_opt_set_ifile(const jcmd_cfg_t *cfg, void *vopt, const char *arg)
 {
     FILE **file = vopt;
     jcmd_file_cleanup(file);
@@ -270,7 +270,7 @@ jcmd_opt_set_ifile(void *vopt, const char *arg)
 }
 
 bool
-jcmd_opt_set_ofile(void *vopt, const char *arg)
+jcmd_opt_set_ofile(const jcmd_cfg_t *cfg, void *vopt, const char *arg)
 {
     FILE **file = vopt;
     jcmd_file_cleanup(file);
@@ -282,12 +282,12 @@ jcmd_opt_set_ofile(void *vopt, const char *arg)
 }
 
 bool
-jcmd_opt_set_jsons(void *vopt, const char *arg)
+jcmd_opt_set_jsons(const jcmd_cfg_t *cfg, void *vopt, const char *arg)
 {
     json_auto_t *tmp = NULL;
     json_t **json = vopt;
 
-    if (!jcmd_opt_set_json(&tmp, arg))
+    if (!jcmd_opt_set_json(cfg, &tmp, arg))
         return false;
 
     if (!*json)
@@ -297,36 +297,33 @@ jcmd_opt_set_jsons(void *vopt, const char *arg)
 }
 
 bool
-jcmd_opt_set_json(void *vopt, const char *arg)
+jcmd_opt_set_json(const jcmd_cfg_t *cfg, void *vopt, const char *arg)
 {
     const int flags = JSON_DISABLE_EOF_CHECK | JSON_DECODE_ANY;
     json_t **json = vopt;
 
     json_decrefp(json);
 
-    *json = json_loads(arg, JSON_DECODE_ANY, NULL);
+    *json = json_loads(arg, flags, NULL);
     if (!*json) {
-        FILE_AUTO *file = NULL;
-
-        if (strcmp(arg, "-") == 0)
-            file = fdopen(dup(STDIN_FILENO), "r");
-        else
-            file = fopen(arg, "r");
-
-        if (file)
+        if (strcmp(arg, "-") == 0) {
+            *json = json_loadf(stdin, flags, NULL);
+        } else {
+            FILE_AUTO *file = fopen(arg, "r");
             *json = json_loadf(file, flags, NULL);
+        }
     }
 
     return *json;
 }
 
 bool
-jcmd_opt_set_jwks(void *vopt, const char *arg)
+jcmd_opt_set_jwks(const jcmd_cfg_t *cfg, void *vopt, const char *arg)
 {
     json_auto_t *tmp = NULL;
     json_t **jwks = vopt;
 
-    if (!jcmd_opt_set_json(&tmp, arg))
+    if (!jcmd_opt_set_json(cfg, &tmp, arg))
         return false;
 
     if (!*jwks)
@@ -342,7 +339,7 @@ jcmd_opt_set_jwks(void *vopt, const char *arg)
 }
 
 bool
-jcmd_opt_set_flag(void *vopt, const char *arg)
+jcmd_opt_set_flag(const jcmd_cfg_t *cfg, void *vopt, const char *arg)
 {
     bool *flag = vopt;
     return *flag = true;

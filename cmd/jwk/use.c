@@ -41,7 +41,7 @@ jcmd_opt_cleanup(jcmd_opt_t *opt)
 }
 
 static bool
-opt_set_use(void *vopt, const char *arg)
+opt_set_use(const jcmd_cfg_t *cfg, void *vopt, const char *arg)
 {
     json_t **uses = vopt;
 

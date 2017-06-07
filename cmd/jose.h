@@ -39,20 +39,21 @@
         jcmd_push(&cmd);                                    \
     }
 
-typedef bool jcmd_set_t(void *vopt, const char *arg);
+typedef struct jcmd_cfg jcmd_cfg_t;
+typedef bool jcmd_set_t(const jcmd_cfg_t *cfg, void *vopt, const char *arg);
 
 typedef struct {
     const char *arg;
     const char *doc;
 } jcmd_doc_t;
 
-typedef struct {
+struct jcmd_cfg {
     const jcmd_doc_t *doc;
     struct option opt;
     const char *def;
     jcmd_set_t *set;
     off_t off;
-} jcmd_cfg_t;
+};
 
 typedef struct {
     const char *name;

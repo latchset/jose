@@ -31,7 +31,7 @@ static const char *prefix =
 "jose jwk thp -i JWK [-a ALG] [-o THP]\n\n" SUMMARY;
 
 static bool
-opt_set_hash(void *vopt, const char *arg)
+opt_set_hash(const jcmd_cfg_t *cfg, void *vopt, const char *arg)
 {
     const char **hash = vopt;
 
