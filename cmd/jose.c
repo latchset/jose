@@ -74,23 +74,24 @@ jcmd_opt_parse(int argc, char *argv[], const jcmd_cfg_t *cfgs, void *vopt,
 {
     size_t ncfgs = 0;
     int maxa = 0;
-    int maxn = 0;
+    int maxl = 0;
 
     for (; cfgs[ncfgs].doc; ncfgs++) {
         const jcmd_cfg_t *cfg = &cfgs[ncfgs];
-        int len = 0;
-
-        len = strlen(cfg->opt.name);
-        if (len > maxn)
-            maxn = len;
 
         for (size_t i = 0; cfg->doc[i].doc; i++) {
+            int len = 0;
+
             if (!cfg->doc[i].arg)
                 continue;
 
             len = strlen(cfg->doc[i].arg);
             if (len > maxa)
                 maxa = len;
+
+            len = strlen(cfg->opt.name) + len;
+            if (len > maxl)
+                maxl = len;
         }
 
         if (cfg->def) {
@@ -161,15 +162,16 @@ usage:
             const char  v = cfgs[i].opt.val;
             const char *a = cfgs[i].doc[j].arg;
             const char d = a ? '=' : ' ';
-            fprintf(stderr, "  -%c %-*s  --%s%c%-*s  %s\n",
-                    v, maxa, a ? a : "",
-                    n, d, maxa + maxn - (int) strlen(n), a ? a : "",
+            a = a ? a : "";
+            fprintf(stderr, "  -%c %-*s --%s%c%-*s  %s\n",
+                    v, maxa, a,
+                    n, d, maxl - (int) strlen(n), a,
                     cfgs[i].doc[j].doc);
         }
 
         if (cfgs[i].def) {
-            fprintf(stderr, "  %*sDefault: \"%s\"\n",
-                    2 * maxa + maxn + 10, "", cfgs[i].def);
+            fprintf(stderr, "%*sDefault: \"%s\"\n",
+                    maxa + maxl + 11, "", cfgs[i].def);
         }
 
         fprintf(stderr, "\n");
@@ -476,7 +478,7 @@ main(int argc, char *argv[])
                      " %s", all[i]->names[j]);
         }
 
-        fprintf(stderr, "  %-16s %s\n", full, all[i]->desc);
+        fprintf(stderr, "  %-13s %s\n", full, all[i]->desc);
         last = all[i]->names[0];
     }
 
