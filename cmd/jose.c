@@ -400,11 +400,24 @@ jcmd_file_cleanup(FILE **file)
 }
 
 static int
+nnames(const jcmd_t *cmd)
+{
+    int n = 0;
+
+    while (cmd->names[n])
+        n++;
+
+    return n;
+}
+
+static int
 cmp(const void *a, const void *b)
 {
     const jcmd_t * const *ap = a;
     const jcmd_t * const *bp = b;
     int c = 0;
+
+    c = nnames(*ap) - nnames(*bp);
 
     for (size_t i = 0; c == 0; i++) {
         const char *an = (*ap)->names[i];
