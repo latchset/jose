@@ -232,7 +232,7 @@ jcmd_opt_io_set_input(const jcmd_cfg_t *cfg, void *vopt, const char *arg)
         io->obj = parse_compact(io, arg);
     if (!io->obj) {
         if (strcmp("-", arg) == 0)
-            io->input = fdopen(dup(STDIN_FILENO), "r");
+            io->input = stdin;
         else
             io->input = fopen(arg, "r");
         if (!io->input)
@@ -263,9 +263,10 @@ jcmd_opt_set_ifile(const jcmd_cfg_t *cfg, void *vopt, const char *arg)
     FILE **file = vopt;
     jcmd_file_cleanup(file);
     if (strcmp("-", arg) == 0)
-        *file = fdopen(dup(STDIN_FILENO), "r");
+        *file = stdin;
     else
         *file = fopen(arg, "r");
+
     return *file;
 }
 
@@ -275,7 +276,7 @@ jcmd_opt_set_ofile(const jcmd_cfg_t *cfg, void *vopt, const char *arg)
     FILE **file = vopt;
     jcmd_file_cleanup(file);
     if (strcmp("-", arg) == 0)
-        *file = fdopen(dup(STDOUT_FILENO), "w");
+        *file = stdout;
     else
         *file = fopen(arg, "w");
     return *file;
@@ -392,7 +393,8 @@ void
 jcmd_file_cleanup(FILE **file)
 {
     if (file && *file) {
-        fclose(*file);
+        if (*file != stdin && *file != stdout)
+            fclose(*file);
         *file = NULL;
     }
 }
