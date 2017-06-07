@@ -21,4 +21,5 @@ jose_SOURCES = \
     jwe/fmt.c \
     jwe/dec.c \
     jwe/enc.c \
-    alg.c
+    alg.c \
+    fmt.c

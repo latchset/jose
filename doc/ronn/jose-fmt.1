@@ -1,0 +1,262 @@
+.\" generated with Ronn/v0.7.3
+.\" http://github.com/rtomayko/ronn/tree/0.7.3
+.
+.TH "JOSE\-FMT" "1" "June 2017" "" ""
+.
+.SH "NAME"
+\fBjose\-fmt\fR \- Converts JSON between serialization formats
+.
+.SH "SYNOPSIS"
+\fBjose fmt\fR \fIOPTIONS\fR
+.
+.SH "OVERVIEW"
+This \fBjose fmt\fR command provides a mechanism for building and parsing JSON objects from the command line\. It operates as a simple stack machine\. All commands operate on the TOP item of the stack and, occasionally, the PREV item of the stack\. Commands that require a specific type of value will indicate it in parentheses\. For example: "TOP (arr\.)"\.
+.
+.P
+This program returns 0 on success or the index of the option which failed\.
+.
+.SH "OPTIONS"
+.
+.TP
+\fB\-X\fR, \fB\-\-not\fR
+Invert the following assertion
+.
+.TP
+\fB\-O\fR, \fB\-\-object\fR
+Assert TOP to be an object
+.
+.TP
+\fB\-A\fR, \fB\-\-array\fR
+Assert TOP to be an array
+.
+.TP
+\fB\-S\fR, \fB\-\-string\fR
+Assert TOP to be a string
+.
+.TP
+\fB\-I\fR, \fB\-\-integer\fR
+Assert TOP to be an integer
+.
+.TP
+\fB\-R\fR, \fB\-\-real\fR
+Assert TOP to be a real
+.
+.TP
+\fB\-N\fR, \fB\-\-number\fR
+Assert TOP to be a number
+.
+.TP
+\fB\-T\fR, \fB\-\-true\fR
+Assert TOP to be true
+.
+.TP
+\fB\-F\fR, \fB\-\-false\fR
+Assert TOP to be false
+.
+.TP
+\fB\-B\fR, \fB\-\-boolean\fR
+Assert TOP to be a boolean
+.
+.TP
+\fB\-0\fR, \fB\-\-null\fR
+Assert TOP to be null
+.
+.TP
+\fB\-E\fR, \fB\-\-equal\fR
+Assert TOP to be equal to PREV
+.
+.TP
+\fB\-Q\fR, \fB\-\-query\fR
+Query the stack by deep copying and pushing onto TOP
+.
+.TP
+\fB\-M\fR #, \fB\-\-move\fR=#
+Move TOP back # places on the stack
+.
+.TP
+\fB\-U\fR, \fB\-\-unwind\fR
+Discard TOP from the stack
+.
+.TP
+\fB\-j\fR \fIJSON\fR, \fB\-\-json\fR=\fIJSON\fR
+Parse JSON constant, push onto TOP
+.
+.TP
+\fB\-j\fR \fIFILE\fR, \fB\-\-json\fR=\fIFILE\fR
+Read from FILE, push onto TOP
+.
+.TP
+\fB\-j\fR \-, \fB\-\-json\fR=\-
+Read from STDIN, push onto TOP
+.
+.TP
+\fB\-c\fR, \fB\-\-copy\fR
+Deep copy TOP, push onto TOP
+.
+.TP
+\fB\-q\fR \fISTR\fR, \fB\-\-quote\fR=\fISTR\fR
+Convert STR to a string, push onto TOP
+.
+.TP
+\fB\-o\fR \fIFILE\fR, \fB\-\-output\fR=\fIFILE\fR
+Write TOP to FILE
+.
+.TP
+\fB\-o\fR \-, \fB\-\-output\fR=\-
+Write TOP to STDOUT
+.
+.TP
+\fB\-f\fR \fIFILE\fR, \fB\-\-foreach\fR=\fIFILE\fR
+Write TOP (obj\./arr\.) to FILE, one line/item
+.
+.TP
+\fB\-f\fR \-, \fB\-\-foreach\fR=\-
+Write TOP (obj\./arr\.) to STDOUT, one line/item
+.
+.TP
+\fB\-u\fR \fIFILE\fR, \fB\-\-unquote\fR=\fIFILE\fR
+Write TOP (str\.) to FILE without quotes
+.
+.TP
+\fB\-u\fR \-, \fB\-\-unquote\fR=\-
+Write TOP (str\.) to STDOUT without quotes
+.
+.TP
+\fB\-t\fR #, \fB\-\-truncate\fR=#
+Shrink TOP (arr\.) to length #
+.
+.TP
+\fB\-t\fR \-#, \fB\-\-truncate\fR=\-#
+Discard last # items from TOP (arr\.)
+.
+.TP
+\fB\-i\fR #, \fB\-\-insert\fR=#
+Insert TOP into PREV (arr\.) at #
+.
+.TP
+\fB\-a\fR, \fB\-\-append\fR
+Append TOP to the end of PREV (arr\.)
+.
+.TP
+\fB\-a\fR, \fB\-\-append\fR
+Set missing values from TOP (obj\.) into PREV (obj\.)
+.
+.TP
+\fB\-x\fR, \fB\-\-extend\fR
+Append items from TOP to the end of PREV (arr\.)
+.
+.TP
+\fB\-x\fR, \fB\-\-extend\fR
+Set all values from TOP (obj\.) into PREV (obj\.)
+.
+.TP
+\fB\-d\fR \fINAME\fR, \fB\-\-delete\fR=\fINAME\fR
+Delete NAME from TOP (obj\.)
+.
+.TP
+\fB\-d\fR #, \fB\-\-delete\fR=#
+Delete # from TOP (arr\.)
+.
+.TP
+\fB\-d\fR \-#, \fB\-\-delete\fR=\-#
+Delete # from the end of TOP (arr\.)
+.
+.TP
+\fB\-l\fR, \fB\-\-length\fR
+Push length of TOP (arr\./str\./obj\.) to TOP
+.
+.TP
+\fB\-e\fR, \fB\-\-empty\fR
+Erase all items from TOP (arr\./obj\.)
+.
+.TP
+\fB\-g\fR \fINAME\fR, \fB\-\-get\fR=\fINAME\fR
+Get item with NAME from TOP (obj\.), push to TOP
+.
+.TP
+\fB\-g\fR #, \fB\-\-get\fR=#
+Get # item from TOP (arr\.), push to TOP
+.
+.TP
+\fB\-g\fR \-#, \fB\-\-get\fR=\-#
+Get # item from the end of TOP (arr\.), push to TOP
+.
+.TP
+\fB\-s\fR \fINAME\fR, \fB\-\-set\fR=\fINAME\fR
+Sets TOP into PREV (obj\.) with NAME
+.
+.TP
+\fB\-s\fR #, \fB\-\-set\fR=#
+Sets TOP into PREV (obj\.) at #
+.
+.TP
+\fB\-s\fR \-#, \fB\-\-set\fR=\-#
+Sets TOP into PREV (obj\.) at # from the end
+.
+.TP
+\fB\-y\fR, \fB\-\-b64load\fR
+URL\-safe Base64 decode TOP (str\.), push onto TOP
+.
+.TP
+\fB\-Y\fR, \fB\-\-b64dump\fR
+URL\-safe Base64 encode TOP, push onto TOP
+.
+.SH "EXAMPLES"
+Extract the \fBalg\fR parameter from a JWE Protected Header:
+.
+.IP "" 4
+.
+.nf
+
+$ jose fmt \-j "$jwe" \-Og protected \-yOg alg \-Su\-
+A128KW
+.
+.fi
+.
+.IP "" 0
+.
+.P
+List all JWKs in a JWKSet (one per line):
+.
+.IP "" 4
+.
+.nf
+
+$ echo "$jwkset" | jose fmt \-j\- \-Og keys \-Af\-
+{"kty":"oct",\.\.\.}
+{"kty":"EC",\.\.\.}
+.
+.fi
+.
+.IP "" 0
+.
+.P
+Change the algorithm in a JWK:
+.
+.IP "" 4
+.
+.nf
+
+$ echo "$jwk" | jose fmt \-j\- \-j \'"A128GCM"\' \-s alg \-Uo\-
+{"kty":"oct","alg":"A128GCM",\.\.\.}
+.
+.fi
+.
+.IP "" 0
+.
+.P
+Build a JWE template:
+.
+.IP "" 4
+.
+.nf
+
+$ jose fmt \-j \'{}\' \-cs unprotected \-q A128KW \-s alg \-UUo\-
+{"unprotected":{"alg":"A128KW"}}
+.
+.fi
+.
+.IP "" 0
+.
+.SH "AUTHOR"
+Nathaniel McCallum <npmccallum@redhat\.com>

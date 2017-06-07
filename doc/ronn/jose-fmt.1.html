@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv='content-type' value='text/html;charset=utf8'>
+  <meta name='generator' value='Ronn/v0.7.3 (http://github.com/rtomayko/ronn/tree/0.7.3)'>
+  <title>jose-fmt(1) - Converts JSON between serialization formats</title>
+  <style type='text/css' media='all'>
+  /* style: man */
+  body#manpage {margin:0}
+  .mp {max-width:100ex;padding:0 9ex 1ex 4ex}
+  .mp p,.mp pre,.mp ul,.mp ol,.mp dl {margin:0 0 20px 0}
+  .mp h2 {margin:10px 0 0 0}
+  .mp > p,.mp > pre,.mp > ul,.mp > ol,.mp > dl {margin-left:8ex}
+  .mp h3 {margin:0 0 0 4ex}
+  .mp dt {margin:0;clear:left}
+  .mp dt.flush {float:left;width:8ex}
+  .mp dd {margin:0 0 0 9ex}
+  .mp h1,.mp h2,.mp h3,.mp h4 {clear:left}
+  .mp pre {margin-bottom:20px}
+  .mp pre+h2,.mp pre+h3 {margin-top:22px}
+  .mp h2+pre,.mp h3+pre {margin-top:5px}
+  .mp img {display:block;margin:auto}
+  .mp h1.man-title {display:none}
+  .mp,.mp code,.mp pre,.mp tt,.mp kbd,.mp samp,.mp h3,.mp h4 {font-family:monospace;font-size:14px;line-height:1.42857142857143}
+  .mp h2 {font-size:16px;line-height:1.25}
+  .mp h1 {font-size:20px;line-height:2}
+  .mp {text-align:justify;background:#fff}
+  .mp,.mp code,.mp pre,.mp pre code,.mp tt,.mp kbd,.mp samp {color:#131211}
+  .mp h1,.mp h2,.mp h3,.mp h4 {color:#030201}
+  .mp u {text-decoration:underline}
+  .mp code,.mp strong,.mp b {font-weight:bold;color:#131211}
+  .mp em,.mp var {font-style:italic;color:#232221;text-decoration:none}
+  .mp a,.mp a:link,.mp a:hover,.mp a code,.mp a pre,.mp a tt,.mp a kbd,.mp a samp {color:#0000ff}
+  .mp b.man-ref {font-weight:normal;color:#434241}
+  .mp pre {padding:0 4ex}
+  .mp pre code {font-weight:normal;color:#434241}
+  .mp h2+pre,h3+pre {padding-left:0}
+  ol.man-decor,ol.man-decor li {margin:3px 0 10px 0;padding:0;float:left;width:33%;list-style-type:none;text-transform:uppercase;color:#999;letter-spacing:1px}
+  ol.man-decor {width:100%}
+  ol.man-decor li.tl {text-align:left}
+  ol.man-decor li.tc {text-align:center;letter-spacing:4px}
+  ol.man-decor li.tr {text-align:right;float:right}
+  </style>
+</head>
+<!--
+  The following styles are deprecated and will be removed at some point:
+  div#man, div#man ol.man, div#man ol.head, div#man ol.man.
+
+  The .man-page, .man-decor, .man-head, .man-foot, .man-title, and
+  .man-navigation should be used instead.
+-->
+<body id='manpage'>
+  <div class='mp' id='man'>
+
+  <div class='man-navigation' style='display:none'>
+    <a href="#NAME">NAME</a>
+    <a href="#SYNOPSIS">SYNOPSIS</a>
+    <a href="#OVERVIEW">OVERVIEW</a>
+    <a href="#OPTIONS">OPTIONS</a>
+    <a href="#EXAMPLES">EXAMPLES</a>
+    <a href="#AUTHOR">AUTHOR</a>
+  </div>
+
+  <ol class='man-decor man-head man head'>
+    <li class='tl'>jose-fmt(1)</li>
+    <li class='tc'></li>
+    <li class='tr'>jose-fmt(1)</li>
+  </ol>
+
+  <h2 id="NAME">NAME</h2>
+<p class="man-name">
+  <code>jose-fmt</code> - <span class="man-whatis">Converts JSON between serialization formats</span>
+</p>
+
+<h2 id="SYNOPSIS">SYNOPSIS</h2>
+
+<p><code>jose fmt</code> <a href="#OPTIONS" title="OPTIONS" data-bare-link="true">OPTIONS</a></p>
+
+<h2 id="OVERVIEW">OVERVIEW</h2>
+
+<p>This <code>jose fmt</code> command provides a mechanism for building and parsing JSON
+objects from the command line. It operates as a simple stack machine. All
+commands operate on the TOP item of the stack and, occasionally, the PREV item
+of the stack. Commands that require a specific type of value will indicate it
+in parentheses. For example: "TOP (arr.)".</p>
+
+<p>This program returns 0 on success or the index of the option which failed.</p>
+
+<h2 id="OPTIONS">OPTIONS</h2>
+
+<dl>
+<dt><code>-X</code>, <code>--not</code> </dt><dd><p>Invert the following assertion</p></dd>
+<dt><code>-O</code>, <code>--object</code> </dt><dd><p>Assert TOP to be an object</p></dd>
+<dt><code>-A</code>, <code>--array</code> </dt><dd><p>Assert TOP to be an array</p></dd>
+<dt><code>-S</code>, <code>--string</code> </dt><dd><p>Assert TOP to be a string</p></dd>
+<dt><code>-I</code>, <code>--integer</code> </dt><dd><p>Assert TOP to be an integer</p></dd>
+<dt><code>-R</code>, <code>--real</code> </dt><dd><p>Assert TOP to be a real</p></dd>
+<dt><code>-N</code>, <code>--number</code> </dt><dd><p>Assert TOP to be a number</p></dd>
+<dt><code>-T</code>, <code>--true</code> </dt><dd><p>Assert TOP to be true</p></dd>
+<dt><code>-F</code>, <code>--false</code> </dt><dd><p>Assert TOP to be false</p></dd>
+<dt><code>-B</code>, <code>--boolean</code> </dt><dd><p>Assert TOP to be a boolean</p></dd>
+<dt><code>-0</code>, <code>--null</code> </dt><dd><p>Assert TOP to be null</p></dd>
+<dt><code>-E</code>, <code>--equal</code> </dt><dd><p>Assert TOP to be equal to PREV</p></dd>
+<dt><code>-Q</code>, <code>--query</code> </dt><dd><p>Query the stack by deep copying and pushing onto TOP</p></dd>
+<dt><code>-M</code> #, <code>--move</code>=# </dt><dd><p>Move TOP back # places on the stack</p></dd>
+<dt><code>-U</code>, <code>--unwind</code> </dt><dd><p>Discard TOP from the stack</p></dd>
+<dt><code>-j</code> <em>JSON</em>, <code>--json</code>=<em>JSON</em> </dt><dd><p>Parse JSON constant, push onto TOP</p></dd>
+<dt><code>-j</code> <em>FILE</em>, <code>--json</code>=<em>FILE</em> </dt><dd><p>Read from FILE, push onto TOP</p></dd>
+<dt><code>-j</code> -, <code>--json</code>=- </dt><dd><p>Read from STDIN, push onto TOP</p></dd>
+<dt><code>-c</code>, <code>--copy</code> </dt><dd><p>Deep copy TOP, push onto TOP</p></dd>
+<dt><code>-q</code> <em>STR</em>, <code>--quote</code>=<em>STR</em> </dt><dd><p>Convert STR to a string, push onto TOP</p></dd>
+<dt><code>-o</code> <em>FILE</em>, <code>--output</code>=<em>FILE</em> </dt><dd><p>Write TOP to FILE</p></dd>
+<dt><code>-o</code> -, <code>--output</code>=- </dt><dd><p>Write TOP to STDOUT</p></dd>
+<dt><code>-f</code> <em>FILE</em>, <code>--foreach</code>=<em>FILE</em> </dt><dd><p>Write TOP (obj./arr.) to FILE, one line/item</p></dd>
+<dt><code>-f</code> -, <code>--foreach</code>=- </dt><dd><p>Write TOP (obj./arr.) to STDOUT, one line/item</p></dd>
+<dt><code>-u</code> <em>FILE</em>, <code>--unquote</code>=<em>FILE</em> </dt><dd><p>Write TOP (str.) to FILE without quotes</p></dd>
+<dt><code>-u</code> -, <code>--unquote</code>=- </dt><dd><p>Write TOP (str.) to STDOUT without quotes</p></dd>
+<dt><code>-t</code> #, <code>--truncate</code>=# </dt><dd><p>Shrink TOP (arr.) to length #</p></dd>
+<dt><code>-t</code> -#, <code>--truncate</code>=-# </dt><dd><p>Discard last # items from TOP (arr.)</p></dd>
+<dt><code>-i</code> #, <code>--insert</code>=# </dt><dd><p>Insert TOP into PREV (arr.) at #</p></dd>
+<dt><code>-a</code>, <code>--append</code> </dt><dd><p>Append TOP to the end of PREV (arr.)</p></dd>
+<dt><code>-a</code>, <code>--append</code> </dt><dd><p>Set missing values from TOP (obj.) into PREV (obj.)</p></dd>
+<dt><code>-x</code>, <code>--extend</code> </dt><dd><p>Append items from TOP to the end of PREV (arr.)</p></dd>
+<dt><code>-x</code>, <code>--extend</code> </dt><dd><p>Set all values from TOP (obj.) into PREV (obj.)</p></dd>
+<dt><code>-d</code> <em>NAME</em>, <code>--delete</code>=<em>NAME</em> </dt><dd><p>Delete NAME from TOP (obj.)</p></dd>
+<dt><code>-d</code> #, <code>--delete</code>=# </dt><dd><p>Delete # from TOP (arr.)</p></dd>
+<dt><code>-d</code> -#, <code>--delete</code>=-# </dt><dd><p>Delete # from the end of TOP (arr.)</p></dd>
+<dt><code>-l</code>, <code>--length</code> </dt><dd><p>Push length of TOP (arr./str./obj.) to TOP</p></dd>
+<dt><code>-e</code>, <code>--empty</code> </dt><dd><p>Erase all items from TOP (arr./obj.)</p></dd>
+<dt><code>-g</code> <em>NAME</em>, <code>--get</code>=<em>NAME</em> </dt><dd><p>Get item with NAME from TOP (obj.), push to TOP</p></dd>
+<dt><code>-g</code> #, <code>--get</code>=# </dt><dd><p>Get # item from TOP (arr.), push to TOP</p></dd>
+<dt><code>-g</code> -#, <code>--get</code>=-# </dt><dd><p>Get # item from the end of TOP (arr.), push to TOP</p></dd>
+<dt><code>-s</code> <em>NAME</em>, <code>--set</code>=<em>NAME</em> </dt><dd><p>Sets TOP into PREV (obj.) with NAME</p></dd>
+<dt><code>-s</code> #, <code>--set</code>=# </dt><dd><p>Sets TOP into PREV (obj.) at #</p></dd>
+<dt><code>-s</code> -#, <code>--set</code>=-# </dt><dd><p>Sets TOP into PREV (obj.) at # from the end</p></dd>
+<dt><code>-y</code>, <code>--b64load</code> </dt><dd><p>URL-safe Base64 decode TOP (str.), push onto TOP</p></dd>
+<dt><code>-Y</code>, <code>--b64dump</code> </dt><dd><p>URL-safe Base64 encode TOP, push onto TOP</p></dd>
+</dl>
+
+
+<h2 id="EXAMPLES">EXAMPLES</h2>
+
+<p>Extract the <code>alg</code> parameter from a JWE Protected Header:</p>
+
+<pre><code>$ jose fmt -j "$jwe" -Og protected -yOg alg -Su-
+A128KW
+</code></pre>
+
+<p>List all JWKs in a JWKSet (one per line):</p>
+
+<pre><code>$ echo "$jwkset" | jose fmt -j- -Og keys -Af-
+{"kty":"oct",...}
+{"kty":"EC",...}
+</code></pre>
+
+<p>Change the algorithm in a JWK:</p>
+
+<pre><code>$ echo "$jwk" | jose fmt -j- -j '"A128GCM"' -s alg -Uo-
+{"kty":"oct","alg":"A128GCM",...}
+</code></pre>
+
+<p>Build a JWE template:</p>
+
+<pre><code>$ jose fmt -j '{}' -cs unprotected -q A128KW -s alg -UUo-
+{"unprotected":{"alg":"A128KW"}}
+</code></pre>
+
+<h2 id="AUTHOR">AUTHOR</h2>
+
+<p>Nathaniel McCallum &lt;npmccallum@redhat.com&gt;</p>
+
+
+  <ol class='man-decor man-foot man foot'>
+    <li class='tl'></li>
+    <li class='tc'>June 2017</li>
+    <li class='tr'>jose-fmt(1)</li>
+  </ol>
+
+  </div>
+</body>
+</html>

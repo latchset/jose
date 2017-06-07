@@ -15,6 +15,7 @@ check_PROGRAMS = \
 
 dist_check_SCRIPTS = \
     jose-alg \
+    jose-fmt \
     jose-b64-enc \
     jose-b64-dec \
     jose-jwk-exc \
