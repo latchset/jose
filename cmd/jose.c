@@ -299,6 +299,7 @@ jcmd_opt_set_jsons(void *vopt, const char *arg)
 bool
 jcmd_opt_set_json(void *vopt, const char *arg)
 {
+    const int flags = JSON_DISABLE_EOF_CHECK | JSON_DECODE_ANY;
     json_t **json = vopt;
 
     json_decrefp(json);
@@ -313,7 +314,7 @@ jcmd_opt_set_json(void *vopt, const char *arg)
             file = fopen(arg, "r");
 
         if (file)
-            *json = json_loadf(file, JSON_DECODE_ANY, NULL);
+            *json = json_loadf(file, flags, NULL);
     }
 
     return *json;
