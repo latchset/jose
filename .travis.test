@@ -47,7 +47,7 @@ fi
 make -j8 -k check V=1 TESTS=
 
 if ! make -j8 check; then
-  cat ./test-suite.log
+  cat ./tests/test-suite.log
   exit 1
 fi
 
