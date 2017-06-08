@@ -47,5 +47,14 @@ else
 fi
 AM_CONDITIONAL(HAVE_LD_VERSION_SCRIPT, test "$have_ld_version_script" = "yes")
 
-AC_CONFIG_FILES([jose/jose.h jose.pc jose/Makefile lib/Makefile cmd/Makefile tests/Makefile doc/Makefile Makefile])
+AC_CONFIG_FILES([
+    jose/Makefile
+    lib/Makefile
+    cmd/Makefile
+    tests/Makefile
+    doc/Makefile
+    Makefile
+    jose/jose.h
+    jose.pc
+])
 AC_OUTPUT
