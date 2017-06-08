@@ -1,7 +1,9 @@
 AM_CFLAGS = @JOSE_CFLAGS@ @jansson_CFLAGS@ @zlib_CFLAGS@ @libcrypto_CFLAGS@ -pthread -I $(top_srcdir)
-LDFLAGS += @jansson_LIBS@ @zlib_LIBS@ @libcrypto_LIBS@
 
 lib_LTLIBRARIES = libjose.la
+
+libjose_la_LDFLAGS = $(LDFLAGS)
+libjose_la_LIBADD = @jansson_LIBS@ @zlib_LIBS@ @libcrypto_LIBS@
 libjose_la_SOURCES = \
     misc.c misc.h \
     cfg.c \
@@ -34,7 +36,8 @@ libjose_la_SOURCES = \
     openssl/rsaes.c \
     openssl/rsassa.c
 
-libjose_la_LDFLAGS = @LDFLAGS@
+EXTRA_DIST = libjose.map
+
 if HAVE_LD_VERSION_SCRIPT
 libjose_la_LDFLAGS += -Wl,--version-script=$(srcdir)/libjose.map
 else

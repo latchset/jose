@@ -6,6 +6,7 @@ includedir=${prefix}/include
 Name: José Library
 Description: Library for managing JOSE objects
 Requires: jansson
+Requires.private: zlib libcrypto
 Version: @VERSION@
 Libs: -L${libdir} -ljose
 Cflags: -I${includedir}
