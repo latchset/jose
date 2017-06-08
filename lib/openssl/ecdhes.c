@@ -288,9 +288,9 @@ alg_wrap_enc(const jose_hook_alg_t *alg, jose_cfg_t *cfg, const json_t *jwk)
         return NULL;
 
     switch (str2enum(crv, "P-256", "P-384", "P-521", NULL)) {
-    case 0: return "A128GCM";
-    case 1: return "A192GCM";
-    case 2: return "A256GCM";
+    case 0: return "A128CBC-HS256";
+    case 1: return "A192CBC-HS384";
+    case 2: return "A256CBC-HS512";
     default: return NULL;
     }
 }

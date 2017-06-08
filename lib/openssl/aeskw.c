@@ -84,9 +84,9 @@ static const char *
 alg_wrap_enc(const jose_hook_alg_t *alg, jose_cfg_t *cfg, const json_t *jwk)
 {
     switch (str2enum(alg->name, NAMES, NULL)) {
-    case 16: return "A128GCM";
-    case 24: return "A192GCM";
-    case 32: return "A256GCM";
+    case 0: return "A128CBC-HS256";
+    case 1: return "A192CBC-HS384";
+    case 2: return "A256CBC-HS512";
     default: return NULL;
     }
 }
