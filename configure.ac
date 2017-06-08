@@ -36,6 +36,7 @@ JOSE_CFLAGS="\
 "
 AC_SUBST([JOSE_CFLAGS])
 
+AC_MSG_CHECKING([for linker script support])
 LDVS=`$LD --help < /dev/null 2>/dev/null | grep version-script`
 if test "$LDVS"; then
     have_ld_version_script=yes
