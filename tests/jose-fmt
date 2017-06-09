@@ -56,13 +56,13 @@ jose fmt -j '"foo"' -j '"foo"' -E
 jose fmt -q foo -S -j '"foo"' -SE
 
 ! jose fmt -o-
-[ "`jose fmt -j '{}' -o-`" == "{}" ]
-[ "`jose fmt -j '[1,2,3]' -f- | wc -l`" == "3" ]
-[ "`jose fmt -j '[1,2,3]' -f- | head -n 1`" == "1" ]
-[ "`jose fmt -j '[1,2,3]' -f- | tail -n 1`" == "3" ]
-[ "`jose fmt -j '{"a":1,"b":2}' -f- | wc -l`" == "2" ]
-[ "`jose fmt -j '{"a":1,"b":2}' -f- | head -n 1`" == "a=1" ]
-[ "`jose fmt -j '{"a":1,"b":2}' -f- | tail -n 1`" == "b=2" ]
+[ `jose fmt -j '{}' -o-` == "{}" ]
+[ `jose fmt -j '[1,2,3]' -f- | wc -l` == "3" ]
+[ `jose fmt -j '[1,2,3]' -f- | head -n 1` == "1" ]
+[ `jose fmt -j '[1,2,3]' -f- | tail -n 1` == "3" ]
+[ `jose fmt -j '{"a":1,"b":2}' -f- | wc -l` == "2" ]
+[ `jose fmt -j '{"a":1,"b":2}' -f- | head -n 1` == "a=1" ]
+[ `jose fmt -j '{"a":1,"b":2}' -f- | tail -n 1` == "b=2" ]
 
 [ "`jose fmt -j '"foo"' -u-`" == "foo" ]
 ! jose fmt -j 7 -u-
