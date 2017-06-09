@@ -1,34 +1,53 @@
-sudo: required
-
 language: c
 
-services:
-  - docker
-
-#osx_image: xcode8
-#os:
-#  - linux
-#  - osx
+matrix:
+  include:
+    - compiler: gcc
+      os: osx
+      env:
+        - DISTRO=osx
+        - PKG_CONFIG_PATH=/usr/local/opt/openssl/lib/pkgconfig
+    - compiler: clang
+      os: osx
+      env:
+        - DISTRO=osx
+        - PKG_CONFIG_PATH=/usr/local/opt/openssl/lib/pkgconfig
 
 compiler:
   - clang
   - gcc
 
+os: linux
+sudo: required
+services: docker
 env:
-  - DISTRO=fedora:rawhide
-  - DISTRO=fedora:25
-  - DISTRO=fedora:24
-  - DISTRO=centos:7
-  - DISTRO=debian:unstable
-  - DISTRO=debian:testing
-  - DISTRO=ubuntu:devel
-  - DISTRO=ubuntu:xenial
-  - DISTRO=ubuntu:wily
+  matrix:
+    - DISTRO=fedora:rawhide
+    - DISTRO=fedora:latest
+    - DISTRO=centos:latest
+    - DISTRO=debian:unstable
+    - DISTRO=debian:testing
+    - DISTRO=ubuntu:devel
+    - DISTRO=ubuntu:latest
+
+before_install:
+  - >
+    if [ "$TRAVIS_OS_NAME" == "linux" ]; then
+      docker create --name=jose -t -v `pwd`:/tmp/build -w /tmp/build $DISTRO /bin/cat
+      docker start jose
+    fi
+
+install:
+  - if [ "$TRAVIS_OS_NAME" == "linux" ]; then DOCKER="docker exec jose"; fi
+  - $DOCKER /usr/bin/env CC=$CC DISTRO=$DISTRO ./.travis.install
 
 script:
+  - if [ "$TRAVIS_OS_NAME" == "linux" ]; then DOCKER="docker exec jose"; fi
+  - $DOCKER /usr/bin/env CC=$CC ./.travis.script
+
+after_script:
   - >
-    docker run
-    -v `pwd`:/tmp/build
-    -w /tmp/build
-    -e CC=$CC
-    $DISTRO /bin/bash -ex .travis.test $DISTRO
+    if [ "$TRAVIS_OS_NAME" == "linux" ]; then
+      docker kill jose
+      docker rm jose
+    fi

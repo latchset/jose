@@ -1,6 +1,14 @@
 #!/bin/bash -ex
 
-case "$1" in
+case "$DISTRO" in
+  osx)
+    brew update
+    for pkg in jansson openssl; do
+        brew ls --versions $pkg || brew install $pkg
+        brew outdated $pkg || brew upgrade $pkg
+    done
+    ;;
+
   debian:*|ubuntu:*)
     # This solves an intermittant error when fetching packages on debian
     sed -i 's|httpredir.debian.org|ftp.us.debian.org|g' /etc/apt/sources.list
@@ -12,8 +20,8 @@ case "$1" in
     ;;
 
   fedora:*)
-    [ "$1" != "fedora:23" ] && rt=compiler-rt
-    [ "$1" == "fedora:rawhide" ] && j=jansson-devel
+    [ "$DISTRO" != "fedora:23" ] && rt=compiler-rt
+    [ "$DISTRO" == "fedora:rawhide" ] && j=jansson-devel
 #    dnf -y clean all
 #    dnf -y --setopt=deltarpm=0 update
     dnf -y install automake autoconf libtool pkgconfig openssl-devel zlib-devel $j curl git gcc make file clang $rt bzip2
@@ -28,7 +36,7 @@ case "$1" in
     ;;
 esac
 
-if [ "$1" != "fedora:rawhide" ]; then
+if [ "$DISTRO" != "fedora:rawhide" ] && [ "$DISTRO" != "osx" ]; then
     curl -s http://www.digip.org/jansson/releases/jansson-2.10.tar.bz2 | tar xvjC /tmp
     pushd /tmp/jansson-2.10
     ./configure --prefix=/usr $LIBDIRPATH
@@ -36,19 +44,3 @@ if [ "$1" != "fedora:rawhide" ]; then
     make install
     popd
 fi
-
-autoreconf -if
-
-if ! CFLAGS=-coverage LDFLAGS=-lgcov ./configure --prefix=/usr --with-openssl=yes --with-zlib=yes; then
-  cat ./config.log
-  exit 1
-fi
-
-make -j8 -k check V=1 TESTS=
-
-if ! make -j8 check; then
-  cat ./tests/test-suite.log
-  exit 1
-fi
-
-bash <(curl -s https://codecov.io/bash)
