@@ -32,6 +32,7 @@ JOSE_CFLAGS="\
 -Wtype-limits \
 -Wunused-function \
 -Wno-missing-field-initializers \
+-Wno-unused-command-line-argument \
 -Wno-unused-parameter \
 "
 AC_SUBST([JOSE_CFLAGS])

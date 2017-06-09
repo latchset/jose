@@ -1,9 +1,20 @@
-AM_CFLAGS = @JOSE_CFLAGS@ @jansson_CFLAGS@ @zlib_CFLAGS@ @libcrypto_CFLAGS@ -pthread -I $(top_srcdir)
+AM_CFLAGS = \
+    @libcrypto_CFLAGS@ \
+    @jansson_CFLAGS@ \
+    @zlib_CFLAGS@ \
+    @JOSE_CFLAGS@ \
+    -I $(top_srcdir) \
+    -pthread
 
 lib_LTLIBRARIES = libjose.la
 
 libjose_la_LDFLAGS = $(LDFLAGS)
-libjose_la_LIBADD = @jansson_LIBS@ @zlib_LIBS@ @libcrypto_LIBS@
+
+libjose_la_LIBADD = \
+    @libcrypto_LIBS@ \
+    @jansson_LIBS@ \
+    @zlib_LIBS@
+
 libjose_la_SOURCES = \
     misc.c misc.h \
     cfg.c \
