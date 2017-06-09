@@ -158,14 +158,25 @@ jose_jwk_thp_buf(jose_cfg_t *cfg, const json_t *jwk,
 /**
  * Perform a key exchange.
  *
- * The only currently implemented algorithm is ECDH.
+ * The algorithm for the exchange is inferred from the inputs.
+ *
+ * The ECDH algorithm performs a standard elliptic curve multiplication such
+ * that the public value of \p rem is multiplied by the private value of \p.
+ *
+ * The ECMR algorithm has three modes of operation. Where \p lcl has a
+ * private key (the "d" property), it performs exactly like ECDH. If \p lcl
+ * does not have a private key and \p rem does have a private key, elliptic
+ * curve addition is performed. Otherwise, if neither \p lcl nor \p rem have a
+ * private key, \p rem is subtracted from \p lcl using elliptic curve
+ * subtraction. When using ECMR, be sure to validate the content of your inputs
+ * to avoid triggering the incorrect operation!
  *
  * \param cfg  The configuration context (optional).
- * \param prv  The private JWK.
- * \param pub  The public JWK.
+ * \param lcl  The local JWK (usually public/private key pair).
+ * \param rem  The remote JWK (usually just a public key).
  * \return     On success, the JWK result of the key exchange. Otherwise, NULL.
  */
 json_t *
-jose_jwk_exc(jose_cfg_t *cfg, const json_t *prv, const json_t *pub);
+jose_jwk_exc(jose_cfg_t *cfg, const json_t *lcl, const json_t *rem);
 
 /** @} */

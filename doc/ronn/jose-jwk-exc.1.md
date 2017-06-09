@@ -14,8 +14,22 @@ unmodified.
 
 A key exchange requires two keys:
 
-1. The local key, which contains private key material.
-2. The remote key, which contains public key material.
+1. The local key, which usually contains private key material.
+2. The remote key, which usually contains public key material.
+
+The algorithm for the exchange is inferred from the inputs.
+
+The `ECDH` algorithm performs a standard elliptic curve multiplication such
+that the public value of \p rem is multiplied by the private value of \p.
+
+The `ECMR` algorithm has three modes of operation. Where the local key has a
+private key (the "d" property), it performs exactly like `ECDH`. If the local
+key does not have a private key and the remote key does have a private key,
+elliptic curve addition is performed on the two values. Otherwise, if neither
+the local key nor the remote key have a private key, the remote key is
+subtracted from the local key using elliptic curve subtraction. When using
+ECMR, be sure to validate the content of your inputs to avoid triggering the
+incorrect operation!
 
 ## OPTIONS
 

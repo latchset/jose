@@ -35,6 +35,7 @@ libjose_la_SOURCES = \
     openssl/ec.c \
     openssl/ecdh.c \
     openssl/ecdhes.c \
+    openssl/ecmr.c \
     openssl/ecdsa.c \
     openssl/hash.c \
     openssl/hmac.c \

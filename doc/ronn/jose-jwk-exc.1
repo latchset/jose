@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "JOSE\-JWK\-EXC" "1" "May 2017" "" ""
+.TH "JOSE\-JWK\-EXC" "1" "June 2017" "" ""
 .
 .SH "NAME"
 \fBjose\-jwk\-exc\fR \- Performs a key exchange using the two input keys
@@ -16,12 +16,21 @@ The \fBjose jwk exc\fR command performs a key exchange using the two input keys 
 A key exchange requires two keys:
 .
 .IP "1." 4
-The local key, which contains private key material\.
+The local key, which usually contains private key material\.
 .
 .IP "2." 4
-The remote key, which contains public key material\.
+The remote key, which usually contains public key material\.
 .
 .IP "" 0
+.
+.P
+The algorithm for the exchange is inferred from the inputs\.
+.
+.P
+The \fBECDH\fR algorithm performs a standard elliptic curve multiplication such that the public value of \ep rem is multiplied by the private value of \ep\.
+.
+.P
+The \fBECMR\fR algorithm has three modes of operation\. Where the local key has a private key (the "d" property), it performs exactly like \fBECDH\fR\. If the local key does not have a private key and the remote key does have a private key, elliptic curve addition is performed on the two values\. Otherwise, if neither the local key nor the remote key have a private key, the remote key is subtracted from the local key using elliptic curve subtraction\. When using ECMR, be sure to validate the content of your inputs to avoid triggering the incorrect operation!
 .
 .SH "OPTIONS"
 .
