@@ -42,6 +42,9 @@ be removed excluded from the output.
 * `-o` -, `--output`=- :
   Write JWK(Set) to standard input
 
+* `-s`, `--set` :
+  Always output a JWKSet
+
 ## EXAMPLES
 
 Generate three keys, each targeting a different algorithm:

@@ -27,10 +27,11 @@ typedef struct {
     json_t *uses;
     bool req;
     bool all;
+    bool set;
 } jcmd_opt_t;
 
 static const char *prefix =
-"jose jwk use -i JWK [-a] [-r] -u OP [-o JWK]\n\n" SUMMARY;
+"jose jwk use -i JWK [-a] [-r] -u OP [-o JWK [-s]]\n\n" SUMMARY;
 
 static void
 jcmd_opt_cleanup(jcmd_opt_t *opt)
@@ -110,6 +111,12 @@ static const jcmd_cfg_t cfgs[] = {
         .set = jcmd_opt_set_ofile,
         .doc = doc_output,
     },
+    {
+        .opt = { "set", no_argument, .val = 's' },
+        .off = offsetof(jcmd_opt_t, set),
+        .doc = jcmd_jwk_doc_set,
+        .set = jcmd_opt_set_flag,
+    },
     {}
 };
 
@@ -164,8 +171,15 @@ jcmd_jwk_use(int argc, char *argv[])
 
         switch (json_array_size(arr)) {
         case 0: return EXIT_FAILURE;
-        case 1: jwkset = json_incref(json_array_get(arr, 0)); break;
-        default: jwkset = json_pack("{s:O}", "keys", arr); break;
+        case 1:
+            if (!opt.set) {
+                jwkset = json_incref(json_array_get(arr, 0));
+                break;
+            }
+            /* fallthrough */
+        default:
+            jwkset = json_pack("{s:O}", "keys", arr);
+            break;
         }
 
         if (!jwkset)

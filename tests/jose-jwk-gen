@@ -29,3 +29,14 @@ jose jwk gen -i '{ "kty": "oct", "bytes": 32 }'
 ##
 
 ! jose jwk gen -i '{"alg": "dir"}'
+
+##
+### Test the set output option
+##
+
+jose jwk gen -s -i '{ "kty": "EC", "crv": "P-256" }' \
+    | jose fmt -j- -Og keys -A \
+               -l -j 1 -EUU \
+               -g 0 -O \
+               -g kty -q EC -EUU \
+               -g crv -q P-256 -EUU

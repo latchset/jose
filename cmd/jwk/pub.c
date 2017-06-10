@@ -23,10 +23,11 @@
 typedef struct {
     FILE *output;
     json_t *keys;
+    bool set;
 } jcmd_opt_t;
 
 static const char *prefix =
-"jose jwk pub -i JWK [-o JWK]\n\n" SUMMARY;
+"jose jwk pub -i JWK [-s] [-o JWK]\n\n" SUMMARY;
 
 static const jcmd_cfg_t cfgs[] = {
     {
@@ -41,6 +42,12 @@ static const jcmd_cfg_t cfgs[] = {
         .doc = jcmd_jwk_doc_output,
         .set = jcmd_opt_set_ofile,
         .def = "-",
+    },
+    {
+        .opt = { "set", no_argument, .val = 's' },
+        .off = offsetof(jcmd_opt_t, set),
+        .doc = jcmd_jwk_doc_set,
+        .set = jcmd_opt_set_flag,
     },
     {}
 };
@@ -75,8 +82,11 @@ jcmd_jwk_pub(int argc, char *argv[])
         return EXIT_FAILURE;
 
     case 1:
-        out = json_incref(json_array_get(opt.keys, 0));
-        break;
+        if (!opt.set) {
+            out = json_incref(json_array_get(opt.keys, 0));
+            break;
+        }
+        /* fallthrough */
 
     default:
         out = json_pack("{s:O}", "keys", opt.keys);

@@ -67,6 +67,9 @@ validate, the command will fail.
 * `-o` -, `--output`=- :
   Filter keys to standard output as JWK(Set)
 
+* `-s`, `--set` :
+  Always output a JWKSet
+
 ## EXAMPLES
 
 Examples of both success and failure from a private and public key:

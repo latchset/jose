@@ -30,6 +30,9 @@ to include only operations relevant to public keys.
 * `-o` -, `--output`=- :
   Write JWK(Set) to standard input
 
+* `-s`, `--set` :
+  Always output a JWKSet
+
 ## EXAMPLES
 
 Clean private key material from a JWK:

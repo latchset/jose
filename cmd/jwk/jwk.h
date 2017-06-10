@@ -31,3 +31,8 @@ static const jcmd_doc_t jcmd_jwk_doc_output[] = {
     { .arg = "-",    .doc="Write JWK(Set) to standard input" },
     {}
 };
+
+static const jcmd_doc_t jcmd_jwk_doc_set[] = {
+    { .doc="Always output a JWKSet" },
+    {}
+};

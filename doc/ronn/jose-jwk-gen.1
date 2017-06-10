@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "JOSE\-JWK\-GEN" "1" "May 2017" "" ""
+.TH "JOSE\-JWK\-GEN" "1" "June 2017" "" ""
 .
 .SH "NAME"
 \fBjose\-jwk\-gen\fR \- Creates a random JWK for each input JWK template
@@ -39,6 +39,10 @@ Write JWK(Set) to FILE
 .TP
 \fB\-o\fR \-, \fB\-\-output\fR=\-
 Write JWK(Set) to standard input
+.
+.TP
+\fB\-s\fR, \fB\-\-set\fR
+Always output a JWKSet
 .
 .SH "EXAMPLES"
 Generate three keys, each targeting a different algorithm:
