@@ -121,6 +121,22 @@ bool
 jose_jwk_prm(jose_cfg_t *cfg, const json_t *jwk, bool req, const char *op);
 
 /**
+ * Determines whether two JWKs have equal key material.
+ *
+ * This function considers relevant the same properties used for generation of
+ * a thumbprint as defined by RFC 7638.
+ *
+ * \see jose_jwk_thp()
+ * \see jose_jwk_thp_buf()
+ * \param cfg  The configuration context (optional).
+ * \param a    The first JWK to consider.
+ * \param b    The second JWK to consider.
+ * \return     When the two JWKs are equal, true. Otherwise, false.
+ */
+bool
+jose_jwk_eql(jose_cfg_t *cfg, const json_t *a, const json_t *b);
+
+/**
  * Calculates the thumbprint of a JWK as a URL-safe Base64 encoded JSON string.
  *
  * This function is a thin wrapper around jose_jwk_thp_buf().

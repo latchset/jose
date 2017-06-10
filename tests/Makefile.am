@@ -2,6 +2,7 @@ AM_CFLAGS = @JOSE_CFLAGS@ @jansson_CFLAGS@ -I $(top_srcdir)
 LDFLAGS += ../lib/libjose.la @jansson_LIBS@
 EXTRA_DIST = vectors
 
+AM_TESTS_ENVIRONMENT=PATH=$(top_builddir)/cmd:$(PATH)
 TESTS = $(dist_check_SCRIPTS) $(check_PROGRAMS)
 
 check_PROGRAMS = \
@@ -18,6 +19,7 @@ dist_check_SCRIPTS = \
     jose-fmt \
     jose-b64-enc \
     jose-b64-dec \
+    jose-jwk-eql \
     jose-jwk-exc \
     jose-jwk-gen \
     jose-jwk-pub \

@@ -271,27 +271,63 @@ jose_jwk_prm(jose_cfg_t *cfg, const json_t *jwk, bool req, const char *op)
     return false;
 }
 
-static char *
-jwk_str(const json_t *jwk)
+static const jose_hook_jwk_t *
+find_type(const json_t *jwk)
 {
-    const jose_hook_jwk_t *type = NULL;
-    json_auto_t *key = NULL;
     const char *kty = NULL;
 
     if (json_unpack((json_t *) jwk, "{s:s}", "kty", &kty) < 0)
         return NULL;
 
-    for (type = jose_hook_jwk_list(); type; type = type->next) {
-        if (type->kind != JOSE_HOOK_JWK_KIND_TYPE)
+    for (const jose_hook_jwk_t *t = jose_hook_jwk_list(); t; t = t->next) {
+        if (t->kind != JOSE_HOOK_JWK_KIND_TYPE)
             continue;
-        if (strcasecmp(kty, type->type.kty) == 0)
-            break;
+        if (strcasecmp(kty, t->type.kty) == 0)
+            return t;
     }
 
+    return NULL;
+}
+
+bool
+jose_jwk_eql(jose_cfg_t *cfg, const json_t *a, const json_t *b)
+{
+    const jose_hook_jwk_t *type = NULL;
+
+    type = find_type(a);
+    if (!type)
+        return false;
+
+    if (!json_equal(json_object_get(a, "kty"), json_object_get(b, "kty")))
+        return false;
+
+    for (size_t i = 0; type->type.req[i]; i++) {
+        json_t *aa = json_object_get(a, type->type.req[i]);
+        json_t *bb = json_object_get(b, type->type.req[i]);
+
+        if (!aa || !bb || !json_equal(aa, bb))
+            return false;
+    }
+
+    return true;
+}
+
+static char *
+jwk_str(const json_t *jwk)
+{
+    const jose_hook_jwk_t *type = NULL;
+    json_auto_t *key = NULL;
+
+    type = find_type(jwk);
     if (!type)
         return NULL;
 
-    key = json_pack("{s:s}", "kty", kty);
+    key = json_object();
+    if (!key)
+        return NULL;
+
+    if (json_object_set(key, "kty", json_object_get(jwk, "kty")) < 0)
+        return NULL;
 
     for (size_t i = 0; type->type.req[i]; i++) {
         json_t *tmp = NULL;
@@ -300,11 +336,7 @@ jwk_str(const json_t *jwk)
         if (!tmp)
             return NULL;
 
-        tmp = json_deep_copy(tmp);
-        if (!tmp)
-            return NULL;
-
-        if (json_object_set_new(key, type->type.req[i], tmp) < 0)
+        if (json_object_set(key, type->type.req[i], tmp) < 0)
             return NULL;
     }
 

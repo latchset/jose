@@ -1,0 +1,41 @@
+jose-jwk-eql(1) -- Calculates the JWK thumbprint
+================================================
+
+## SYNOPSIS
+
+`jose jwk eql` -i JWK -i JWK
+
+## OVERVIEW
+
+The `jose jwk eql` command determines whether two keys are equal. It compares
+the same properties defined for use in a JWK thumbprint (RFC 7638). This means
+that optional metadata isn't considered for comparison.
+
+## OPTIONS
+
+* `-i` JSON, `--input`=JSON :
+  Parse JWK(Set) from JSON
+
+* `-i` FILE, `--input`=FILE :
+  Read JWK(Set) from FILE
+
+* `-i` -, `--input`=- :
+  Read JWK(Set) standard input
+
+## EXAMPLES
+
+Generate a key and modify optional metadata then test equality:
+
+    $ jose jwk gen -i '{"alg":"ES256"}' -o key.jwk
+    $ jose fmt -j key.jwk -Od alg -o mod.jwk
+    $ jose jwk eql -i key.jwk -i mod.jwk
+    $ echo $?
+    0
+
+## AUTHOR
+
+Nathaniel McCallum &lt;npmccallum@redhat.com&gt;
+
+## SEE ALSO
+
+`jose-jwk-thp`(1)

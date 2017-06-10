@@ -1,0 +1,31 @@
+#!/bin/bash -ex
+
+echo $PATH
+
+jwk=`jose jwk gen -i '{"alg":"ECDH-ES"}'`
+oth=`jose jwk gen -i '{"alg":"ECDH-ES"}'`
+pub=`echo "$jwk" | jose jwk pub -i-`
+mod=`echo "$jwk" | jose fmt -j- -Od alg -o-`
+
+! jose jwk eql
+! echo "$jwk" | jose jwk eql -i-
+echo "$jwk$pub" | jose jwk eql -i- -i-
+echo "$jwk$mod" | jose jwk eql -i- -i-
+! echo "$jwk$oth" | jose jwk eql -i- -i-
+
+echo "$jwk$pub$mod" | jose jwk eql -i- -i- -i-
+! echo "$jwk$pub$oth" | jose jwk eql -i- -i- -i-
+
+jwk=`jose jwk gen -i '{"alg":"A128KW"}'`
+oth=`jose jwk gen -i '{"alg":"A128KW"}'`
+pub=`echo "$jwk" | jose jwk pub -i-`
+mod=`echo "$jwk" | jose fmt -j- -Od alg -o-`
+
+! jose jwk eql
+! echo "$jwk" | jose jwk eql -i-
+! echo "$jwk$pub" | jose jwk eql -i- -i-
+echo "$jwk$mod" | jose jwk eql -i- -i-
+! echo "$jwk$oth" | jose jwk eql -i- -i-
+
+! echo "$jwk$pub$mod" | jose jwk eql -i- -i- -i-
+! echo "$jwk$pub$oth" | jose jwk eql -i- -i- -i-

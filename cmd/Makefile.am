@@ -8,6 +8,7 @@ jose_SOURCES = \
     b64/dec.c \
     b64/enc.c \
     jwk/jwk.h \
+    jwk/eql.c \
     jwk/exc.c \
     jwk/gen.c \
     jwk/pub.c \
