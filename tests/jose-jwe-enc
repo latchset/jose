@@ -1,7 +1,7 @@
 #!/bin/bash -ex
 
-WRAP=`../cmd/jose alg -k wrap`
-ENCR=`../cmd/jose alg -k encr`
+WRAP=`jose alg -k wrap`
+ENCR=`jose alg -k encr`
 
 tmpdir=`mktemp -d`
 
@@ -28,7 +28,7 @@ function jqbopt() {
         echo "$4"
     else
         jq -r "if $2 | type | . == \"string\" then $2 else error(\"\") end" < $1 \
-            | ../cmd/jose b64 dec -i- \
+            | jose b64 dec -i- \
             | jq -r "if $3 | type | . == \"string\" then $3 else error(\"\") end"
     fi
 }
@@ -37,42 +37,42 @@ for msg in "hi" "this is a longer message that is more than one block"; do
     for w in $WRAP; do
         [ $w == "dir" ] && continue
 
-        ../cmd/jose jwk gen -i "{\"alg\":\"$w\"}" -o $jwk
+        jose jwk gen -i "{\"alg\":\"$w\"}" -o $jwk
 
-        echo -n "$msg" | ../cmd/jose jwe enc -I- -k $jwk -o $jwe
+        echo -n "$msg" | jose jwe enc -I- -k $jwk -o $jwe
         [ "`jqopt $jwe .header.alg $w`" == "$w" ]
-        [ "`../cmd/jose jwe dec -i $jwe -k $jwk -O-`" == "$msg" ]
+        [ "`jose jwe dec -i $jwe -k $jwk -O-`" == "$msg" ]
 
         for e in $ENCR; do
-            echo -n "$msg" | ../cmd/jose jwe enc \
+            echo -n "$msg" | jose jwe enc \
                 -i "{\"protected\":{\"enc\":\"$e\"}}" -I- \
                 -k $jwk -o $jwe
             [ "`jqopt $jwe .header.alg $w`" == "$w" ]
             [ "`jqbopt $jwe .protected .enc $e`" == "$e" ]
-            [ "`../cmd/jose jwe dec -i $jwe -k $jwk -O-`" == "$msg" ]
+            [ "`jose jwe dec -i $jwe -k $jwk -O-`" == "$msg" ]
         done
     done
 
     for e in $ENCR; do
-        ../cmd/jose jwk gen -i "{\"alg\":\"$e\"}" -o $jwk
+        jose jwk gen -i "{\"alg\":\"$e\"}" -o $jwk
 
-        echo -n "$msg" | ../cmd/jose jwe enc \
+        echo -n "$msg" | jose jwe enc \
             -i "{\"protected\":{\"alg\":\"dir\"}}" -I- \
             -k $jwk -o $jwe
         [ "`jqbopt $jwe .protected .alg dir`" == "dir" ]
         [ "`jqbopt $jwe .protected .enc $e`" == "$e" ]
-        [ "`../cmd/jose jwe dec -i $jwe -k $jwk -O-`" == "$msg" ]
+        [ "`jose jwe dec -i $jwe -k $jwk -O-`" == "$msg" ]
 
-        echo -n "$msg" | ../cmd/jose jwe enc -I- -k $jwk -o $jwe
+        echo -n "$msg" | jose jwe enc -I- -k $jwk -o $jwe
         [ "`jqopt $jwe .header.alg dir`" == "dir" ]
         [ "`jqbopt $jwe .protected .enc $e`" == "$e" ]
-        [ "`../cmd/jose jwe dec -i $jwe -k $jwk -O-`" == "$msg" ]
+        [ "`jose jwe dec -i $jwe -k $jwk -O-`" == "$msg" ]
     done
 
     for tmpl in '{"kty":"oct","bytes":32}' '{"kty":"RSA","bits":2048}' '{"kty":"EC","crv":"P-256"}'; do
-        ../cmd/jose jwk gen -i "$tmpl" -o $jwk
+        jose jwk gen -i "$tmpl" -o $jwk
 
-        echo -n "$msg" | ../cmd/jose jwe enc -I- -k $jwk -o $jwe
-        [ "`../cmd/jose jwe dec -i $jwe -k $jwk -O-`" == "$msg" ]
+        echo -n "$msg" | jose jwe enc -I- -k $jwk -o $jwe
+        [ "`jose jwe dec -i $jwe -k $jwk -O-`" == "$msg" ]
     done
 done

@@ -1,6 +1,6 @@
 #!/bin/bash -ex
 
-ALGS=`../cmd/jose alg -k sign`
+ALGS=`jose alg -k sign`
 
 tmpdir=`mktemp -d`
 
@@ -18,8 +18,8 @@ for a in $ALGS; do
     jwk=$tmpdir/$a.jwk
     jws=$tmpdir/$a.jws
 
-    ../cmd/jose jwk gen -i "{\"alg\":\"$a\"}" -o $jwk
-    ../cmd/jose jwk pub -i $jwk -o $jwk.pub
+    jose jwk gen -i "{\"alg\":\"$a\"}" -o $jwk
+    jose jwk pub -i $jwk -o $jwk.pub
 
     old=$prv
     prv=$jwk
@@ -29,66 +29,66 @@ for a in $ALGS; do
     jwk=$tmpdir/$a.jwk
     jws=$tmpdir/$a.jws
 
-    echo -n hi | ../cmd/jose jws sig -I- -k $jwk    | ../cmd/jose jws ver -i- -k $jwk
-    echo -n hi | ../cmd/jose jws sig -I- -k $jwk -c | ../cmd/jose jws ver -i- -k $jwk
+    echo -n hi | jose jws sig -I- -k $jwk    | jose jws ver -i- -k $jwk
+    echo -n hi | jose jws sig -I- -k $jwk -c | jose jws ver -i- -k $jwk
 
-    ../cmd/jose jws sig -o $jws -k $jwk -I $msg
-    ../cmd/jose jws ver -i $jws -k $jwk
+    jose jws sig -o $jws -k $jwk -I $msg
+    jose jws ver -i $jws -k $jwk
     rm -f $jws
 
-    ../cmd/jose jws sig -o $jws -k $jwk -I $msg -c
-    ../cmd/jose jws ver -i $jws -k $jwk
+    jose jws sig -o $jws -k $jwk -I $msg -c
+    jose jws ver -i $jws -k $jwk
     rm -f $jws
 
-    det=`../cmd/jose jws sig -I $msg -k $jwk -o /dev/null -O-`
+    det=`jose jws sig -I $msg -k $jwk -o /dev/null -O-`
     [ "$det" == "hi" ]
 
-    jws=`../cmd/jose jws sig -I $msg -k $jwk -O /dev/null`
-    ! ../cmd/jose jws ver -i "$jws" -k $jwk
-    det=`../cmd/jose jws ver -i "$jws" -k $jwk -I $msg -O-`
+    jws=`jose jws sig -I $msg -k $jwk -O /dev/null`
+    ! jose jws ver -i "$jws" -k $jwk
+    det=`jose jws ver -i "$jws" -k $jwk -I $msg -O-`
     [ "$det" == "hi" ]
 
-    jws=`../cmd/jose jws sig -I $msg -k $jwk`
-    det=`../cmd/jose jws ver -i "$jws" -k $jwk`
+    jws=`jose jws sig -I $msg -k $jwk`
+    det=`jose jws ver -i "$jws" -k $jwk`
     [ "$det" == "" ]
-    det=`../cmd/jose jws ver -i "$jws" -k $jwk -O-`
+    det=`jose jws ver -i "$jws" -k $jwk -O-`
     [ "$det" == "hi" ]
 
-    jws=`../cmd/jose jws sig -I $msg -k $jwk -c`
-    det=`../cmd/jose jws ver -i "$jws" -k $jwk`
+    jws=`jose jws sig -I $msg -k $jwk -c`
+    det=`jose jws ver -i "$jws" -k $jwk`
     [ "$det" == "" ]
-    det=`../cmd/jose jws ver -i "$jws" -k $jwk -O-`
+    det=`jose jws ver -i "$jws" -k $jwk -O-`
     [ "$det" == "hi" ]
 
-    jws=`../cmd/jose jws sig -k $jwk -I $msg -s "{\"protected\":{\"alg\":\"$a\"}}"`
-    ../cmd/jose jws ver -i "$jws" -k $jwk
+    jws=`jose jws sig -k $jwk -I $msg -s "{\"protected\":{\"alg\":\"$a\"}}"`
+    jose jws ver -i "$jws" -k $jwk
 
-    jws=`../cmd/jose jws sig -k $jwk -i "{\"payload\":\"aGkK\"}"`
-    ../cmd/jose jws ver -i "$jws" -k $jwk
+    jws=`jose jws sig -k $jwk -i "{\"payload\":\"aGkK\"}"`
+    jose jws ver -i "$jws" -k $jwk
 
     for b in $ALGS; do
         [ $a == $b ] && continue
 
-        ! ../cmd/jose jws sig -I $msg -k $jwk -s "{\"protected\":{\"alg\":\"$b\"}}"
+        ! jose jws sig -I $msg -k $jwk -s "{\"protected\":{\"alg\":\"$b\"}}"
 
-        jws=`../cmd/jose jws sig -I $msg -k $jwk`
-        ! ../cmd/jose jws ver -i "$jws" -k $tmpdir/$b.jwk
+        jws=`jose jws sig -I $msg -k $jwk`
+        ! jose jws ver -i "$jws" -k $tmpdir/$b.jwk
     done
 
-    jws=`../cmd/jose jws sig -I $msg -k $jwk -k $prv`
-    ../cmd/jose jws ver -i "$jws" -k $jwk
-    ../cmd/jose jws ver -i "$jws" -k $prv
-    ! ../cmd/jose jws ver -i "$jws" -k $old
-    ../cmd/jose jws ver -i "$jws" -k $jwk -k $prv -a
-    ! ../cmd/jose jws ver -i "$jws" -k $jwk -k $prv -k $old -a
+    jws=`jose jws sig -I $msg -k $jwk -k $prv`
+    jose jws ver -i "$jws" -k $jwk
+    jose jws ver -i "$jws" -k $prv
+    ! jose jws ver -i "$jws" -k $old
+    jose jws ver -i "$jws" -k $jwk -k $prv -a
+    ! jose jws ver -i "$jws" -k $jwk -k $prv -k $old -a
 
     old=$prv
     prv=$jwk
 done
 
 for tmpl in '{"kty":"oct","bytes":32}' '{"kty":"RSA","bits":2048}' '{"kty":"EC","crv":"P-256"}'; do
-    ../cmd/jose jwk gen -i "$tmpl" -o $tmpdir/jwk
+    jose jwk gen -i "$tmpl" -o $tmpdir/jwk
 
-    echo -n "$msg" | ../cmd/jose jws sig -I- -k $tmpdir/jwk -o $tmpdir/jws
-    [ "`../cmd/jose jws ver -i $tmpdir/jws -k $tmpdir/jwk -O-`" == "$msg" ]
+    echo -n "$msg" | jose jws sig -I- -k $tmpdir/jwk -o $tmpdir/jws
+    [ "`jose jws ver -i $tmpdir/jws -k $tmpdir/jwk -O-`" == "$msg" ]
 done
