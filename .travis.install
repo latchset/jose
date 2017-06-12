@@ -5,7 +5,7 @@ case "$DISTRO" in
     brew update
     for pkg in jansson openssl; do
         brew ls --versions $pkg || brew install $pkg
-        brew outdated $pkg || brew upgrade $pkg
+        brew outdated $pkg || brew upgrade $pkg || true
     done
     ;;
 
