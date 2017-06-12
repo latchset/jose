@@ -40,7 +40,7 @@ static const jcmd_cfg_t cfgs[] = {
     {
         .opt = { "input", required_argument,  .val = 'i' },
         .off = offsetof(jcmd_opt_t, keys),
-        .set = jcmd_opt_set_jwks,
+        .set = jcmd_opt_set_jwkt,
         .doc = doc_input,
     },
     {

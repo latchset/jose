@@ -96,6 +96,7 @@ jcmd_set_t jcmd_opt_set_ifile;    /* Takes FILE** */
 jcmd_set_t jcmd_opt_set_ofile;    /* Takes FILE** */
 jcmd_set_t jcmd_opt_set_jsons;    /* Takes json_t** */
 jcmd_set_t jcmd_opt_set_json;     /* Takes json_t** */
+jcmd_set_t jcmd_opt_set_jwkt;     /* Takes json_t** */
 jcmd_set_t jcmd_opt_set_jwks;     /* Takes json_t** */
 jcmd_set_t jcmd_opt_set_flag;     /* Takes bool* */
 

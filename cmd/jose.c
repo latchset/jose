@@ -319,18 +319,52 @@ jcmd_opt_set_json(const jcmd_cfg_t *cfg, void *vopt, const char *arg)
 }
 
 bool
-jcmd_opt_set_jwks(const jcmd_cfg_t *cfg, void *vopt, const char *arg)
+jcmd_opt_set_jwkt(const jcmd_cfg_t *cfg, void *vopt, const char *arg)
 {
+    const int flags = JSON_DISABLE_EOF_CHECK | JSON_DECODE_ANY;
     json_auto_t *tmp = NULL;
     json_t **jwks = vopt;
-
-    if (!jcmd_opt_set_json(cfg, &tmp, arg))
-        return false;
 
     if (!*jwks)
         *jwks = json_array();
 
+    tmp = json_loads(arg, flags, NULL);
+    if (!tmp) {
+        if (strcmp(arg, "-") == 0) {
+            tmp = json_loadf(stdin, flags, NULL);
+        } else {
+            FILE_AUTO *file = fopen(arg, "r");
+            tmp = json_loadf(file, flags, NULL);
+        }
+    }
+
     switch (json_typeof(tmp)) {
+    case JSON_OBJECT:
+    case JSON_STRING:
+        return jwks_extend(*jwks, json_incref(tmp));
+    default:
+        return false;
+    }
+}
+
+bool
+jcmd_opt_set_jwks(const jcmd_cfg_t *cfg, void *vopt, const char *arg)
+{
+    const int flags = JSON_DISABLE_EOF_CHECK | JSON_DECODE_ANY;
+    json_auto_t *tmp = NULL;
+    json_t **jwks = vopt;
+
+    if (!*jwks)
+        *jwks = json_array();
+
+    if (strcmp(arg, "-") == 0) {
+        tmp = json_loadf(stdin, flags, NULL);
+    } else {
+        FILE_AUTO *file = fopen(arg, "r");
+        tmp = json_loadf(file, flags, NULL);
+    }
+
+    switch (tmp ? json_typeof(tmp) : JSON_INTEGER) {
     case JSON_OBJECT:
     case JSON_STRING:
         return jwks_extend(*jwks, json_incref(tmp));

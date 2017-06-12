@@ -60,7 +60,7 @@ static const jcmd_cfg_t cfgs[] = {
     {
         .opt = { "input", required_argument, .val = 'i' },
         .off = offsetof(jcmd_opt_t, keys),
-        .set = jcmd_opt_set_jwks,
+        .set = jcmd_opt_set_jwkt,
         .doc = doc_input,
         .def = "{}",
     },
@@ -74,13 +74,13 @@ static const jcmd_cfg_t cfgs[] = {
     {
         .opt = { "local", required_argument, .val = 'l' },
         .off = offsetof(jcmd_opt_t, lcl),
-        .set = jcmd_opt_set_json,
+        .set = jcmd_opt_set_jwks,
         .doc = doc_local,
     },
     {
         .opt = { "remote", required_argument, .val = 'r' },
         .off = offsetof(jcmd_opt_t, rem),
-        .set = jcmd_opt_set_json,
+        .set = jcmd_opt_set_jwks,
         .doc = doc_remote,
     },
     {}
@@ -108,17 +108,18 @@ jcmd_jwk_exc(int argc, char *argv[])
     if (json_array_size(opt.keys) > 1 && json_array_remove(opt.keys, 0) < 0)
         return EXIT_FAILURE;
 
-    if (!opt.lcl) {
-        fprintf(stderr, "Local JWK not specified!\n");
+    if (json_array_size(opt.lcl) != 1) {
+        fprintf(stderr, "Local JWK must be specified exactly once!\n");
         return EXIT_FAILURE;
     }
 
-    if (!opt.rem) {
-        fprintf(stderr, "Remote JWK not specified!\n");
+    if (json_array_size(opt.rem) != 1) {
+        fprintf(stderr, "Remote JWK must be specified exactly once!\n");
         return EXIT_FAILURE;
     }
 
-    key = jose_jwk_exc(NULL, opt.lcl, opt.rem);
+    key = jose_jwk_exc(NULL, json_array_get(opt.lcl, 0),
+                       json_array_get(opt.rem, 0));
     if (!key) {
         fprintf(stderr, "Error performing exchange!\n");
         return EXIT_FAILURE;
