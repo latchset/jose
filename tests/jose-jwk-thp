@@ -1,5 +1,14 @@
 #!/bin/bash -ex
 
-a=`jose jwk thp -i ${srcdir:-.}/vectors/rfc7638_3.1.jwk -a S256`
-b=`cat ${srcdir:-.}/vectors/rfc7638_3.1.thp`
+a=`jose jwk thp -i vectors/rfc7638_3.1.jwk -a S256`
+b=`cat vectors/rfc7638_3.1.thp`
 [ $a == $b ]
+
+jwk=`jose jwk thp -i vectors/rfc7520_4.8.jwkset -f HYRNOxxOOHap0amTONoy1bHnS5M`
+[ "`jose jwk thp -i- -a S1 <<< "$jwk"`" == "HYRNOxxOOHap0amTONoy1bHnS5M" ]
+jose fmt -j "$jwk" -O \
+    -g kty -q EC    -EUU \
+    -g crv -q P-521 -EUU \
+    -g kid -q bilbo.baggins@hobbiton.example -EUU
+
+! jose jwk thp -i tests/vectors/rfc7520_4.8.jwkset -f VHriznG7vJAFpXMXRmGgAkA5sEE

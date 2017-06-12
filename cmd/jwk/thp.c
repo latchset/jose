@@ -18,17 +18,27 @@
 #include "jwk.h"
 #include "../../lib/hooks.h"
 #include <string.h>
+#include <unistd.h>
 
 #define SUMMARY "Calculates the JWK thumbprint"
 
 typedef struct {
     const char *hash;
+    const char *find;
     json_t *keys;
     FILE *output;
 } jcmd_opt_t;
 
 static const char *prefix =
 "jose jwk thp -i JWK [-a ALG] [-o THP]\n\n" SUMMARY;
+
+static bool
+opt_set_thp(const jcmd_cfg_t *cfg, void *vopt, const char *arg)
+{
+    const char **find = vopt;
+    *find = arg;
+    return true;
+}
 
 static bool
 opt_set_hash(const jcmd_cfg_t *cfg, void *vopt, const char *arg)
@@ -63,6 +73,11 @@ static const jcmd_doc_t doc_output[] = {
     {}
 };
 
+static const jcmd_doc_t doc_find[] = {
+    { .arg = "THP", .doc = "Search input keys for JWK with the given thumbprint" },
+    {}
+};
+
 static const jcmd_cfg_t cfgs[] = {
     {
         .opt = { "input", required_argument, .val = 'i' },
@@ -83,6 +98,12 @@ static const jcmd_cfg_t cfgs[] = {
         .doc = doc_output,
         .set = jcmd_opt_set_ofile,
         .def = "-",
+    },
+    {
+        .opt = { "find", required_argument, .val = 'f' },
+        .off = offsetof(jcmd_opt_t, find),
+        .doc = doc_find,
+        .set = opt_set_thp
     },
     {}
 };
@@ -121,22 +142,47 @@ jcmd_jwk_thp(int argc, char *argv[])
 
     for (size_t i = 0; i < json_array_size(opt.keys); i++) {
         const json_t *jwk = json_array_get(opt.keys, i);
-        uint8_t dec[dlen];
-        char enc[elen];
 
-        if (!jose_jwk_thp_buf(NULL, jwk, opt.hash, dec, sizeof(dec))) {
-            fprintf(stderr, "Error making thumbprint!\n");
-            return EXIT_FAILURE;
+        for (const jose_hook_alg_t *a = jose_hook_alg_list(); a; a = a->next) {
+            uint8_t dec[dlen];
+            char enc[elen];
+
+            if (a->kind != JOSE_HOOK_ALG_KIND_HASH)
+                continue;
+
+            if (!opt.find && strcmp(opt.hash, a->name) != 0)
+                continue;
+
+            if (!jose_jwk_thp_buf(NULL, jwk, opt.hash, dec, sizeof(dec))) {
+                fprintf(stderr, "Error making thumbprint!\n");
+                return EXIT_FAILURE;
+            }
+
+            if (jose_b64_enc_buf(dec, dlen, enc, sizeof(enc)) != elen)
+                return EXIT_FAILURE;
+
+            if (!opt.find) {
+                if (fwrite(enc, 1, elen, opt.output) != elen)
+                    return EXIT_FAILURE;
+
+                if (json_array_size(opt.keys) > 1 ||
+                    isatty(fileno(opt.output))) {
+                    if (fprintf(opt.output, "\n") != 1)
+                        return EXIT_FAILURE;
+                }
+            } else if (strlen(opt.find) == elen &&
+                       strncmp(opt.find, enc, elen) == 0) {
+                static const int flags = JSON_COMPACT | JSON_SORT_KEYS;
+
+                if (json_dumpf(jwk, opt.output, flags) < 0)
+                    return EXIT_FAILURE;
+
+                return EXIT_SUCCESS;
+           }
         }
-
-        if (jose_b64_enc_buf(dec, dlen, enc, sizeof(enc)) != elen)
-            return EXIT_FAILURE;
-
-        fwrite(enc, 1, elen, opt.output);
-        fprintf(opt.output, "\n");
     }
 
-    return EXIT_SUCCESS;
+    return opt.find ? EXIT_FAILURE : EXIT_SUCCESS;
 }
 
 JCMD_REGISTER(SUMMARY, jcmd_jwk_thp, "jwk", "thp")

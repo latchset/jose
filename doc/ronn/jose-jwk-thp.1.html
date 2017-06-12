@@ -84,13 +84,14 @@
 <h2 id="OPTIONS">OPTIONS</h2>
 
 <dl>
-<dt><code>-i</code> JSON, <code>--input</code>=JSON </dt><dd><p>Parse JWK(Set) from JSON</p></dd>
-<dt><code>-i</code> FILE, <code>--input</code>=FILE </dt><dd><p>Read JWK(Set) from FILE</p></dd>
+<dt><code>-i</code> <em>JSON</em>, <code>--input</code>=<em>JSON</em> </dt><dd><p>Parse JWK(Set) from JSON</p></dd>
+<dt><code>-i</code> <em>FILE</em>, <code>--input</code>=<em>FILE</em> </dt><dd><p>Read JWK(Set) from FILE</p></dd>
 <dt><code>-i</code> -, <code>--input</code>=- </dt><dd><p>Read JWK(Set) standard input</p></dd>
-<dt><code>-a</code> ALG, <code>--algorithm</code>=ALG </dt><dd><p>Use the specified hash algorithm (case sensitive)</p></dd>
+<dt><code>-a</code> <em>ALG</em>, <code>--algorithm</code>=<em>ALG</em> </dt><dd><p>Use the specified hash algorithm (case sensitive)</p></dd>
 <dt><code>-a</code> ?, <code>--algorithm</code>=? </dt><dd><p>List available hash algorithms</p></dd>
-<dt><code>-o</code> FILE, <code>--output</code>=FILE </dt><dd><p>Write thumbprint(s) to FILE</p></dd>
+<dt><code>-o</code> <em>FILE</em>, <code>--output</code>=<em>FILE</em> </dt><dd><p>Write thumbprint(s) to FILE</p></dd>
 <dt><code>-o</code> -, <code>--output</code>=- </dt><dd><p>Write thumbprint(s) to standard input</p></dd>
+<dt><code>-f</code> <em>THP</em>, <code>--find</code>=<em>THP</em> </dt><dd><p>Search input keys for JWK with the given thumbprint</p></dd>
 </dl>
 
 
@@ -109,6 +110,11 @@ BzmSH6W8a8LlbQ1mD0iBJdYj4x4
 jo_j_O5gqYpKcZKHPp3miTszAeV60MXHvdb_kkjjTWE
 </code></pre>
 
+<p>Find the input key with the given thumbprint:</p>
+
+<pre><code>$ jose jwk thp -i keys.jwkset -f HYRNOxxOOHap0amTONoy1bHnS5M -o key.jwk
+</code></pre>
+
 <h2 id="AUTHOR">AUTHOR</h2>
 
 <p>Nathaniel McCallum &lt;npmccallum@redhat.com&gt;</p>
@@ -121,7 +127,7 @@ jo_j_O5gqYpKcZKHPp3miTszAeV60MXHvdb_kkjjTWE
 
   <ol class='man-decor man-foot man foot'>
     <li class='tl'></li>
-    <li class='tc'>May 2017</li>
+    <li class='tc'>June 2017</li>
     <li class='tr'>jose-jwk-thp(1)</li>
   </ol>
 
