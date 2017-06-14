@@ -1,6 +1,6 @@
 #!/bin/bash -ex
 
-prfx=vectors/rfc7520_5
+prfx=$VECTORS/rfc7520_5
 
 test "`jose jwe dec -i $prfx.1.jwec  -k $prfx.1.jwk`"    == "`cat $prfx.1.pt`"
 test "`jose jwe dec -i $prfx.1.jwef  -k $prfx.1.jwk`"    == "`cat $prfx.1.pt`"

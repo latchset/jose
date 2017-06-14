@@ -1,4 +1,4 @@
-AM_CFLAGS = @JOSE_CFLAGS@ @jansson_CFLAGS@ -I $(top_srcdir)
+AM_CFLAGS = @JOSE_CFLAGS@ @jansson_CFLAGS@ -I$(top_srcdir) -I$(top_builddir)
 LDFLAGS += ../lib/libjose.la @jansson_LIBS@
 
 bin_PROGRAMS = jose

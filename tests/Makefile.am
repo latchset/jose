@@ -1,8 +1,8 @@
-AM_CFLAGS = @JOSE_CFLAGS@ @jansson_CFLAGS@ -I $(top_srcdir)
+AM_CFLAGS = @JOSE_CFLAGS@ @jansson_CFLAGS@ -I$(top_srcdir) -I$(top_builddir)
 LDFLAGS += ../lib/libjose.la @jansson_LIBS@
 EXTRA_DIST = vectors
 
-AM_TESTS_ENVIRONMENT=PATH=$(top_builddir)/cmd:$(PATH)
+AM_TESTS_ENVIRONMENT=PATH=$(top_builddir)/cmd:$(PATH) VECTORS=$(top_srcdir)/tests/vectors
 TESTS = $(dist_check_SCRIPTS) $(check_PROGRAMS)
 
 check_PROGRAMS = \

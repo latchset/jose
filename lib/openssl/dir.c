@@ -16,7 +16,6 @@
  */
 
 #include "misc.h"
-#include <jose/jose.h>
 #include "../hooks.h"
 
 #include <string.h>

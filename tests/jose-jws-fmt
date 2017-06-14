@@ -1,6 +1,6 @@
 #!/bin/bash -ex
 
-for f in ${srcdir:-.}/vectors/*.jwsc; do
+for f in $VECTORS/*.jwsc; do
     cmpct=`cat $f`
     flat=`echo $f | sed 's|jwsc|jwsf|'`
     gen=`echo $f | sed 's|jwsc|jwsg|'`

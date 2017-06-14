@@ -35,9 +35,9 @@
 
 #pragma once
 
-#include "b64.h"
-#include "jwe.h"
-#include "jwk.h"
-#include "jws.h"
+#include <jose/b64.h>
+#include <jose/jwe.h>
+#include <jose/jwk.h>
+#include <jose/jws.h>
 
 #define JOSE_VERSION @VERSION@
