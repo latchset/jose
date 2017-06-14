@@ -7,7 +7,10 @@ fi
 
 autoreconf -if
 
-if ! ./configure --prefix=/usr; then
+mkdir build
+cd build
+
+if ! ../configure --prefix=/usr --libdir=/usr/lib64; then
   cat ./config.log
   exit 1
 fi
