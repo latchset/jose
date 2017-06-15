@@ -24,8 +24,6 @@
 #define JOSE_B64_DEC_BLK 3
 #define JOSE_B64_ENC_BLK 4
 
-static const char map[] = JOSE_B64_MAP;
-
 typedef struct {
     jose_io_t io;
     jose_io_t *next;
@@ -35,6 +33,8 @@ typedef struct {
         char    eb[16 * JOSE_B64_ENC_BLK];
     };
 } io_t;
+
+static const char *map = JOSE_B64_MAP;
 
 static size_t
 b64_dlen(size_t elen)
@@ -214,6 +214,7 @@ jose_b64_dec_io(jose_io_t *next)
 size_t
 jose_b64_dec_buf(const void *i, size_t il, void *o, size_t ol)
 {
+    const size_t len = strlen(map);
     const char *e = i;
     uint8_t *d = o;
     uint8_t rem = 0;
@@ -231,15 +232,15 @@ jose_b64_dec_buf(const void *i, size_t il, void *o, size_t ol)
     for (size_t io = 0; io < il; io++) {
         uint8_t v = 0;
 
-        for (char c = e[io]; v < sizeof(map) - 1 && map[v] != c; v++)
+        for (const char c = e[io]; v < len && c != map[v]; v++)
             continue;
 
-        if (v >= sizeof(map) - 1)
+        if (v >= len)
             return SIZE_MAX;
 
         switch (io % JOSE_B64_ENC_BLK) {
         case 0:
-            if (!e[io+1])
+            if (!e[io+1] || rem > 0)
                 return SIZE_MAX;
 
             rem = v << 2;
@@ -257,11 +258,12 @@ jose_b64_dec_buf(const void *i, size_t il, void *o, size_t ol)
 
         case 3:
             d[oo++] = rem | v;
+            rem = 0;
             break;
         }
     }
 
-    return oo;
+    return rem > 0 ? SIZE_MAX : oo;
 }
 
 json_t *
@@ -344,23 +346,26 @@ jose_b64_enc_buf(const void *i, size_t il, void *o, size_t ol)
     if (!o)
         return b64_elen(il);
 
+    if (ol < b64_elen(il))
+        return SIZE_MAX;
+
     for (size_t io = 0; io < il; io++) {
         uint8_t c = ib[io];
 
         switch (io % 3) {
         case 0:
             ob[oo++] = map[c >> 2];
-            ob[oo++] = map[rem = (c & 0x03) << 4];
+            ob[oo++] = map[rem = (c & 0b11) << 4];
             break;
 
         case 1:
             ob[oo-1] = map[rem | (c >> 4)];
-            ob[oo++] = map[rem = (c & 0x0F) << 2];
+            ob[oo++] = map[rem = (c & 0b1111) << 2];
             break;
 
         case 2:
             ob[oo-1] = map[rem | (c >> 6)];
-            ob[oo++] = map[c & 0x3F];
+            ob[oo++] = map[c & 0b111111];
             break;
         }
     }
