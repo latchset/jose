@@ -10,7 +10,7 @@ autoreconf -if
 mkdir build
 cd build
 
-if ! ../configure --prefix=/usr --libdir=/usr/lib64; then
+if ! ../configure --prefix=/usr --libdir=/usr/lib64 --disable-openmp; then
   cat ./config.log
   exit 1
 fi

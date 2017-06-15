@@ -43,7 +43,7 @@ install:
 
 script:
   - if [ "$TRAVIS_OS_NAME" == "linux" ]; then DOCKER="docker exec jose"; fi
-  - $DOCKER /usr/bin/env CC=$CC ./.travis.script
+  - $DOCKER /usr/bin/env CC=$CC DISTRO=$DISTRO ./.travis.script
 
 after_script:
   - >

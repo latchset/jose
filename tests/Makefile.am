@@ -1,5 +1,5 @@
-AM_CFLAGS = @JOSE_CFLAGS@ @jansson_CFLAGS@ -I$(top_srcdir) -I$(top_builddir)
-LDFLAGS += ../lib/libjose.la @jansson_LIBS@
+AM_CFLAGS = @JOSE_CFLAGS@ @OPENMP_CFLAGS@ @jansson_CFLAGS@ -I$(top_srcdir) -I$(top_builddir)
+LDFLAGS += $(top_builddir)/lib/libjose.la @jansson_LIBS@
 EXTRA_DIST = vectors
 
 AM_TESTS_ENVIRONMENT=PATH=$(top_builddir)/cmd:$(PATH) VECTORS=$(top_srcdir)/tests/vectors
@@ -11,6 +11,7 @@ check_PROGRAMS = \
     alg_encr \
     alg_wrap \
     alg_comp \
+    api_b64 \
     api_jws \
     api_jwe
 

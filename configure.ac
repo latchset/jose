@@ -1,4 +1,4 @@
-AC_PREREQ(2.59)
+AC_PREREQ(2.62)
 AC_INIT(jose, 8)
 AC_CANONICAL_SYSTEM
 AC_PROG_CC_C99
@@ -14,6 +14,9 @@ PKG_PROG_PKG_CONFIG([0.25])
 PKG_CHECK_MODULES([zlib], [zlib])
 PKG_CHECK_MODULES([jansson], [jansson >= 2.10])
 PKG_CHECK_MODULES([libcrypto], [libcrypto >= 1.0.2])
+
+AC_OPENMP
+AC_SUBST([OPENMP_CFLAGS])
 
 JOSE_CFLAGS="\
 -Wall \
@@ -34,6 +37,7 @@ JOSE_CFLAGS="\
 -Wno-missing-field-initializers \
 -Wno-unused-command-line-argument \
 -Wno-unused-parameter \
+-Wno-unknown-pragmas \
 "
 AC_SUBST([JOSE_CFLAGS])
 
