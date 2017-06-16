@@ -1,5 +1,7 @@
 #!/bin/bash -ex
 
+COMMON="automake autoconf libtool curl git make file bzip2 $CC"
+
 case "$DISTRO" in
   osx:*)
     brew update
@@ -14,29 +16,40 @@ case "$DISTRO" in
     sed -i 's|httpredir.debian.org|ftp.us.debian.org|g' /etc/apt/sources.list
 
     apt-get clean
-    while ! apt-get update; do sleep 5 ; done
-    while ! apt-get -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confnew" dist-upgrade; do sleep 5; done
-    while ! apt-get -y install build-essential automake autoconf libtool pkg-config libssl-dev zlib1g-dev curl git $CC; do sleep 5; done
+
+    while ! apt-get update; do
+        sleep 5
+    done
+
+    while ! apt-get -y \
+        -o Dpkg::Options::="--force-confdef" \
+        -o Dpkg::Options::="--force-confnew" \
+        dist-upgrade; do
+        sleep 5
+    done
+
+    while ! apt-get -y install $COMMON \
+        build-essential pkg-config libssl-dev zlib1g-dev; do
+        sleep 5
+    done
     ;;
 
   fedora:*)
-    [ "$DISTRO" != "fedora:23" ] && rt=compiler-rt
-    [ "$DISTRO" == "fedora:rawhide" ] && j=jansson-devel
-#    dnf -y clean all
-#    dnf -y --setopt=deltarpm=0 update
-    dnf -y install automake autoconf libtool pkgconfig openssl-devel zlib-devel $j curl git gcc make file clang $rt bzip2
+    dnf -y clean all
+    dnf -y --setopt=deltarpm=0 update
+    dnf -y install $COMMON pkgconfig openssl-devel zlib-devel jansson-devel
     ;;
 
   centos:*)
     LIBDIRPATH=--libdir=/usr/lib64
     yum -y clean all
     yum -y --setopt=deltarpm=0 update
-    yum -y install automake autoconf libtool pkgconfig openssl-devel zlib-devel curl git gcc make file clang bzip2
+    yum -y install $COMMON pkgconfig openssl-devel zlib-devel
     sed -i 's|libcrypto >= 1\.0\.2|libcrypto >= 1\.0\.1|' configure.ac
     ;;
 esac
 
-if [ "$DISTRO" != "fedora:rawhide" ] && ! [[ "$DISTRO" =~ ^osx: ]]; then
+if [[ ! "$DISTRO" =~ ^fedora: ]] && [[ ! "$DISTRO" =~ ^osx: ]]; then
     curl -s http://www.digip.org/jansson/releases/jansson-2.10.tar.bz2 | tar xvjC /tmp
     pushd /tmp/jansson-2.10
     ./configure --prefix=/usr $LIBDIRPATH
