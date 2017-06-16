@@ -184,7 +184,7 @@ static bool
 valid_b64(const char *b64, size_t len)
 {
     for (size_t i = 0; i < len; i++) {
-        if (!strchr(JOSE_B64_MAP, b64[i]))
+        if (b64[i] != 0 && !strchr(JOSE_B64_MAP, b64[i]))
             return false;
     }
 
