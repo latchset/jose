@@ -242,7 +242,7 @@ alg_wrap_unw(const jose_hook_alg_t *alg, jose_cfg_t *cfg, const json_t *jwe,
 
     if (pad == RSA_PKCS1_OAEP_PADDING) {
         if (EVP_PKEY_CTX_set_rsa_oaep_md(epc, md) <= 0)
-            return false;
+            goto egress;
 
         if (EVP_PKEY_CTX_set_rsa_mgf1_md(epc, md) <= 0)
             goto egress;

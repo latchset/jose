@@ -282,7 +282,7 @@ jose_jwe_enc_cek_io(jose_cfg_t *cfg, json_t *jwe, const json_t *cek,
     const char *z = NULL;
 
     prt = jose_b64_dec_load(json_object_get(jwe, "protected"));
-    json_unpack(prt, "{s:s}", "zip", &z);
+    (void) json_unpack(prt, "{s:s}", "zip", &z);
 
     if (json_unpack(jwe, "{s?{s?s}}", "unprotected", "enc", &h) < 0)
         return NULL;
@@ -482,7 +482,7 @@ jose_jwe_dec_cek_io(jose_cfg_t *cfg, const json_t *jwe, const json_t *cek,
     const char *hzip = NULL;
 
     prt = jose_b64_dec_load(json_object_get(jwe, "protected"));
-    json_unpack(prt, "{s:s}", "zip", &hzip);
+    (void) json_unpack(prt, "{s:s}", "zip", &hzip);
 
     hdr = jose_jwe_hdr(jwe, NULL);
     if (!hdr)

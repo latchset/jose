@@ -160,7 +160,7 @@ jose_openssl_jwk_from_EC_POINT(jose_cfg_t *cfg, const EC_GROUP *grp,
     const char *crv = NULL;
     int len = 0;
 
-    if (!grp || !pub)
+    if (!grp)
         return NULL;
 
     len = (EC_GROUP_get_degree(grp) + 7) / 8;

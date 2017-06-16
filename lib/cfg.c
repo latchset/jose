@@ -79,7 +79,8 @@ jose_cfg(void)
 {
     jose_cfg_t *cfg = NULL;
     cfg = calloc(1, sizeof(*cfg));
-    *cfg = dflt;
+    if (cfg)
+        *cfg = dflt;
     return jose_cfg_incref(cfg);
 }
 

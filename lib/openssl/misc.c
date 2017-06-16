@@ -109,11 +109,11 @@ bn_encode_json(const BIGNUM *bn, size_t len)
     if (!buf)
         return NULL;
 
-    if (!bn_encode(bn, buf, len))
-        return NULL;
+    if (bn_encode(bn, buf, len)) {
+        out = jose_b64_enc(buf, len);
+        OPENSSL_cleanse(buf, len);
+    }
 
-    out = jose_b64_enc(buf, len);
-    OPENSSL_cleanse(buf, len);
     free(buf);
     return out;
 }
