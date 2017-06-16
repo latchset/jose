@@ -1,9 +1,7 @@
 #!/bin/bash -ex
 
-if [ "$DISTRO" == "linux" ]; then
-    export CFLAGS=-coverage
-    export LDFLAGS=-lgcov
-fi
+[[ ! "$DISTRO" =~ ^osx: ]] && export CFLAGS=-coverage
+[[ ! "$DISTRO" =~ ^osx: ]] && export LDFLAGS=-lgcov
 
 autoreconf -if
 

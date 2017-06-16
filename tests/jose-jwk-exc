@@ -1,6 +1,6 @@
 #!/bin/bash -ex
 
-tmpdir=`mktemp -d`
+tmpdir=`mktemp -d 2>/dev/null || mktemp -d -t jose`
 
 function onexit() {
     rm -rf $tmpdir

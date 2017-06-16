@@ -1,9 +1,9 @@
 #!/bin/bash -ex
 
 case "$DISTRO" in
-  osx)
+  osx:*)
     brew update
-    for pkg in jansson openssl; do
+    for pkg in jansson openssl zlib; do
         brew ls --versions $pkg || brew install $pkg
         brew outdated $pkg || brew upgrade $pkg || true
     done
@@ -36,7 +36,7 @@ case "$DISTRO" in
     ;;
 esac
 
-if [ "$DISTRO" != "fedora:rawhide" ] && [ "$DISTRO" != "osx" ]; then
+if [ "$DISTRO" != "fedora:rawhide" ] && ! [[ "$DISTRO" =~ ^osx: ]]; then
     curl -s http://www.digip.org/jansson/releases/jansson-2.10.tar.bz2 | tar xvjC /tmp
     pushd /tmp/jansson-2.10
     ./configure --prefix=/usr $LIBDIRPATH
