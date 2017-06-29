@@ -79,7 +79,7 @@ cmd_output(const json_t *arg, json_t *stk, json_t *cur, json_t *lst)
     ret = true;
 
 egress:
-    if (strcmp(s, "-") == 0)
+    if (strcmp(s, "-") != 0)
         fclose(file);
     return ret;
 }
@@ -126,7 +126,7 @@ cmd_foreach(const json_t *arg, json_t *stk, json_t *cur, json_t *lst)
     ret = true;
 
 egress:
-    if (strcmp(s, "-") == 0)
+    if (strcmp(s, "-") != 0)
         fclose(file);
     return ret;
 }
