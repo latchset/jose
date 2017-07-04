@@ -338,6 +338,9 @@ jcmd_opt_set_jwkt(const jcmd_cfg_t *cfg, void *vopt, const char *arg)
         }
     }
 
+    if (!tmp)
+        return false;
+
     switch (json_typeof(tmp)) {
     case JSON_OBJECT:
     case JSON_STRING:
