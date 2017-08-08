@@ -1,6 +1,7 @@
 man1_MANS = \
     ronn/jose.1 \
     ronn/jose-alg.1 \
+    ronn/jose-fmt.1 \
     ronn/jose-b64-dec.1 \
     ronn/jose-b64-enc.1 \
     ronn/jose-jwe-dec.1 \
