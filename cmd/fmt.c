@@ -26,6 +26,10 @@
 #define SUMMARY "Converts JSON between serialization formats"
 #define JAIN json_array_insert_new
 
+#ifdef __MINGW32__
+#define sscanf __mingw_sscanf
+#endif
+
 static const char *prefix = "jose fmt [OPTIONS]\n\n" SUMMARY;
 
 typedef struct {

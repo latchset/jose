@@ -22,6 +22,10 @@
 
 #define NBYTES(size) ((((unsigned long long) size) + 1ULL) / 8ULL)
 
+#ifdef __MINGW32__
+#define fprintf __mingw_fprintf
+#endif
+
 union encoding {
     uint32_t idx;
     uint8_t  enc[4];

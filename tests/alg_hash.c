@@ -19,6 +19,10 @@
 #include <assert.h>
 #include <string.h>
 
+#ifdef __MINGW32__
+#define sscanf __mingw_sscanf
+#endif
+
 static const struct {
     const char *alg;
     const char *msg;
