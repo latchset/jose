@@ -16,6 +16,7 @@
  */
 
 #include "jwe.h"
+#include "pwd.h"
 #include <string.h>
 #include <unistd.h>
 
@@ -39,7 +40,7 @@ prompt(void)
     while (!p || !c || strcmp(p, c) != 0) {
         free(p);
 
-        p = strdup(getpass("Please enter an encryption password: "));
+        p = strdup(jwe_getpass("Please enter an encryption password: "));
         if (!p)
             continue;
 
@@ -48,7 +49,7 @@ prompt(void)
             continue;
         }
 
-        c = getpass("Please re-enter the previous password: ");
+        c = jwe_getpass("Please re-enter the previous password: ");
     }
 
     free(p);

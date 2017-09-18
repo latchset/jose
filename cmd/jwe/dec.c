@@ -16,6 +16,7 @@
  */
 
 #include "jwe.h"
+#include "pwd.h"
 #include <unistd.h>
 #include <string.h>
 
@@ -119,7 +120,7 @@ unwrap(const json_t *jwe, const json_t *jwks, bool prompt)
     if (!cek && jwe_has_pbes2(jwe) && prompt) {
         const char *pwd = NULL;
 
-        pwd = getpass("Please enter decryption password: ");
+        pwd = jwe_getpass("Please enter decryption password: ");
         if (pwd) {
             json_auto_t *jwk = json_string(pwd);
             cek = jose_jwe_dec_jwk(NULL, jwe, NULL, jwk);
