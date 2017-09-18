@@ -23,12 +23,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#ifdef __APPLE__
-#include <libkern/OSByteOrder.h>
-#define htobe32(x) OSSwapHostToBigInt32(x)
-#define htobe64(x) OSSwapHostToBigInt64(x)
-#endif
-
 #define KEYMAX 1024
 
 #define containerof(ptr, type, member) \

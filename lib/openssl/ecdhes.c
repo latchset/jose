@@ -30,6 +30,22 @@
 
 #include <assert.h>
 
+static uint32_t
+h2be32(uint32_t x)
+{
+    union swap {
+        uint32_t i;
+        uint8_t  b[8];
+    } y;
+
+    y.b[0] = x >> 0x18;
+    y.b[1] = x >> 0x10;
+    y.b[2] = x >> 0x08;
+    y.b[3] = x >> 0x00;
+
+    return y.i;
+}
+
 static bool
 concatkdf(const jose_hook_alg_t *alg, jose_cfg_t *cfg, uint8_t dk[], size_t dkl,
           const uint8_t z[], size_t zl, ...)
@@ -48,7 +64,7 @@ concatkdf(const jose_hook_alg_t *alg, jose_cfg_t *cfg, uint8_t dk[], size_t dkl,
         return false;
 
     for (uint32_t c = 0; c <= reps; c++) {
-        uint32_t cnt = htobe32(c + 1);
+        uint32_t cnt = h2be32(c + 1);
         jose_io_auto_t *h = NULL;
         va_list ap;
 
@@ -65,7 +81,7 @@ concatkdf(const jose_hook_alg_t *alg, jose_cfg_t *cfg, uint8_t dk[], size_t dkl,
         va_start(ap, zl);
         for (void *a = va_arg(ap, void *); a; a = va_arg(ap, void *)) {
             size_t l = va_arg(ap, size_t);
-            uint32_t e = htobe32(l);
+            uint32_t e = h2be32(l);
 
             if (!h->feed(h, &e, sizeof(e))) {
                 va_end(ap);
@@ -79,7 +95,7 @@ concatkdf(const jose_hook_alg_t *alg, jose_cfg_t *cfg, uint8_t dk[], size_t dkl,
         }
         va_end(ap);
 
-        if (!h->feed(h, &(uint32_t) { htobe32(dkl * 8) }, 4))
+        if (!h->feed(h, &(uint32_t) { h2be32(dkl * 8) }, 4))
             return false;
 
         if (!h->done(h))

@@ -36,6 +36,26 @@ typedef struct {
     uint64_t al;
 } io_t;
 
+static uint64_t
+h2be64(uint64_t x)
+{
+    union swap {
+        uint64_t i;
+        uint8_t  b[8];
+    } y;
+
+    y.b[0] = x >> 0x38;
+    y.b[1] = x >> 0x30;
+    y.b[2] = x >> 0x28;
+    y.b[3] = x >> 0x20;
+    y.b[4] = x >> 0x18;
+    y.b[5] = x >> 0x10;
+    y.b[6] = x >> 0x08;
+    y.b[7] = x >> 0x00;
+
+    return y.i;
+}
+
 static bool
 jwk_prep_handles(jose_cfg_t *cfg, const json_t *jwk)
 {
@@ -287,7 +307,7 @@ setup(const EVP_CIPHER *cph, const EVP_MD *md, jose_cfg_t *cfg,
             return false;
     }
 
-    i->al = htobe64(i->al * 8);
+    i->al = h2be64(i->al * 8);
 
     if (HMAC_Update(i->hctx, iv, EVP_CIPHER_iv_length(cph)) <= 0)
         return false;
