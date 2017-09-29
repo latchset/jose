@@ -57,8 +57,10 @@ jwe_getpass(const char *prompt)
     nf.c_lflag &= ~ECHO;
     nf.c_lflag |= ECHONL;
 
-    if (tcsetattr(fileno(tty), TCSANOW, &nf) != 0)
+    if (tcsetattr(fileno(tty), TCSANOW, &nf) != 0) {
+        fclose(tty);
         return NULL;
+    }
 
     fprintf(tty, "%s", prompt);
 
@@ -72,6 +74,7 @@ jwe_getpass(const char *prompt)
     }
 
     tcsetattr(fileno(tty), TCSANOW, &of);
+    fclose(tty);
     return pwd;
 }
 #endif
