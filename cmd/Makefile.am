@@ -19,6 +19,7 @@ jose_SOURCES = \
     jws/sig.c \
     jws/ver.c \
     jwe/jwe.h \
+    jwe/pwd.h \
     jwe/fmt.c \
     jwe/dec.c \
     jwe/enc.c \
