@@ -66,9 +66,9 @@ José can generate keys, remove private keys and show thumbprints. For example:
 
 ```sh
 # Generate three different kinds of keys
-$ jose jwk gen -t '{"alg": "A128GCM"}' -o oct.jwk
-$ jose jwk gen -t '{"alg": "RSA1_5"}' -o rsa.jwk
-$ jose jwk gen -t '{"alg": "ES256"}' -o ec.jwk
+$ jose jwk gen -i '{"alg": "A128GCM"}' -o oct.jwk
+$ jose jwk gen -i '{"alg": "RSA1_5"}' -o rsa.jwk
+$ jose jwk gen -i '{"alg": "ES256"}' -o ec.jwk
 
 # Remove the private keys
 $ jose jwk pub -i oct.jwk -o oct.pub.jwk
