@@ -1,5 +1,6 @@
 AC_PREREQ(2.62)
 AC_INIT(jose, 10)
+AC_CONFIG_MACRO_DIRS([m4])
 AC_CANONICAL_SYSTEM
 AC_PROG_CC_C99
 
@@ -18,27 +19,30 @@ PKG_CHECK_MODULES([libcrypto], [libcrypto >= 1.0.2])
 AC_OPENMP
 AC_SUBST([OPENMP_CFLAGS])
 
-JOSE_CFLAGS="\
--Wall \
--Wextra \
--Werror \
--Wstrict-aliasing \
--Wchar-subscripts \
--Wformat-security \
--Wmissing-declarations \
--Wmissing-prototypes \
--Wnested-externs \
--Wpointer-arith \
--Wshadow \
--Wsign-compare \
--Wstrict-prototypes \
--Wtype-limits \
--Wunused-function \
--Wno-missing-field-initializers \
--Wno-unused-command-line-argument \
--Wno-unused-parameter \
--Wno-unknown-pragmas \
-"
+for flag in \
+    -Wall \
+    -Wextra \
+    -Werror \
+    -Wstrict-aliasing \
+    -Wchar-subscripts \
+    -Wformat-security \
+    -Wmissing-declarations \
+    -Wmissing-prototypes \
+    -Wnested-externs \
+    -Wpointer-arith \
+    -Wshadow \
+    -Wsign-compare \
+    -Wstrict-prototypes \
+    -Wtype-limits \
+    -Wunused-function \
+    -Wno-missing-field-initializers \
+    -Wno-unused-command-line-argument \
+    -Wno-unused-parameter \
+    -Wno-unknown-pragmas ; do
+    AX_CHECK_COMPILE_FLAG([${flag}],
+		[JOSE_CFLAGS="${JOSE_CFLAGS} ${flag}"])
+done
+
 AC_SUBST([JOSE_CFLAGS])
 
 AC_MSG_CHECKING([for linker script support])
