@@ -1,0 +1,34 @@
+#!/bin/bash -ex
+
+case "$1" in
+  before_install)
+    if [ "$TRAVIS_OS_NAME" == "linux" ]; then
+      docker create \
+        --name=$TRAVIS_COMMIT -t \
+        -v `pwd`:/tmp/build \
+        -w /tmp/build \
+        $DISTRO /bin/cat
+      docker start $TRAVIS_COMMIT
+    fi
+    ;;
+
+  after_script)
+    if [ "$TRAVIS_OS_NAME" == "linux" ]; then
+      docker kill $TRAVIS_COMMIT
+      docker rm $TRAVIS_COMMIT
+    fi
+    ;;
+
+  *)
+    if [ -x ./.travis.$1 ]; then
+      if [ "$TRAVIS_OS_NAME" == "linux" ]; then
+          docker exec \
+            `bash <(curl -s https://codecov.io/env)` \
+            -e CC -e DISTRO \
+            $TRAVIS_COMMIT ./.travis.$1
+      else
+          ./.travis.$1
+      fi
+    fi
+    ;;
+esac

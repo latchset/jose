@@ -1,11 +1,11 @@
 #!/bin/bash -ex
 
-COMMON="automake autoconf libtool curl git make file bzip2 $CC"
+COMMON="meson curl git make file bzip2 $CC"
 
 case "$DISTRO" in
   osx:*)
     brew update
-    for pkg in jansson openssl zlib; do
+    for pkg in jansson openssl zlib meson; do
         brew ls --versions $pkg || brew install $pkg
         brew outdated $pkg || brew upgrade $pkg || true
     done
@@ -29,7 +29,7 @@ case "$DISTRO" in
     done
 
     while ! apt-get -y install $COMMON \
-        build-essential pkg-config libssl-dev zlib1g-dev; do
+        build-essential pkg-config libssl-dev zlib1g-dev libjansson-dev; do
         sleep 5
     done
     ;;
@@ -37,23 +37,14 @@ case "$DISTRO" in
   fedora:*)
     dnf -y clean all
     dnf -y --setopt=deltarpm=0 update
-    dnf -y install $COMMON pkgconfig openssl-devel zlib-devel jansson-devel
+    dnf -y install $COMMON pkgconfig openssl-devel zlib-devel jansson-devel findutils
     ;;
 
   centos:*)
-    LIBDIRPATH=--libdir=/usr/lib64
     yum -y clean all
     yum -y --setopt=deltarpm=0 update
-    yum -y install $COMMON pkgconfig openssl-devel zlib-devel
-    sed -i 's|libcrypto >= 1\.0\.2|libcrypto >= 1\.0\.1|' configure.ac
+    yum -y install epel-release
+    yum -y install $COMMON pkgconfig openssl-devel zlib-devel jansson-devel findutils gcc
+    sed -i 's|>=1\.0\.2|>=1\.0\.1|' meson.build
     ;;
 esac
-
-if [[ ! "$DISTRO" =~ ^fedora: ]] && [[ ! "$DISTRO" =~ ^osx: ]]; then
-    curl -s http://www.digip.org/jansson/releases/jansson-2.10.tar.bz2 | tar xvjC /tmp
-    pushd /tmp/jansson-2.10
-    ./configure --prefix=/usr $LIBDIRPATH
-    make -j8
-    make install
-    popd
-fi

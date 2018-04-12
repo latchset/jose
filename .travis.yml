@@ -2,29 +2,17 @@ language: c
 
 matrix:
   include:
-    - osx_image: xcode8.1
+    - osx_image: xcode9.3
       compiler: clang
       os: osx
       env:
-        - DISTRO=osx:xcode8.1
+        - DISTRO=osx:xcode9.3
         - PKG_CONFIG_PATH=/usr/local/opt/openssl/lib/pkgconfig:/usr/local/opt/zlib/lib/pkgconfig
-    - osx_image: xcode8
+    - osx_image: xcode8.3
       compiler: clang
       os: osx
       env:
-        - DISTRO=osx:xcode8
-        - PKG_CONFIG_PATH=/usr/local/opt/openssl/lib/pkgconfig:/usr/local/opt/zlib/lib/pkgconfig
-    - osx_image: xcode7.3
-      compiler: clang
-      os: osx
-      env:
-        - DISTRO=osx:xcode7.3
-        - PKG_CONFIG_PATH=/usr/local/opt/openssl/lib/pkgconfig:/usr/local/opt/zlib/lib/pkgconfig
-    - osx_image: xcode6.4
-      compiler: clang
-      os: osx
-      env:
-        - DISTRO=osx:xcode6.4
+        - DISTRO=osx:xcode8.3
         - PKG_CONFIG_PATH=/usr/local/opt/openssl/lib/pkgconfig:/usr/local/opt/zlib/lib/pkgconfig
 
 compiler:
@@ -42,26 +30,8 @@ env:
     - DISTRO=debian:unstable
     - DISTRO=debian:testing
     - DISTRO=ubuntu:devel
-    - DISTRO=ubuntu:latest
 
-before_install:
-  - >
-    if [ "$TRAVIS_OS_NAME" == "linux" ]; then
-      docker create --name=jose -t -v `pwd`:/tmp/build -w /tmp/build $DISTRO /bin/cat
-      docker start jose
-    fi
-
-install:
-  - if [ "$TRAVIS_OS_NAME" == "linux" ]; then DOCKER="docker exec jose"; fi
-  - $DOCKER /usr/bin/env CC=$CC DISTRO=$DISTRO ./.travis.install
-
-script:
-  - if [ "$TRAVIS_OS_NAME" == "linux" ]; then DOCKER="docker exec jose"; fi
-  - $DOCKER /usr/bin/env CC=$CC DISTRO=$DISTRO ./.travis.script
-
-after_script:
-  - >
-    if [ "$TRAVIS_OS_NAME" == "linux" ]; then
-      docker kill jose
-      docker rm jose
-    fi
+before_install: ./.travis.docker before_install
+install: ./.travis.docker install
+script: ./.travis.docker script
+after_script: ./.travis.docker after_script
