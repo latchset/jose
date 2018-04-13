@@ -135,4 +135,12 @@ jose_b64_enc_buf(const void *i, size_t il, void *o, size_t ol);
 json_t *
 jose_b64_enc_dump(const json_t *i);
 
+
+
+size_t
+jose_b64_conv_buf(const void* i, size_t il, void* o, size_t ol);
+
+jose_io_t *
+jose_b64_conv_io(jose_io_t *next);
+
 /** @} */

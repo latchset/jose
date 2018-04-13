@@ -22,6 +22,7 @@
 typedef struct {
     FILE *input;
     FILE *output;
+    bool conv;
 } jcmd_b64_opt_t;
 
 static inline void

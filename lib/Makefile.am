@@ -20,6 +20,7 @@ libjose_la_SOURCES = \
     cfg.c \
     io.c \
     b64.c \
+    b64_conv.c \
     hsh.c hsh.h \
     hooks.c hooks.h \
     jwk.c \

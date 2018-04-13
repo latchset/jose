@@ -22,7 +22,7 @@
 
 #define SUMMARY "Decodes URL-safe Base64 data to binary"
 
-static const char *prefix = "jose b64 dec -i B64 [-O BIN]\n\n" SUMMARY;
+static const char *prefix = "jose b64 dec -i B64 [-c] [-O BIN]\n\n" SUMMARY;
 
 static const jcmd_doc_t doc_input[] = {
     { .arg = "FILE", .doc="Read Base64 (URL-safe) data from FILE" },
@@ -35,7 +35,10 @@ static const jcmd_doc_t doc_output[] = {
     { .arg = "-",    .doc="Write binary data to standard output" },
     {}
 };
-
+static const jcmd_doc_t doc_convert[] = {
+    { .doc = "Convert from standard Base64 encoded data" },
+    {}
+};
 static const jcmd_cfg_t cfgs[] = {
     {
         .opt = { "base64", required_argument, .val = 'i' },
@@ -50,6 +53,12 @@ static const jcmd_cfg_t cfgs[] = {
         .doc = doc_output,
         .def = "-",
     },
+    {
+        .opt = { "convert", no_argument, .val = 'c' },
+        .off = offsetof(jcmd_b64_opt_t, conv),
+        .set = jcmd_opt_set_flag,
+        .doc  = doc_convert,
+    },
     {}
 };
 
@@ -59,6 +68,7 @@ jcmd_b64_dec(int argc, char *argv[])
     jcmd_b64_opt_auto_t opt = {};
     jose_io_auto_t *b64 = NULL;
     jose_io_auto_t *out = NULL;
+    jose_io_auto_t *conv = NULL;
 
     if (!jcmd_opt_parse(argc, argv, cfgs, &opt, prefix))
         return EXIT_FAILURE;
@@ -72,7 +82,14 @@ jcmd_b64_dec(int argc, char *argv[])
     if (!out)
         return EXIT_FAILURE;
 
-    b64 = jose_b64_dec_io(out);
+    if (opt.conv) {
+        conv = jose_b64_dec_io(out);
+        if (!conv)
+            return EXIT_FAILURE;
+        b64 =  jose_b64_conv_io(conv);
+    } else {
+        b64 = jose_b64_dec_io(out);
+    }
     if (!b64)
         return EXIT_FAILURE;
 
