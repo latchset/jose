@@ -1,0 +1,51 @@
+.\" generated with Ronn/v0.7.3
+.\" http://github.com/rtomayko/ronn/tree/0.7.3
+.
+.TH "JOSE\-PBKDF2" "1" "April 2018" "" ""
+.
+.SH "NAME"
+\fBjose\-pbkdf2\fR \- Runs PBKDF2 over input
+.
+.SH "SYNOPSIS"
+\fBjose pbkdf2\fR \-i DATA [\-I ITER] [\-a ALG] [\-s SALT]
+.
+.SH "OVERVIEW"
+The \fBjose pbkdf2\fR command runs PBKDF2 over input text to generate keying material resistant to brute force attacks with configurable parameters\.
+.
+.SH "OPTIONS"
+.
+.TP
+\fB\-i\fR \fIFILE\fR, \fB\-\-input\fR=\fIFILE\fR
+Read input data from FILE
+.
+.TP
+\fB\-i\fR \-, \fB\-\-input\fR=\-
+Read input data from standard input
+.
+.TP
+\fB\-I\fR \fIITER\fR, \fB\-\-iter\fR=\fIITER\fR
+Set PBKDF2 iteration count to ITER
+.
+.TP
+\fB\-a\fR \fIALG\fR, \fB\-\-algorithm\fR=\fIALG\fR
+Use \fIALG\fR as the underlying hash algorithm for PBKDF2
+.
+.TP
+\fB\-s\fR \fISALT\fR, \fB\-\-salt\fR=\fISALT\fR
+Use \fISALT\fR as a salt input to the PBKDF2 instead of the default salt value
+.
+.SH "EXAMPLES"
+Use SHA\-256 as underlying hash algorithm for PBKDF2 over user supplied text:
+.
+.IP "" 4
+.
+.nf
+
+$ echo "User supplied strong passphrase" | jose pbkdf2 \-i\- \-a S256 > passdata\.out
+.
+.fi
+.
+.IP "" 0
+.
+.SH "AUTHOR"
+Max Tottenham <mtottenh@gmail\.com>
