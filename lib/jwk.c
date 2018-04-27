@@ -37,10 +37,25 @@ jwk_hook(jose_cfg_t *cfg, json_t *jwk, jose_hook_jwk_kind_t kind, bool dflt)
         if (j->kind != kind)
             continue;
 
-        if (!j->prep.handles(cfg, jwk))
-            continue;
+        switch (kind) {
+        case JOSE_HOOK_JWK_KIND_PREP:
+            if (!j->prep.handles(cfg, jwk))
+                continue;
 
-        upd = j->prep.execute(cfg, jwk);
+            upd = j->prep.execute(cfg, jwk);
+            break;
+
+        case JOSE_HOOK_JWK_KIND_MAKE:
+            if (!j->make.handles(cfg, jwk))
+                continue;
+
+            upd = j->make.execute(cfg, jwk);
+            break;
+
+        default:
+            continue;
+        }
+
         if (!json_is_object(upd))
             return false;
 
