@@ -26,7 +26,7 @@
 #include <string.h>
 
 #ifdef EVP_PKEY_CTX_set_rsa_oaep_md
-#define NAMES "RSA1_5", "RSA-OAEP", "RSA-OAEP-256"
+#define NAMES "RSA1_5", "RSA-OAEP", "RSA-OAEP-224", "RSA-OAEP-256", "RSA-OAEP-384", "RSA-OAEP-512"
 #define HAVE_OAEP
 #else
 #define NAMES "RSA1_5"
@@ -116,7 +116,10 @@ alg_wrap_wrp(const jose_hook_alg_t *alg, jose_cfg_t *cfg, json_t *jwe,
     switch (str2enum(alg->name, NAMES, NULL)) {
     case 0: pad = RSA_PKCS1_PADDING;      tmp = 11; md = EVP_sha1(); break;
     case 1: pad = RSA_PKCS1_OAEP_PADDING; tmp = 41; md = EVP_sha1(); break;
-    case 2: pad = RSA_PKCS1_OAEP_PADDING; tmp = 41; md = EVP_sha256(); break;
+    case 2: pad = RSA_PKCS1_OAEP_PADDING; tmp = 41; md = EVP_sha224(); break;
+    case 3: pad = RSA_PKCS1_OAEP_PADDING; tmp = 41; md = EVP_sha256(); break;
+    case 4: pad = RSA_PKCS1_OAEP_PADDING; tmp = 41; md = EVP_sha384(); break;
+    case 5: pad = RSA_PKCS1_OAEP_PADDING; tmp = 41; md = EVP_sha512(); break;
     default: return false;
     }
 
@@ -206,7 +209,10 @@ alg_wrap_unw(const jose_hook_alg_t *alg, jose_cfg_t *cfg, const json_t *jwe,
     switch (str2enum(alg->name, NAMES, NULL)) {
     case 0: pad = RSA_PKCS1_PADDING;      md = EVP_sha1(); break;
     case 1: pad = RSA_PKCS1_OAEP_PADDING; md = EVP_sha1(); break;
-    case 2: pad = RSA_PKCS1_OAEP_PADDING; md = EVP_sha256(); break;
+    case 2: pad = RSA_PKCS1_OAEP_PADDING; md = EVP_sha224(); break;
+    case 3: pad = RSA_PKCS1_OAEP_PADDING; md = EVP_sha256(); break;
+    case 4: pad = RSA_PKCS1_OAEP_PADDING; md = EVP_sha384(); break;
+    case 5: pad = RSA_PKCS1_OAEP_PADDING; md = EVP_sha512(); break;
     default: return false;
     }
 
@@ -310,7 +316,31 @@ constructor(void)
           .wrap.wrp = alg_wrap_wrp,
           .wrap.unw = alg_wrap_unw },
         { .kind = JOSE_HOOK_ALG_KIND_WRAP,
+          .name = "RSA-OAEP-224",
+          .wrap.eprm = "wrapKey",
+          .wrap.dprm = "unwrapKey",
+          .wrap.alg = alg_wrap_alg,
+          .wrap.enc = alg_wrap_enc,
+          .wrap.wrp = alg_wrap_wrp,
+          .wrap.unw = alg_wrap_unw },
+        { .kind = JOSE_HOOK_ALG_KIND_WRAP,
           .name = "RSA-OAEP-256",
+          .wrap.eprm = "wrapKey",
+          .wrap.dprm = "unwrapKey",
+          .wrap.alg = alg_wrap_alg,
+          .wrap.enc = alg_wrap_enc,
+          .wrap.wrp = alg_wrap_wrp,
+          .wrap.unw = alg_wrap_unw },
+        { .kind = JOSE_HOOK_ALG_KIND_WRAP,
+          .name = "RSA-OAEP-384",
+          .wrap.eprm = "wrapKey",
+          .wrap.dprm = "unwrapKey",
+          .wrap.alg = alg_wrap_alg,
+          .wrap.enc = alg_wrap_enc,
+          .wrap.wrp = alg_wrap_wrp,
+          .wrap.unw = alg_wrap_unw },
+        { .kind = JOSE_HOOK_ALG_KIND_WRAP,
+          .name = "RSA-OAEP-512",
           .wrap.eprm = "wrapKey",
           .wrap.dprm = "unwrapKey",
           .wrap.alg = alg_wrap_alg,
