@@ -63,16 +63,16 @@ struct jose_hook_jwk {
             bool
             (*handles)(jose_cfg_t *cfg, const json_t *jwk);
 
-            json_t *
-            (*execute)(jose_cfg_t *cfg, const json_t *jwk);
+            bool
+            (*execute)(jose_cfg_t *cfg, json_t *jwk);
         } prep;
 
         struct {
             bool
             (*handles)(jose_cfg_t *cfg, const json_t *jwk);
 
-            json_t *
-            (*execute)(jose_cfg_t *cfg, const json_t *jwk);
+            bool
+            (*execute)(jose_cfg_t *cfg, json_t *jwk);
         } make;
     };
 };

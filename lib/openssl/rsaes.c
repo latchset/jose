@@ -47,13 +47,24 @@ jwk_prep_handles(jose_cfg_t *cfg, const json_t *jwk)
     return str2enum(alg, NAMES, NULL) != SIZE_MAX;
 }
 
-static json_t *
-jwk_prep_execute(jose_cfg_t *cfg, const json_t *jwk)
+static bool
+jwk_prep_execute(jose_cfg_t *cfg, json_t *jwk)
 {
-    if (!jwk_prep_handles(cfg, jwk))
-        return NULL;
+    const char *kty = NULL;
 
-    return json_pack("{s:{s:s}}", "upd", "kty", "RSA");
+    if (!jwk_prep_handles(cfg, jwk))
+        return false;
+
+    if (json_unpack(jwk, "{s?s}", "kty", &kty) < 0)
+        return false;
+
+    if (kty && strcmp(kty, "RSA") != 0)
+        return false;
+
+    if (json_object_set_new(jwk, "kty", json_string("RSA")) < 0)
+        return false;
+
+    return true;
 }
 
 static const char *

@@ -182,6 +182,35 @@ add_entity(json_t *root, json_t *obj, const char *plural, ...)
     return json_object_update(root, obj) == 0;
 }
 
+bool
+copy_val(const json_t *from, json_t *into, ...)
+{
+    va_list ap;
+
+    va_start(ap, into);
+    for (const char *n = va_arg(ap, char *); n; n = va_arg(ap, char *)) {
+        json_t *f = NULL;
+        json_t *i = NULL;
+
+        f = json_object_get(from, n);
+        if (!f)
+            return false;
+
+        i = json_object_get(into, n);
+        if (i) {
+            if (json_equal(i, f))
+                continue;
+
+            return false;
+        }
+
+        if (json_object_set_new(into, n, json_deep_copy(f)) < 0)
+            return false;
+    }
+
+    return true;
+}
+
 static void __attribute__((constructor))
 constructor(void)
 {

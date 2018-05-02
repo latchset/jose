@@ -160,6 +160,17 @@ error:
     return NULL;
 }
 
+static json_int_t
+alg2len(const char *alg)
+{
+    switch (str2enum(alg, NAMES, NULL)) {
+    case 0: return 32;
+    case 1: return 48;
+    case 2: return 64;
+    default: return 0;
+    }
+}
+
 static bool
 jwk_prep_handles(jose_cfg_t *cfg, const json_t *jwk)
 {
@@ -168,26 +179,38 @@ jwk_prep_handles(jose_cfg_t *cfg, const json_t *jwk)
     if (json_unpack((json_t *) jwk, "{s:s}", "alg", &alg) == -1)
         return false;
 
-    return str2enum(alg, NAMES, NULL) != SIZE_MAX;
+    return alg2len(alg) != 0;
 }
 
-static json_t *
-jwk_prep_execute(jose_cfg_t *cfg, const json_t *jwk)
+static bool
+jwk_prep_execute(jose_cfg_t *cfg, json_t *jwk)
 {
     const char *alg = NULL;
+    const char *kty = NULL;
+    json_int_t byt = 0;
     json_int_t len = 0;
 
-    if (json_unpack((json_t *) jwk, "{s:s}", "alg", &alg) < 0)
-        return NULL;
+    if (json_unpack(jwk, "{s:s,s?s,s?I}",
+                    "alg", &alg, "kty", &kty, "bytes", &byt) < 0)
+        return false;
 
-    switch (str2enum(alg, NAMES, NULL)) {
-    case 0: len = 32; break;
-    case 1: len = 48; break;
-    case 2: len = 64; break;
-    default: return NULL;
-    }
+    len = alg2len(alg);
+    if (len == 0)
+        return false;
 
-    return json_pack("{s:{s:s,s:I}}", "upd", "kty", "oct", "bytes", len);
+    if (byt != 0 && byt != len)
+        return false;
+
+    if (kty && strcmp(kty, "oct") != 0)
+        return false;
+
+    if (json_object_set_new(jwk, "kty", json_string("oct")) < 0)
+        return false;
+
+    if (json_object_set_new(jwk, "bytes", json_integer(len)) < 0)
+        return false;
+
+    return true;
 }
 
 static const char *

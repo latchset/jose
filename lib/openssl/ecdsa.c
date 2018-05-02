@@ -130,6 +130,17 @@ ver_done(jose_io_t *io)
     return ECDSA_do_verify(i->hsh, i->hshl, ecdsa, i->key) == 1;
 }
 
+static const char *
+alg2crv(const char *alg)
+{
+    switch (str2enum(alg, NAMES, NULL)) {
+    case 0: return "P-256";
+    case 1: return "P-384";
+    case 2: return "P-521";
+    default: return NULL;
+    }
+}
+
 static bool
 jwk_prep_handles(jose_cfg_t *cfg, const json_t *jwk)
 {
@@ -138,26 +149,38 @@ jwk_prep_handles(jose_cfg_t *cfg, const json_t *jwk)
     if (json_unpack((json_t *) jwk, "{s:s}", "alg", &alg) == -1)
         return false;
 
-    return str2enum(alg, NAMES, NULL) != SIZE_MAX;
+    return alg2crv(alg) != NULL;
 }
 
-static json_t *
-jwk_prep_execute(jose_cfg_t *cfg, const json_t *jwk)
+static bool
+jwk_prep_execute(jose_cfg_t *cfg, json_t *jwk)
 {
     const char *alg = NULL;
+    const char *crv = NULL;
+    const char *kty = NULL;
     const char *grp = NULL;
 
-    if (json_unpack((json_t *) jwk, "{s:s}", "alg", &alg) == -1)
+    if (json_unpack(jwk, "{s:s,s?s,s?s}",
+                    "alg", &alg, "kty", &kty, "crv", &crv) == -1)
         return false;
 
-    switch (str2enum(alg, NAMES, NULL)) {
-    case 0: grp = "P-256"; break;
-    case 1: grp = "P-384"; break;
-    case 2: grp = "P-521"; break;
-    default: return false;
-    }
+    grp = alg2crv(alg);
+    if (!grp)
+        return false;
 
-    return json_pack("{s:{s:s,s:s}}", "upd", "kty", "EC", "crv", grp);
+    if (kty && strcmp(kty, "EC") != 0)
+        return false;
+
+    if (crv && strcmp(crv, grp) != 0)
+        return false;
+
+    if (json_object_set_new(jwk, "kty", json_string("EC")) < 0)
+        return false;
+
+    if (json_object_set_new(jwk, "crv", json_string(grp)) < 0)
+        return false;
+
+    return true;
 }
 
 static const char *

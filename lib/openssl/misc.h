@@ -59,3 +59,6 @@ bn_encode_json(const BIGNUM *bn, size_t len);
 
 bool
 add_entity(json_t *root, json_t *obj, const char *plural, ...);
+
+bool
+copy_val(const json_t *from, json_t *into, ...);

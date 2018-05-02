@@ -83,25 +83,34 @@ jwk_make_handles(jose_cfg_t *cfg, const json_t *jwk)
     return strcmp(kty, "RSA") == 0;
 }
 
-static json_t *
-jwk_make_execute(jose_cfg_t *cfg, const json_t *jwk)
+static bool
+jwk_make_execute(jose_cfg_t *cfg, json_t *jwk)
 {
     json_auto_t *key = NULL;
     RSA *rsa = NULL;
 
     if (!jwk_make_handles(cfg, jwk))
-        return NULL;
+        return false;
 
     rsa = mkrsa(jwk);
     if (!rsa)
-        return NULL;
+        return false;
 
     key = jose_openssl_jwk_from_RSA(cfg, rsa);
     RSA_free(rsa);
     if (!key)
-        return NULL;
+        return false;
 
-    return json_pack("{s:[s,s],s:O}", "del", "bits", "e", "upd", key);
+    if (json_object_get(jwk, "bits") && json_object_del(jwk, "bits") < 0)
+        return false;
+
+    if (json_object_get(jwk, "e") && json_object_del(jwk, "e") < 0)
+        return false;
+
+    /* The "oth" parameter is optional. */
+    copy_val(key, jwk, "oth");
+
+    return copy_val(key, jwk, "n", "e", "p", "d", "q", "dp", "dq", "qi", NULL);
 }
 
 static void __attribute__((constructor))

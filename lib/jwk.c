@@ -26,60 +26,29 @@
 #include <string.h>
 
 static bool
-jwk_hook(jose_cfg_t *cfg, json_t *jwk, jose_hook_jwk_kind_t kind, bool dflt)
+jwk_hook(jose_cfg_t *cfg, json_t *jwk, jose_hook_jwk_kind_t kind)
 {
     for (const jose_hook_jwk_t *j = jose_hook_jwk_list(); j; j = j->next) {
-        json_auto_t *upd = NULL;
-        const char *key = NULL;
-        json_t *val = NULL;
-        size_t i = 0;
-
         if (j->kind != kind)
             continue;
 
         switch (kind) {
         case JOSE_HOOK_JWK_KIND_PREP:
-            if (!j->prep.handles(cfg, jwk))
-                continue;
-
-            upd = j->prep.execute(cfg, jwk);
+            if (j->prep.handles(cfg, jwk) && !j->prep.execute(cfg, jwk))
+                return false;
             break;
 
         case JOSE_HOOK_JWK_KIND_MAKE:
-            if (!j->make.handles(cfg, jwk))
-                continue;
-
-            upd = j->make.execute(cfg, jwk);
+            if (j->make.handles(cfg, jwk))
+                return j->make.execute(cfg, jwk);
             break;
 
         default:
             continue;
         }
-
-        if (!json_is_object(upd))
-            return false;
-
-        json_array_foreach(json_object_get(upd, "del"), i, val) {
-            if (!json_object_get(jwk, json_string_value(val)))
-                continue;
-            if (json_object_del(jwk, json_string_value(val)) < 0)
-                return false;
-        }
-
-        json_object_foreach(json_object_get(upd, "upd"), key, val) {
-            json_t *src = json_object_get(jwk, key);
-
-            if (src && !json_equal(src, val))
-                return false;
-
-            if (json_object_set(jwk, key, val) < 0)
-                return false;
-        }
-
-        return true;
     }
 
-    return dflt;
+    return kind == JOSE_HOOK_JWK_KIND_PREP;
 }
 
 bool
@@ -90,10 +59,10 @@ jose_jwk_gen(jose_cfg_t *cfg, json_t *jwk)
     const char *kty = NULL;
     const char *use = NULL;
 
-    if (!jwk_hook(cfg, jwk, JOSE_HOOK_JWK_KIND_PREP, true))
+    if (!jwk_hook(cfg, jwk, JOSE_HOOK_JWK_KIND_PREP))
         return false;
 
-    if (!jwk_hook(cfg, jwk, JOSE_HOOK_JWK_KIND_MAKE, false))
+    if (!jwk_hook(cfg, jwk, JOSE_HOOK_JWK_KIND_MAKE))
         return false;
 
     if (json_unpack(jwk, "{s?s,s:s,s?s,s?o}",

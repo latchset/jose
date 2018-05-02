@@ -36,19 +36,30 @@ jwk_prep_handles(jose_cfg_t *cfg, const json_t *jwk)
     return strcmp(alg, "ECMR") == 0;
 }
 
-static json_t *
-jwk_prep_execute(jose_cfg_t *cfg, const json_t *jwk)
+static bool
+jwk_prep_execute(jose_cfg_t *cfg, json_t *jwk)
 {
     const char *crv = "P-521";
     const char *alg = NULL;
+    const char *kty = NULL;
 
-    if (json_unpack((json_t *) jwk, "{s:s,s?s}", "alg", &alg, "crv", &crv) < 0)
+    if (json_unpack(jwk, "{s:s,s?s,s?s}",
+                    "alg", &alg, "crv", &crv, "kty", &kty) < 0)
         return false;
 
     if (strcmp(alg, "ECMR") != 0)
         return false;
 
-    return json_pack("{s:{s:s,s:s}}", "upd", "kty", "EC", "crv", crv);
+    if (kty && strcmp(kty, "EC") != 0)
+        return false;
+
+    if (json_object_set_new(jwk, "kty", json_string("EC")) < 0)
+        return false;
+
+    if (json_object_set_new(jwk, "crv", json_string(crv)) < 0)
+        return false;
+
+    return true;
 }
 
 static const char *

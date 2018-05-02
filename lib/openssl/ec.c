@@ -34,17 +34,18 @@ jwk_make_handles(jose_cfg_t *cfg, const json_t *jwk)
     return strcmp(kty, "EC") == 0;
 }
 
-static json_t *
-jwk_make_execute(jose_cfg_t *cfg, const json_t *jwk)
+static bool
+jwk_make_execute(jose_cfg_t *cfg, json_t *jwk)
 {
     openssl_auto(EC_KEY) *key = NULL;
     const char *crv = "P-256";
+    json_auto_t *out = NULL;
     int nid = NID_undef;
 
     if (!jwk_make_handles(cfg, jwk))
         return false;
 
-    if (json_unpack((json_t *) jwk, "{s?s}", "crv", &crv) == -1)
+    if (json_unpack(jwk, "{s?s}", "crv", &crv) < 0)
         return false;
 
     switch (str2enum(crv, "P-256", "P-384", "P-521", NULL)) {
@@ -61,7 +62,11 @@ jwk_make_execute(jose_cfg_t *cfg, const json_t *jwk)
     if (EC_KEY_generate_key(key) <= 0)
         return false;
 
-    return json_pack("{s:o}", "upd", jose_openssl_jwk_from_EC_KEY(cfg, key));
+    out = jose_openssl_jwk_from_EC_KEY(cfg, key);
+    if (!out)
+        return false;
+
+    return copy_val(out, jwk, "crv", "x", "y", "d", NULL);
 }
 
 static void __attribute__((constructor))

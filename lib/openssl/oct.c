@@ -33,30 +33,32 @@ jwk_make_handles(jose_cfg_t *cfg, const json_t *jwk)
     return strcmp(kty, "oct") == 0;
 }
 
-static json_t *
-jwk_make_execute(jose_cfg_t *cfg, const json_t *jwk)
+static bool
+jwk_make_execute(jose_cfg_t *cfg, json_t *jwk)
 {
     uint8_t key[KEYMAX] = {};
     json_int_t len = 0;
-    json_t *ret = NULL;
 
     if (!jwk_make_handles(cfg, jwk))
-        return NULL;
+        return false;
 
-    if (json_unpack((json_t *) jwk, "{s:I}", "bytes", &len) < 0)
-        return NULL;
+    if (json_unpack(jwk, "{s:I}", "bytes", &len) < 0)
+        return false;
 
     if (len > KEYMAX)
-        return NULL;
+        return false;
 
-    if (RAND_bytes(key, len) > 0) {
-        ret = json_pack("{s:[s],s:{s:o}}",
-                        "del", "bytes",
-                        "upd", "k", jose_b64_enc(key, len));
-    }
+    if (RAND_bytes(key, len) <= 0)
+        return false;
+
+    if (json_object_del(jwk, "bytes") < 0)
+        return false;
+
+    if (json_object_set_new(jwk, "k", jose_b64_enc(key, len)) < 0)
+        return false;
 
     OPENSSL_cleanse(key, len);
-    return ret;
+    return true;
 }
 
 static void __attribute__((constructor))
