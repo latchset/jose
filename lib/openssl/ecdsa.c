@@ -214,12 +214,7 @@ alg_sign_sig(const jose_hook_alg_t *alg, jose_cfg_t *cfg, json_t *jws,
 {
     const jose_hook_alg_t *halg = NULL;
     jose_io_auto_t *io = NULL;
-    const char *prot = NULL;
     io_t *i = NULL;
-    size_t plen = 0;
-
-    if (json_unpack(sig, "{s?s%}", "protected", &prot, &plen) < 0)
-        return NULL;
 
     halg = jose_hook_alg_find(JOSE_HOOK_ALG_KIND_HASH, &alg->name[1]);
     if (!halg)
@@ -242,12 +237,6 @@ alg_sign_sig(const jose_hook_alg_t *alg, jose_cfg_t *cfg, json_t *jws,
     if (!i->b || !i->h || !i->obj || !i->sig || !i->key)
         return NULL;
 
-    if (prot && !i->h->feed(i->h, prot, plen))
-        return NULL;
-
-    if (!i->h->feed(i->h, ".", 1))
-        return NULL;
-
     return jose_io_incref(io);
 }
 
@@ -257,12 +246,7 @@ alg_sign_ver(const jose_hook_alg_t *alg, jose_cfg_t *cfg, const json_t *jws,
 {
     const jose_hook_alg_t *halg = NULL;
     jose_io_auto_t *io = NULL;
-    const char *prot = NULL;
     io_t *i = NULL;
-    size_t plen = 0;
-
-    if (json_unpack((json_t *) sig, "{s?s%}", "protected", &prot, &plen) < 0)
-        return NULL;
 
     halg = jose_hook_alg_find(JOSE_HOOK_ALG_KIND_HASH, &alg->name[1]);
     if (!halg)
@@ -282,12 +266,6 @@ alg_sign_ver(const jose_hook_alg_t *alg, jose_cfg_t *cfg, const json_t *jws,
     i->sig = json_incref((json_t *) sig);
     i->key = jose_openssl_jwk_to_EC_KEY(cfg, jwk);
     if (!i->b || !i->h || !i->sig || !i->key)
-        return NULL;
-
-    if (prot && !i->h->feed(i->h, prot, plen))
-        return NULL;
-
-    if (!i->h->feed(i->h, ".", 1))
         return NULL;
 
     return jose_io_incref(io);

@@ -101,6 +101,28 @@ ios_auto(jose_io_t ***iosp)
     free(ios);
 }
 
+static jose_io_t *
+prefix(jose_io_t *i, const json_t *sig)
+{
+    jose_io_auto_t *io = i;
+    const char *prot = NULL;
+    size_t plen = 0;
+
+    if (!io)
+        return NULL;
+
+    if (json_unpack((json_t *) sig, "{s?s%}", "protected", &prot, &plen) < 0)
+        return NULL;
+
+    if (prot && !io->feed(io, prot, plen))
+        return NULL;
+
+    if (!io->feed(io, ".", 1))
+        return NULL;
+
+    return jose_io_incref(io);
+}
+
 json_t *
 jose_jws_hdr(const json_t *sig)
 {
@@ -194,7 +216,7 @@ jose_jws_sig_io(jose_cfg_t *cfg, json_t *jws, json_t *sig, const json_t *jwk)
     if (!encode_protected(s))
         return NULL;
 
-    return alg->sign.sig(alg, cfg, jws, s, jwk);
+    return prefix(alg->sign.sig(alg, cfg, jws, s, jwk), s);
 }
 
 bool
@@ -313,5 +335,5 @@ jose_jws_ver_io(jose_cfg_t *cfg, const json_t *jws, const json_t *sig,
         return false;
     }
 
-    return alg->sign.ver(alg, cfg, jws, sig, jwk);
+    return prefix(alg->sign.ver(alg, cfg, jws, sig, jwk), sig);
 }

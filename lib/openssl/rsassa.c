@@ -115,7 +115,6 @@ setup(jose_cfg_t *cfg, const json_t *jwk, const json_t *sig, const char *alg,
     openssl_auto(EVP_PKEY) *key = NULL;
     EVP_PKEY_CTX *epc = NULL;
     const EVP_MD *md = NULL;
-    const char *prot = NULL;
     EVP_MD_CTX *emc = NULL;
     const RSA *rsa = NULL;
     int slen = 0;
@@ -156,15 +155,6 @@ setup(jose_cfg_t *cfg, const json_t *jwk, const json_t *sig, const char *alg,
         if (EVP_PKEY_CTX_set_rsa_pss_saltlen(epc, slen) <= 0)
             goto error;
     }
-
-    if (json_unpack((json_t *) sig, "{s?s}", "protected", &prot) < 0)
-        goto error;
-
-    if (prot && EVP_DigestUpdate(emc, prot, strlen(prot)) <= 0)
-        goto error;
-
-    if (EVP_DigestUpdate(emc, ".", 1) <= 0)
-        goto error;
 
     return emc;
 

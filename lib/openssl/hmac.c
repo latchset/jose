@@ -100,12 +100,8 @@ hmac(const jose_hook_alg_t *alg, jose_cfg_t *cfg,
 {
     uint8_t key[KEYMAX] = {};
     const EVP_MD *md = NULL;
-    const char *prot = NULL;
     HMAC_CTX *hctx = NULL;
     size_t keyl = 0;
-
-    if (json_unpack((json_t *) sig, "{s?s}", "protected", &prot) < 0)
-        return NULL;
 
     switch (str2enum(alg->name, NAMES, NULL)) {
     case 0: md = EVP_sha256(); break;
@@ -143,12 +139,6 @@ hmac(const jose_hook_alg_t *alg, jose_cfg_t *cfg,
         goto error;
 
     if (HMAC_Init_ex(hctx, key, keyl, md, NULL) <= 0)
-        goto error;
-
-    if (prot && HMAC_Update(hctx, (uint8_t *) prot, strlen(prot)) <= 0)
-        goto error;
-
-    if (HMAC_Update(hctx, (uint8_t *) ".", 1) <= 0)
         goto error;
 
     OPENSSL_cleanse(key, sizeof(key));
