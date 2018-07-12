@@ -1,0 +1,704 @@
+'\" t
+.\"     Title: jose-fmt
+.\"    Author: [see the "AUTHOR" section]
+.\" Generator: DocBook XSL Stylesheets vsnapshot <http://docbook.sf.net/>
+.\"      Date: 07/12/2018
+.\"    Manual: \ \&
+.\"    Source: \ \&
+.\"  Language: English
+.\"
+.TH "JOSE\-FMT" "1" "07/12/2018" "\ \&" "\ \&"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+jose-fmt \- Converts JSON between serialization formats
+.SH "SYNOPSIS"
+.sp
+\fBjose fmt\fR [OPTIONS]
+.SH "OVERVIEW"
+.sp
+This \fBjose fmt\fR command provides a mechanism for building and parsing JSON objects from the command line\&. It operates as a simple stack machine\&. All commands operate on the TOP item of the stack and, occasionally, the PREV item of the stack\&. Commands that require a specific type of value will indicate it in parentheses\&. For example: "TOP (arr\&.)"\&.
+.sp
+This program returns 0 on success or the index of the option which failed\&.
+.SH "OPTIONS"
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fB\-X\fR,
+\fB\-\-not\fR
+: Invert the following assertion
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fB\-O\fR,
+\fB\-\-object\fR
+: Assert TOP to be an object
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fB\-A\fR,
+\fB\-\-array\fR
+: Assert TOP to be an array
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fB\-S\fR,
+\fB\-\-string\fR
+: Assert TOP to be a string
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fB\-I\fR,
+\fB\-\-integer\fR
+: Assert TOP to be an integer
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fB\-R\fR,
+\fB\-\-real\fR
+: Assert TOP to be a real
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fB\-N\fR,
+\fB\-\-number\fR
+: Assert TOP to be a number
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fB\-T\fR,
+\fB\-\-true\fR
+: Assert TOP to be true
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fB\-F\fR,
+\fB\-\-false\fR
+: Assert TOP to be false
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fB\-B\fR,
+\fB\-\-boolean\fR
+: Assert TOP to be a boolean
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fB\-0\fR,
+\fB\-\-null\fR
+: Assert TOP to be null
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fB\-E\fR,
+\fB\-\-equal\fR
+: Assert TOP to be equal to PREV
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fB\-Q\fR,
+\fB\-\-query\fR
+: Query the stack by deep copying and pushing onto TOP
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fB\-M\fR
+,
+\fB\-\-move\fR= : Move TOP back # places on the stack
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fB\-U\fR,
+\fB\-\-unwind\fR
+: Discard TOP from the stack
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fB\-j\fR
+\fIJSON\fR,
+\fB\-\-json\fR=\fIJSON\fR
+: Parse JSON constant, push onto TOP
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fB\-j\fR
+\fIFILE\fR,
+\fB\-\-json\fR=\fIFILE\fR
+: Read from FILE, push onto TOP
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fB\-j\fR
+\-,
+\fB\-\-json\fR=\- : Read from STDIN, push onto TOP
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fB\-c\fR,
+\fB\-\-copy\fR
+: Deep copy TOP, push onto TOP
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fB\-q\fR
+\fISTR\fR,
+\fB\-\-quote\fR=\fISTR\fR
+: Convert STR to a string, push onto TOP
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fB\-o\fR
+\fIFILE\fR,
+\fB\-\-output\fR=\fIFILE\fR
+: Write TOP to FILE
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fB\-o\fR
+\-,
+\fB\-\-output\fR=\- : Write TOP to STDOUT
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fB\-f\fR
+\fIFILE\fR,
+\fB\-\-foreach\fR=\fIFILE\fR
+: Write TOP (obj\&./arr\&.) to FILE, one line/item
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fB\-f\fR
+\-,
+\fB\-\-foreach\fR=\- : Write TOP (obj\&./arr\&.) to STDOUT, one line/item
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fB\-u\fR
+\fIFILE\fR,
+\fB\-\-unquote\fR=\fIFILE\fR
+: Write TOP (str\&.) to FILE without quotes
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fB\-u\fR
+\-,
+\fB\-\-unquote\fR=\- : Write TOP (str\&.) to STDOUT without quotes
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fB\-t\fR
+,
+\fB\-\-truncate\fR= : Shrink TOP (arr\&.) to length #
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fB\-t\fR
+\-,
+\fB\-\-truncate\fR=\- : Discard last # items from TOP (arr\&.)
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fB\-i\fR
+,
+\fB\-\-insert\fR= : Insert TOP into PREV (arr\&.) at #
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fB\-a\fR,
+\fB\-\-append\fR
+: Append TOP to the end of PREV (arr\&.)
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fB\-a\fR,
+\fB\-\-append\fR
+: Set missing values from TOP (obj\&.) into PREV (obj\&.)
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fB\-x\fR,
+\fB\-\-extend\fR
+: Append items from TOP to the end of PREV (arr\&.)
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fB\-x\fR,
+\fB\-\-extend\fR
+: Set all values from TOP (obj\&.) into PREV (obj\&.)
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fB\-d\fR
+\fINAME\fR,
+\fB\-\-delete\fR=\fINAME\fR
+: Delete NAME from TOP (obj\&.)
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fB\-d\fR
+,
+\fB\-\-delete\fR= : Delete # from TOP (arr\&.)
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fB\-d\fR
+\-,
+\fB\-\-delete\fR=\- : Delete # from the end of TOP (arr\&.)
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fB\-l\fR,
+\fB\-\-length\fR
+: Push length of TOP (arr\&./str\&./obj\&.) to TOP
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fB\-e\fR,
+\fB\-\-empty\fR
+: Erase all items from TOP (arr\&./obj\&.)
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fB\-g\fR
+\fINAME\fR,
+\fB\-\-get\fR=\fINAME\fR
+: Get item with NAME from TOP (obj\&.), push to TOP
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fB\-g\fR
+,
+\fB\-\-get\fR= : Get # item from TOP (arr\&.), push to TOP
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fB\-g\fR
+\-,
+\fB\-\-get\fR=\- : Get # item from the end of TOP (arr\&.), push to TOP
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fB\-s\fR
+\fINAME\fR,
+\fB\-\-set\fR=\fINAME\fR
+: Sets TOP into PREV (obj\&.) with NAME
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fB\-s\fR
+,
+\fB\-\-set\fR= : Sets TOP into PREV (obj\&.) at #
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fB\-s\fR
+\-,
+\fB\-\-set\fR=\- : Sets TOP into PREV (obj\&.) at # from the end
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fB\-y\fR,
+\fB\-\-b64load\fR
+: URL\-safe Base64 decode TOP (str\&.), push onto TOP
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fB\-Y\fR,
+\fB\-\-b64dump\fR
+: URL\-safe Base64 encode TOP, push onto TOP
+.RE
+.SH "EXAMPLES"
+.sp
+Extract the \fBalg\fR parameter from a JWE Protected Header:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+$ jose fmt \-j "$jwe" \-Og protected \-yOg alg \-Su\-
+A128KW
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+List all JWKs in a JWKSet (one per line):
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+$ echo "$jwkset" | jose fmt \-j\- \-Og keys \-Af\-
+{"kty":"oct",\&.\&.\&.}
+{"kty":"EC",\&.\&.\&.}
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Change the algorithm in a JWK:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+$ echo "$jwk" | jose fmt \-j\- \-j \*(Aq"A128GCM"\*(Aq \-s alg \-Uo\-
+{"kty":"oct","alg":"A128GCM",\&.\&.\&.}
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Build a JWE template:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+$ jose fmt \-j \*(Aq{}\*(Aq \-cs unprotected \-q A128KW \-s alg \-UUo\-
+{"unprotected":{"alg":"A128KW"}}
+.fi
+.if n \{\
+.RE
+.\}
+.SH "AUTHOR"
+.sp
+Nathaniel McCallum <npmccallum@redhat\&.com>

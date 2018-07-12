@@ -1,0 +1,299 @@
+'\" t
+.\"     Title: jose-jws-sig
+.\"    Author: [see the "AUTHOR" section]
+.\" Generator: DocBook XSL Stylesheets vsnapshot <http://docbook.sf.net/>
+.\"      Date: 07/12/2018
+.\"    Manual: \ \&
+.\"    Source: \ \&
+.\"  Language: English
+.\"
+.TH "JOSE\-JWS\-SIG" "1" "07/12/2018" "\ \&" "\ \&"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+jose-jws-sig \- Signs a payload using one or more JWKs
+.SH "SYNOPSIS"
+.sp
+\fBjose jws sig\fR [\-i JWS] [\-I PAY] [\-s SIG] \-k JWK [\-o JWS] [\-O PAY] [\-c]
+.SH "OVERVIEW"
+.sp
+The \fBjose jws sig\fR command signs a payload using one or more JWKs\&. The payload can be provided either in its decoded form (\fB\-I\fR) or embedded in an existing JWS (\fB\-i\fR)\&.
+.sp
+A detached JWS can be created by specifying the \fB\-O\fR option\&. In this case, the decoded payload will be written to the output specified and will not be included in the JWS\&.
+.sp
+If only one key is used (\fB\-k\fR), the resulting JWS may be output in JWS Compact Serialization by using the \fB\-c\fR option\&.
+.sp
+This command uses a template based approach for constructing a JWS\&. You can specify templates of the JWS itself (\fB\-i\fR) or for the JWS Signature Object (\fB\-r\fR)\&. Attributes specified in either of these templates will appear unmodified in the output\&. One exception to this rule is that the JWS Protected Header should be specified in its decoded form in the JWS Signature Object template\&. This command will automatically encode it as part of the encryption process\&.
+.sp
+If you specify a JOSE Header Parameter (via either the \fB\-i\fR or \fB\-r\fR options) that affects the construction of the JWE, this command will attempt to behave according to this parameter as if it were configuration\&. Currently, \fBjose\fR will modify its behavior for the "alg" JOSE Header Parameter (see RFC 7515 Section 4\&.1\&.1)\&.
+.sp
+However, it is not necessary to provide any templates: \fBjose jwe enc\fR will automatically fill in the "alg" parameter by inferring the correct algorithm from the provided input JWKs\&. Therefore, the \fB\-i\fR and \fB\-r\fR options should generally be used for providing extended JWE metadata\&.
+.sp
+It is possible to specify an existing JWS as the JWS template input (\fB\-i\fR)\&. This allows the addition of new signatures to an existing JWS\&.
+.SH "OPTIONS"
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fB\-i\fR
+\fIJSON\fR,
+\fB\-\-input\fR=\fIJSON\fR
+: Parse JWS template from JSON
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fB\-i\fR
+\fIFILE\fR,
+\fB\-\-input\fR=\fIFILE\fR
+: Read JWS template from FILE
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fB\-i\fR
+\-,
+\fB\-\-input\fR=\- : Read JWS template from standard input
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fB\-I\fR
+\fIFILE\fR,
+\fB\-\-detached\fR=\fIFILE\fR
+: Read decoded payload from FILE
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fB\-I\fR
+\-,
+\fB\-\-detached\fR=\- : Read decoded payload from standard input
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fB\-s\fR
+\fIJSON\fR,
+\fB\-\-signature\fR=\fIJSON\fR
+: Parse JWS signature template from JSON
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fB\-s\fR
+\fIFILE\fR,
+\fB\-\-signature\fR=\fIFILE\fR
+: Read JWS signature template from FILE
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fB\-s\fR
+\-,
+\fB\-\-signature\fR=\- : Read JWS signature template standard input
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fB\-k\fR
+\fIFILE\fR,
+\fB\-\-key\fR=\fIFILE\fR
+: Read JWK(Set) from FILE
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fB\-k\fR
+\-,
+\fB\-\-key\fR=\- : Read JWK(Set) from standard input
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fB\-o\fR
+\fIFILE\fR,
+\fB\-\-output\fR=\fIFILE\fR
+: Write JWS to FILE
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fB\-o\fR
+\-,
+\fB\-\-output\fR=\- : Write JWS to stdout (default)
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fB\-O\fR
+\fIFILE\fR,
+\fB\-\-detach\fR=\fIFILE\fR
+: Detach payload and decode to FILE
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fB\-O\fR
+\-,
+\fB\-\-detach\fR=\- : Detach payload and decode to standard output
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fB\-c\fR,
+\fB\-\-compact\fR
+: Output JWS using compact serialization
+.RE
+.SH "EXAMPLES"
+.sp
+Sign data with a symmetric key using JWE JSON Serialization:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+$ jose jwk gen \-i \*(Aq{"alg":"HS256"}\*(Aq \-o key\&.jwk
+$ jose jws sig \-I msg\&.txt \-k key\&.jwk \-o msg\&.jws
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Sign data using detached JWE Compact Serialization:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+$ jose jws sig \-I msg\&.txt \-k key\&.jwk \-O /dev/null \-c \-o msg\&.jws
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Sign with two keys:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+$ jose jwk gen \-i \*(Aq{"alg":"ES256"}\*(Aq \-o ec\&.jwk
+$ jose jwk gen \-i \*(Aq{"alg":"RS256"}\*(Aq \-o rsa\&.jwk
+$ jose jws sig \-I msg\&.txt \-k ec\&.jwk \-k rsa\&.jwk \-o msg\&.jws
+.fi
+.if n \{\
+.RE
+.\}
+.SH "AUTHOR"
+.sp
+Nathaniel McCallum <npmccallum@redhat\&.com>
+.SH "SEE ALSO"
+.sp
+\fBjose\-jws\-sig\fR(1), \fBjose\-jws\-ver\fR(1)

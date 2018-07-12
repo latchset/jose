@@ -1,0 +1,44 @@
+jose-b64-enc(1)
+===============
+:doctype: manpage
+
+== NAME
+
+jose-b64-enc - Encodes binary data to URL-safe Base64
+
+== SYNOPSIS
+
+*jose b64 enc* -I BIN [-o B64]
+
+== OVERVIEW
+
+The *jose b64 enc* command encodes binary data to URL-safe Base64 format.
+
+== OPTIONS
+
+* *-I* _FILE_, *--binary*=_FILE_ :
+  Read binary data from FILE
+
+* *-I* -, *--binary*=- :
+  Read binary data from standard input
+
+* *-o* _FILE_, *--base64*=_FILE_ :
+  Write Base64 (URL-safe) to FILE
+
+* *-o* -, *--base64*=- :
+  Write Base64 (URL-safe) to standard output
+
+== EXAMPLES
+
+Encode a simple message:
+
+    $ echo "Hello, World" | jose b64 enc -I-
+    SGVsbG8sIFdvcmxkCg
+
+== AUTHOR
+
+Nathaniel McCallum <npmccallum@redhat.com>
+
+== SEE ALSO
+
+link:jose-b64-dec.1.adoc[*jose-b64-dec*(1)]

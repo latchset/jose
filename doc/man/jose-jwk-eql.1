@@ -1,0 +1,100 @@
+'\" t
+.\"     Title: jose-jwk-eql
+.\"    Author: [see the "AUTHOR" section]
+.\" Generator: DocBook XSL Stylesheets vsnapshot <http://docbook.sf.net/>
+.\"      Date: 07/12/2018
+.\"    Manual: \ \&
+.\"    Source: \ \&
+.\"  Language: English
+.\"
+.TH "JOSE\-JWK\-EQL" "1" "07/12/2018" "\ \&" "\ \&"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+jose-jwk-eql \- Calculates the JWK thumbprint
+.SH "SYNOPSIS"
+.sp
+\fBjose jwk eql\fR \-i JWK \-i JWK
+.SH "OVERVIEW"
+.sp
+The \fBjose jwk eql\fR command determines whether two keys are equal\&. It compares the same properties defined for use in a JWK thumbprint (RFC 7638)\&. This means that optional metadata isn\(cqt considered for comparison\&.
+.SH "OPTIONS"
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fB\-i\fR
+JSON,
+\fB\-\-input\fR=JSON : Parse JWK(Set) from JSON
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fB\-i\fR
+FILE,
+\fB\-\-input\fR=FILE : Read JWK(Set) from FILE
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+\fB\-i\fR
+\-,
+\fB\-\-input\fR=\- : Read JWK(Set) standard input
+.RE
+.SH "EXAMPLES"
+.sp
+Generate a key and modify optional metadata then test equality:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+$ jose jwk gen \-i \*(Aq{"alg":"ES256"}\*(Aq \-o key\&.jwk
+$ jose fmt \-j key\&.jwk \-Od alg \-o mod\&.jwk
+$ jose jwk eql \-i key\&.jwk \-i mod\&.jwk
+$ echo $?
+0
+.fi
+.if n \{\
+.RE
+.\}
+.SH "AUTHOR"
+.sp
+Nathaniel McCallum <npmccallum@redhat\&.com>
+.SH "SEE ALSO"
+.sp
+\fBjose\-jwk\-thp\fR(1)

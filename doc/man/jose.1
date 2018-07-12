@@ -1,0 +1,192 @@
+'\" t
+.\"     Title: jose
+.\"    Author: [see the "AUTHOR" section]
+.\" Generator: DocBook XSL Stylesheets vsnapshot <http://docbook.sf.net/>
+.\"      Date: 07/12/2018
+.\"    Manual: \ \&
+.\"    Source: \ \&
+.\"  Language: English
+.\"
+.TH "JOSE" "1" "07/12/2018" "\ \&" "\ \&"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+jose \- Toolkit for performing JSON Object Signing and Encryption
+.SH "SYNOPSIS"
+.sp
+\fBjose alg\fR [\-k KIND]
+.sp
+\fBjose b64 dec\fR \-i B64 [\-O BIN]
+.sp
+\fBjose b64 enc\fR \-I BIN [\-o B64]
+.sp
+\fBjose jwe dec\fR \-i JWE [\-I CT] \-k JWK [\-p] [\-O PT]
+.sp
+\fBjose jwe enc\fR [\-i JWE] \-I PT \-k JWK [\-p] [\-r RCP] [\-o JWE] [\-O CT] [\-c]
+.sp
+\fBjose jwe fmt\fR \-i JWE [\-I CT] [\-o JWE] [\-O CT] [\-c]
+.sp
+\fBjose jwk exc\fR [\-i JWK] \-l JWK \-r JWK [\-o JWK]
+.sp
+\fBjose jwk gen\fR \-i JWK [\-o JWK]
+.sp
+\fBjose jwk pub\fR \-i JWK [\-o JWK]
+.sp
+\fBjose jwk thp\fR \-i JWK [\-a ALG] [\-o THP]
+.sp
+\fBjose jwk use\fR \-i JWK [\-a] [\-r] \-u OP
+.sp
+\fBjose jws fmt\fR \-i JWS [\-I PAY] [\-o JWS] [\-O PAY] [\-c]
+.sp
+\fBjose jws sig\fR [\-i JWS] [\-I PAY] [\-s SIG] \-k JWK [\-o JWS] [\-O PAY] [\-c]
+.sp
+\fBjose jws ver\fR \-i JWS [\-I PAY] \-k JWK [\-O PAY] [\-a]
+.SH "OVERVIEW"
+.sp
+José is a C\-language implementation of the Javascript Object Signing and Encryption standards\&. Specifically, José aims towards implementing the following standards:
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+RFC 7515 \- JSON Web Signature (JWS)
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+RFC 7516 \- JSON Web Encryption (JWE)
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+RFC 7517 \- JSON Web Key (JWK)
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+RFC 7518 \- JSON Web Algorithms (JWA)
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+RFC 7519 \- JSON Web Token (JWT)
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+RFC 7520 \- Examples of Protecting Content Using JOSE
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+RFC 7638 \- JSON Web Key (JWK) Thumbprint
+.RE
+.sp
+The José command line utility provides facilities for the following:
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+URL\-safe Base64 Encoding & Decoding
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+Key Generation and Management
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+Encryption & Decryption
+.RE
+.sp
+.RS 4
+.ie n \{\
+\h'-04'\(bu\h'+03'\c
+.\}
+.el \{\
+.sp -1
+.IP \(bu 2.3
+.\}
+Signing & Verification
+.RE
+.SH "AUTHOR"
+.sp
+Nathaniel McCallum <npmccallum@redhat\&.com>
+.SH "SEE ALSO"
+.sp
+\fBjose\-alg\fR(1), \fBjose\-b64\-dec\fR(1), \fBjose\-b64\-enc\fR(1), \fBjose\-jwe\-dec\fR(1), \fBjose\-jwe\-enc\fR(1), \fBjose\-jwe\-fmt\fR(1), \fBjose\-jwk\-exc\fR(1), \fBjose\-jwk\-gen\fR(1), \fBjose\-jwk\-pub\fR(1), \fBjose\-jwk\-thp\fR(1), \fBjose\-jwk\-use\fR(1), \fBjose\-jws\-fmt\fR(1), \fBjose\-jws\-sig\fR(1), \fBjose\-jws\-ver\fR(1)
