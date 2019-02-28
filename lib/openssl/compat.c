@@ -17,7 +17,7 @@
 
 #include "compat.h"
 
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
+#if OPENSSL_VERSION_NUMBER < 0x10100000L || defined(LIBRESSL_VERSION_NUMBER)
 const unsigned char *
 EVP_PKEY_get0_hmac(EVP_PKEY *pkey, size_t *len)
 {

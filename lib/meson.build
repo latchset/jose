@@ -6,7 +6,7 @@ if not cc.links(code, args: flags, name: '-Wl,--version-script=...')
   flags = [ '-export-symbols-regex=^jose_.*' ]
 endif
 
-libjose = library('jose',
+libjose_sources = [
   'misc.c',           'misc.h',
   'cfg.c',
   'io.c',
@@ -38,7 +38,21 @@ libjose = library('jose',
   'openssl/rsa.c',
   'openssl/rsaes.c',
   'openssl/rsassa.c',
+]
 
+if cc.compiles('''
+    #include <tls.h>
+    int main(void) {
+        tls_config_set_ca_mem(NULL, NULL, 0);
+        return 0;
+    }
+''')
+   libjose_sources += ['openssl/libressl_evp.c']
+endif
+
+
+libjose = library('jose',
+  libjose_sources,
   dependencies: [zlib, jansson, libcrypto, threads],
   version: '0.0.0',
   link_args: flags,
