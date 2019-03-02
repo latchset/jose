@@ -107,7 +107,7 @@
  *     }
  *
  * In all the above examples, parameters like which encryption algorithms to
- * use were inferred from our keys. Where such an inferrence cannot be made,
+ * use were inferred from our keys. Where such an inference cannot be made,
  * sensible and secure defaults were chosen automatically. If you would like
  * more control over the process, simply set parameters in the appropriate
  * objects (more on this in the function documentation). For example,
