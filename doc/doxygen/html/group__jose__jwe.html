@@ -154,7 +154,7 @@ Functions</h2></td></tr>
     // Wrap the CEK to the new JWK
     jose_jwe_enc_jwk(NULL, jwe, NULL, newjwk, cek);
 }
-</pre><p>In all the above examples, parameters like which encryption algorithms to use were inferred from our keys. Where such an inferrence cannot be made, sensible and secure defaults were chosen automatically. If you would like more control over the process, simply set parameters in the appropriate objects (more on this in the function documentation). For example, to enable plaintext compression, you can specify the <code>zip</code> property in the JWE Protected Header: </p><pre class="fragment">json_t *enc(void *plaintext, size_t len, json_t *jwkset) {
+</pre><p>In all the above examples, parameters like which encryption algorithms to use were inferred from our keys. Where such an inference cannot be made, sensible and secure defaults were chosen automatically. If you would like more control over the process, simply set parameters in the appropriate objects (more on this in the function documentation). For example, to enable plaintext compression, you can specify the <code>zip</code> property in the JWE Protected Header: </p><pre class="fragment">json_t *enc(void *plaintext, size_t len, json_t *jwkset) {
     json_auto_t *jwe = json_pack("{s:{s:s}}", "protected", "zip", "DEF");
 
     // Perform compressed wrapping and encryption to all recipients

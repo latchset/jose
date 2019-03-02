@@ -98,16 +98,16 @@ jose_cfg_decref(jose_cfg_t *cfg);
  *
  * \param cfg  The configuration context.
  * \param err  The error handler function you wish to enable.
- * \param misc The miscelaneous data you wish to pass to the error handler.
+ * \param misc The miscellaneous data you wish to pass to the error handler.
  */
 void
 jose_cfg_set_err_func(jose_cfg_t *cfg, jose_cfg_err_t *err, void *misc);
 
 /**
- * Gets the miscelaneous data associated with the current error handler.
+ * Gets the miscellaneous data associated with the current error handler.
  *
  * \param cfg  The configuration context.
- * \return     The miscelaneous data associated with the error handler.
+ * \return     The miscellaneous data associated with the error handler.
  */
 void *
 jose_cfg_get_err_misc(jose_cfg_t *cfg);
