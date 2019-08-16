@@ -69,7 +69,7 @@ and `-r` options should generally be used for providing extended JWE metadata.
 *  `-k` -, `--key`=- :
   Read JWK(Set) from standard input
 
-*  `-p`, `--password :
+*  `-p`, `--password` :
   Prompt for an encryption password
 
 *  `-o` _FILE_, `--output`=_FILE_ :
