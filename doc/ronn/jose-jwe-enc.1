@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "JOSE\-JWE\-ENC" "1" "May 2017" "" ""
+.TH "JOSE\-JWE\-ENC" "1" "August 2019" "" ""
 .
 .SH "NAME"
 \fBjose\-jwe\-enc\fR \- Encrypts plaintext using one or more JWK/password
@@ -66,7 +66,7 @@ Read JWK(Set) from FILE
 Read JWK(Set) from standard input
 .
 .TP
-\fB\-p\fR, `\-\-password
+\fB\-p\fR, \fB\-\-password\fR
 Prompt for an encryption password
 .
 .TP
@@ -96,7 +96,7 @@ Encrypt data with a symmetric key using JWE JSON Serialization:
 .
 .nf
 
-$ jose jwk gen \-i \'{"alg":"A128GCM"}\' \-o key\.jwk
+$ jose jwk gen \-i \(cq{"alg":"A128GCM"}\(cq \-o key\.jwk
 $ jose jwe enc \-I msg\.txt \-k key\.jwk \-o msg\.jwe
 .
 .fi
@@ -125,14 +125,14 @@ Compress plaintext before encryption:
 .
 .nf
 
-$ jose jwe enc \-i \'{"protected":{"zip":"DEF"}}\' \.\.\.
+$ jose jwe enc \-i \(cq{"protected":{"zip":"DEF"}}\(cq \.\.\.
 .
 .fi
 .
 .IP "" 0
 .
 .P
-Encrypt with two keys and two passwords: $ jose jwk gen \-i \'{"alg":"ECDH\-ES+A128KW"}\' \-o ec\.jwk $ jose jwk gen \-i \'{"alg":"RSA1_5"}\' \-o rsa\.jwk $ jose jwe enc \-I msg\.txt \-p \-k ec\.jwk \-p \-k rsa\.jwk \-o msg\.jwe Please enter a password: Please re\-enter the previous password: Please enter a password: Please re\-enter the previous password:
+Encrypt with two keys and two passwords: $ jose jwk gen \-i \(cq{"alg":"ECDH\-ES+A128KW"}\(cq \-o ec\.jwk $ jose jwk gen \-i \(cq{"alg":"RSA1_5"}\(cq \-o rsa\.jwk $ jose jwe enc \-I msg\.txt \-p \-k ec\.jwk \-p \-k rsa\.jwk \-o msg\.jwe Please enter a password: Please re\-enter the previous password: Please enter a password: Please re\-enter the previous password:
 .
 .SH "AUTHOR"
 Nathaniel McCallum <npmccallum@redhat\.com>

@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "JOSE\-JWS\-SIG" "1" "June 2017" "" ""
+.TH "JOSE\-JWS\-SIG" "1" "July 2019" "" ""
 .
 .SH "NAME"
 \fBjose\-jws\-sig\fR \- Signs a payload using one or more JWKs
@@ -99,7 +99,7 @@ Sign data with a symmetric key using JWE JSON Serialization:
 .
 .nf
 
-$ jose jwk gen \-i \'{"alg":"HS256"}\' \-o key\.jwk
+$ jose jwk gen \-i \(cq{"alg":"HS256"}\(cq \-o key\.jwk
 $ jose jws sig \-I msg\.txt \-k key\.jwk \-o msg\.jws
 .
 .fi
@@ -126,8 +126,8 @@ Sign with two keys:
 .
 .nf
 
-$ jose jwk gen \-i \'{"alg":"ES256"}\' \-o ec\.jwk
-$ jose jwk gen \-i \'{"alg":"RS256"}\' \-o rsa\.jwk
+$ jose jwk gen \-i \(cq{"alg":"ES256"}\(cq \-o ec\.jwk
+$ jose jwk gen \-i \(cq{"alg":"RS256"}\(cq \-o rsa\.jwk
 $ jose jws sig \-I msg\.txt \-k ec\.jwk \-k rsa\.jwk \-o msg\.jws
 .
 .fi

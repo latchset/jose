@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "JOSE\-JWK\-EQL" "1" "June 2017" "" ""
+.TH "JOSE\-JWK\-EQL" "1" "July 2019" "" ""
 .
 .SH "NAME"
 \fBjose\-jwk\-eql\fR \- Calculates the JWK thumbprint
@@ -10,7 +10,7 @@
 \fBjose jwk eql\fR \-i JWK \-i JWK
 .
 .SH "OVERVIEW"
-The \fBjose jwk eql\fR command determines whether two keys are equal\. It compares the same properties defined for use in a JWK thumbprint (RFC 7638)\. This means that optional metadata isn\'t considered for comparison\.
+The \fBjose jwk eql\fR command determines whether two keys are equal\. It compares the same properties defined for use in a JWK thumbprint (RFC 7638)\. This means that optional metadata isn\(cqt considered for comparison\.
 .
 .SH "OPTIONS"
 .
@@ -33,7 +33,7 @@ Generate a key and modify optional metadata then test equality:
 .
 .nf
 
-$ jose jwk gen \-i \'{"alg":"ES256"}\' \-o key\.jwk
+$ jose jwk gen \-i \(cq{"alg":"ES256"}\(cq \-o key\.jwk
 $ jose fmt \-j key\.jwk \-Od alg \-o mod\.jwk
 $ jose jwk eql \-i key\.jwk \-i mod\.jwk
 $ echo $?

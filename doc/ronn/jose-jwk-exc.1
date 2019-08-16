@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "JOSE\-JWK\-EXC" "1" "June 2017" "" ""
+.TH "JOSE\-JWK\-EXC" "1" "July 2019" "" ""
 .
 .SH "NAME"
 \fBjose\-jwk\-exc\fR \- Performs a key exchange using the two input keys
@@ -77,8 +77,8 @@ Perform a key exchange:
 .
 .nf
 
-$ jose jwk gen \-i \'{"alg":"ECDH"}\' \-o local\.jwk
-$ jose jwk gen \-i \'{"alg":"ECDH"}\' | jose jwk pub \-i\- \-o remote\.jwk
+$ jose jwk gen \-i \(cq{"alg":"ECDH"}\(cq \-o local\.jwk
+$ jose jwk gen \-i \(cq{"alg":"ECDH"}\(cq | jose jwk pub \-i\- \-o remote\.jwk
 $ jose jwk exc \-l local\.jwk \-r remote\.jwk \-o exchanged\.jwk
 .
 .fi

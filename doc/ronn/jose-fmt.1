@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "JOSE\-FMT" "1" "June 2017" "" ""
+.TH "JOSE\-FMT" "1" "August 2019" "" ""
 .
 .SH "NAME"
 \fBjose\-fmt\fR \- Converts JSON between serialization formats
@@ -237,7 +237,7 @@ Change the algorithm in a JWK:
 .
 .nf
 
-$ echo "$jwk" | jose fmt \-j\- \-j \'"A128GCM"\' \-s alg \-Uo\-
+$ echo "$jwk" | jose fmt \-j\- \-j \(cq"A128GCM"\(cq \-s alg \-Uo\-
 {"kty":"oct","alg":"A128GCM",\.\.\.}
 .
 .fi
@@ -251,7 +251,7 @@ Build a JWE template:
 .
 .nf
 
-$ jose fmt \-j \'{}\' \-cs unprotected \-q A128KW \-s alg \-UUo\-
+$ jose fmt \-j \(cq{}\(cq \-cs unprotected \-q A128KW \-s alg \-UUo\-
 {"unprotected":{"alg":"A128KW"}}
 .
 .fi
