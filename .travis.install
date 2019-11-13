@@ -43,6 +43,8 @@ case "$DISTRO" in
   centos:*)
     yum -y clean all
     yum -y --setopt=deltarpm=0 update
+    yum install -y yum-utils
+    yum config-manager -y --set-enabled PowerTools
     yum -y install epel-release
     yum -y install $COMMON pkgconfig openssl-devel zlib-devel jansson-devel findutils gcc
     sed -i 's|>=1\.0\.2|>=1\.0\.1|' meson.build
