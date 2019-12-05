@@ -214,6 +214,8 @@ copy_val(const json_t *from, json_t *into, ...)
 static void __attribute__((constructor))
 constructor(void)
 {
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
     OpenSSL_add_all_algorithms();
+#endif
     RAND_poll();
 }
