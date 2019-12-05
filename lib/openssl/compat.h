@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <openssl/bn.h>
 #include <openssl/hmac.h>
 #include <openssl/ec.h>
 #include <openssl/ecdsa.h>
