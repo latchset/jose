@@ -1,41 +1,46 @@
-jose-jwk-thp(1) -- Calculates the JWK thumbprint
-================================================
+jose-jwk-thp(1)
+===============
+:doctype: manpage
 
-## SYNOPSIS
+== NAME
 
-`jose jwk thp` -i JWK [-H ALG] [-o THP]
+jose-jwk-thp - Calculates the JWK thumbprint
 
-## OVERVIEW
+== SYNOPSIS
 
-The `jose jwk thp` command calculates the thumbprint of one or more JWKs.
+*jose jwk thp* -i JWK [-H ALG] [-o THP]
 
-## OPTIONS
+== OVERVIEW
 
-* `-i` _JSON_, `--input`=_JSON_ :
+The *jose jwk thp* command calculates the thumbprint of one or more JWKs.
+
+== OPTIONS
+
+* *-i* _JSON_, *--input*=_JSON_ :
   Parse JWK(Set) from JSON
 
-* `-i` _FILE_, `--input`=_FILE_ :
+* *-i* _FILE_, *--input*=_FILE_ :
   Read JWK(Set) from FILE
 
-* `-i` -, `--input`=- :
+* *-i* -, *--input*=- :
   Read JWK(Set) standard input
 
-* `-a` _ALG_, `--algorithm`=_ALG_ :
+* *-a* _ALG_, *--algorithm*=_ALG_ :
   Use the specified hash algorithm (case sensitive)
 
-* `-a` ?, `--algorithm`=? :
+* *-a* ?, *--algorithm*=? :
   List available hash algorithms
 
-* `-o` _FILE_, `--output`=_FILE_ :
+* *-o* _FILE_, *--output*=_FILE_ :
   Write thumbprint(s) to FILE
 
-* `-o` -, `--output`=- :
+* *-o* -, *--output*=- :
   Write thumbprint(s) to standard input
 
-* `-f` _THP_, `--find`=_THP_ :
+* *-f* _THP_, *--find*=_THP_ :
   Search input keys for JWK with the given thumbprint
 
-## EXAMPLES
+== EXAMPLES
 
 Calculate the S1 thumbprint of a newly generated key:
 
@@ -52,11 +57,11 @@ Find the input key with the given thumbprint:
 
     $ jose jwk thp -i keys.jwkset -f HYRNOxxOOHap0amTONoy1bHnS5M -o key.jwk
 
-## AUTHOR
+== AUTHOR
 
-Nathaniel McCallum &lt;npmccallum@redhat.com&gt;
+Nathaniel McCallum <npmccallum@redhat.com>
 
-## SEE ALSO
+== SEE ALSO
 
-`jose-alg`(1),
-`jose-jwk-gen`(1),
+link:jose-alg.1.adoc[*jose-alg*(1)],
+link:jose-jwk-gen.1.adoc[*jose-jwk-gen*(1)],

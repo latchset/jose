@@ -1,13 +1,18 @@
-jose-jwk-gen(1) -- Creates a random JWK for each input JWK template
-===================================================================
+jose-jwk-gen(1)
+===============
+:doctype: manpage
 
-## SYNOPSIS
+== NAME
 
-`jose jwk gen` -i JWK [-o JWK]
+jose-jwk-gen - Creates a random JWK for each input JWK template
 
-## OVERVIEW
+== SYNOPSIS
 
-The `jose jwk gen` command generates a key from one or more JWK(Set) templates.
+*jose jwk gen* -i JWK [-o JWK]
+
+== OVERVIEW
+
+The *jose jwk gen* command generates a key from one or more JWK(Set) templates.
 If a single template is given as input, a single JWK will be output. However,
 if multiple templates are given as input, a single JWKSet will be output
 containing all the keys.
@@ -25,27 +30,27 @@ examples below for how to do this for each key type. If the type-specific
 generation parameter is non-standard (for example: "bytes" and "bits"), it will
 be removed excluded from the output.
 
-## OPTIONS
+== OPTIONS
 
-* `-i` _JSON_, `--input`=_JSON_ :
+* *-i* _JSON_, *--input*=_JSON_ :
   Parse JWK(Set) template from JSON
 
-* `-i` _FILE_, `--input`=_FILE_ :
+* *-i* _FILE_, *--input*=_FILE_ :
   Read JWK(Set) template from FILE
 
-* `-i` -, `--input`=- :
+* *-i* -, *--input*=- :
   Read JWK(Set) template from standard input
 
-* `-o` _FILE_, `--output`=_FILE_ :
+* *-o* _FILE_, *--output*=_FILE_ :
   Write JWK(Set) to FILE
 
-* `-o` -, `--output`=- :
+* *-o* -, *--output*=- :
   Write JWK(Set) to standard input
 
-* `-s`, `--set` :
+* *-s*, *--set* :
   Always output a JWKSet
 
-## EXAMPLES
+== EXAMPLES
 
 Generate three keys, each targeting a different algorithm:
 
@@ -72,18 +77,18 @@ Create multiple keys at once using multiple JWK templates:
       -i '{"alg":"ES256"}' \
       -o keys.jwkset
 
-## AUTHOR
+== AUTHOR
 
-Nathaniel McCallum &lt;npmccallum@redhat.com&gt;
+Nathaniel McCallum <npmccallum@redhat.com>
 
-## SEE ALSO
+== SEE ALSO
 
-`jose-alg`(1),
-`jose-jwe-dec`(1),
-`jose-jwe-enc`(1),
-`jose-jwk-exc`(1),
-`jose-jwk-pub`(1),
-`jose-jwk-thp`(1),
-`jose-jwk-use`(1),
-`jose-jws-sig`(1),
-`jose-jws-ver`(1),
+link:jose-alg.1.adoc[*jose-alg*(1)],
+link:jose-jwe-dec.1.adoc[*jose-jwe-dec*(1)],
+link:jose-jwe-enc.1.adoc[*jose-jwe-enc*(1)],
+link:jose-jwk-exc.1.adoc[*jose-jwk-exc*(1)],
+link:jose-jwk-pub.1.adoc[*jose-jwk-pub*(1)],
+link:jose-jwk-thp.1.adoc[*jose-jwk-thp*(1)],
+link:jose-jwk-use.1.adoc[*jose-jwk-use*(1)],
+link:jose-jws-sig.1.adoc[*jose-jws-sig*(1)],
+link:jose-jws-ver.1.adoc[*jose-jws-ver*(1)],

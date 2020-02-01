@@ -1,76 +1,81 @@
-jose-jwk-use(1) -- Validates a key for the specified use(s)
-===========================================================
+jose-jwk-use(1)
+===============
+:doctype: manpage
 
-## SYNOPSIS
+== NAME
 
-`jose jwk use` -i JWK [-a] [-r] -u OP
+jose-jwk-use - Validates a key for the specified use(s)
 
-## OVERVIEW
+== SYNOPSIS
 
-The `jose jwk use` command validates one or more JWK(Set) inputs for a given
+*jose jwk use* -i JWK [-a] [-r] -u OP
+
+== OVERVIEW
+
+The *jose jwk use* command validates one or more JWK(Set) inputs for a given
 set of usages. This will be validated against the "use" and "key_ops"
 properties of each JWK.
 
 By default, if a JWK has no restrictions an operation will be allowed.
-However, by specifying the `-r` option you can ensure that a JWK will not
+However, by specifying the *-r* option you can ensure that a JWK will not
 be allowed unless it explicitly permits the option.
 
-In normal operation, `jose jwk use` will fail if any of the JWKs do not
-validate. However, if the `-o` option is used `jose jwk use` will instead
+In normal operation, *jose jwk use* will fail if any of the JWKs do not
+validate. However, if the *-o* option is used *jose jwk use* will instead
 write a JWK(Set) containing all of the input keys that validate. If no JWKs
 validate, the command will fail.
 
-## OPTIONS
+== OPTIONS
 
-* `-i` _JSON_, `--input`=_JSON_ :
+* *-i* _JSON_, *--input*=_JSON_ :
   Parse JWK(Set) from JSON
 
-* `-i` _FILE_, `--input`=_FILE_ :
+* *-i* _FILE_, *--input*=_FILE_ :
   Read JWK(Set) from FILE
 
-* `-i` -, `--input`=- :
+* *-i* -, *--input*=- :
   Read JWK(Set) standard input
 
-* `-u` sign, `--use`=sign :
+* *-u* sign, *--use*=sign :
   Validate the key for signing
 
-* `-u` verify, `--use`=verify :
+* *-u* verify, *--use*=verify :
   Validate the key for verifying
 
-* `-u` encrypt, `--use`=encrypt :
+* *-u* encrypt, *--use*=encrypt :
   Validate the key for encrypting
 
-* `-u` decrypt, `--use`=decrypt :
+* *-u* decrypt, *--use*=decrypt :
   Validate the key for decrypting
 
-* `-u` wrapKey, `--use`=wrapKey :
+* *-u* wrapKey, *--use*=wrapKey :
   Validate the key for wrapping
 
-* `-u` unwrapKey, `--use`=unwrapKey :
+* *-u* unwrapKey, *--use*=unwrapKey :
   Validate the key for unwrapping
 
-* `-u` deriveKey, `--use`=deriveKey :
+* *-u* deriveKey, *--use*=deriveKey :
   Validate the key for deriving keys
 
-* `-u` deriveBits, `--use`=deriveBits :
+* *-u* deriveBits, *--use*=deriveBits :
   Validate the key for deriving bits
 
-* `-a`, `--all` :
+* *-a*, *--all* :
   Succeeds only if all operations are allowed
 
-* `-r`, `--required` :
+* *-r*, *--required* :
   Operations must be explicitly allowed
 
-* `-o` _FILE_, `--output`=_FILE_ :
+* *-o* _FILE_, *--output*=_FILE_ :
   Filter keys to FILE as JWK(Set)
 
-* `-o` -, `--output`=- :
+* *-o* -, *--output*=- :
   Filter keys to standard output as JWK(Set)
 
-* `-s`, `--set` :
+* *-s*, *--set* :
   Always output a JWKSet
 
-## EXAMPLES
+== EXAMPLES
 
 Examples of both success and failure from a private and public key:
 
@@ -83,10 +88,10 @@ Examples of both success and failure from a private and public key:
     $ echo $?
     1
 
-## AUTHOR
+== AUTHOR
 
-Nathaniel McCallum &lt;npmccallum@redhat.com&gt;
+Nathaniel McCallum <npmccallum@redhat.com>
 
-## SEE ALSO
+== SEE ALSO
 
-`jose-jwk-gen`(1)
+link:jose-jwk-gen.1.adoc[*jose-jwk-gen*(1)]
