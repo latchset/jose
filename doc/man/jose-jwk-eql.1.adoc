@@ -1,28 +1,33 @@
-jose-jwk-eql(1) -- Calculates the JWK thumbprint
-================================================
+jose-jwk-eql(1)
+===============
+:doctype: manpage
 
-## SYNOPSIS
+== NAME
 
-`jose jwk eql` -i JWK -i JWK
+jose-jwk-eql - Checks if two keys are equal
 
-## OVERVIEW
+== SYNOPSIS
 
-The `jose jwk eql` command determines whether two keys are equal. It compares
+*jose jwk eql* -i JWK -i JWK
+
+== OVERVIEW
+
+The *jose jwk eql* command determines whether two keys are equal. It compares
 the same properties defined for use in a JWK thumbprint (RFC 7638). This means
 that optional metadata isn't considered for comparison.
 
-## OPTIONS
+== OPTIONS
 
-* `-i` JSON, `--input`=JSON :
+* *-i* JSON, *--input*=JSON :
   Parse JWK(Set) from JSON
 
-* `-i` FILE, `--input`=FILE :
+* *-i* FILE, *--input*=FILE :
   Read JWK(Set) from FILE
 
-* `-i` -, `--input`=- :
+* *-i* -, *--input*=- :
   Read JWK(Set) standard input
 
-## EXAMPLES
+== EXAMPLES
 
 Generate a key and modify optional metadata then test equality:
 
@@ -32,10 +37,10 @@ Generate a key and modify optional metadata then test equality:
     $ echo $?
     0
 
-## AUTHOR
+== AUTHOR
 
-Nathaniel McCallum &lt;npmccallum@redhat.com&gt;
+Nathaniel McCallum <npmccallum@redhat.com>
 
-## SEE ALSO
+== SEE ALSO
 
-`jose-jwk-thp`(1)
+link:jose-jwk-thp.1.adoc[*jose-jwk-thp*(1)]

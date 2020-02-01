@@ -1,13 +1,18 @@
-jose-jwe-fmt(1) -- Converts a JWE between serialization formats
-===============================================================
+jose-jwe-fmt(1)
+===============
+:doctype: manpage
 
-## SYNOPSIS
+== NAME
 
-`jose jwe fmt` -i JWE [-I CT] [-o JWE] [-O CT] [-c]
+jose-jwe-fmt - Converts a JWE between serialization formats
 
-## OVERVIEW
+== SYNOPSIS
 
-The `jose jwe fmt` command converts a JWE into alternative serialization
+*jose jwe fmt* -i JWE [-I CT] [-o JWE] [-O CT] [-c]
+
+== OVERVIEW
+
+The *jose jwe fmt* command converts a JWE into alternative serialization
 formats. For example, it can:
 
 1. Attach ciphertext to a detached JWE.
@@ -15,39 +20,39 @@ formats. For example, it can:
 3. Convert JWE Compact Serialization to JWE JSON Serialization.
 4. Convert JWE JSON Serialization to JWE Compact Serialization.
 
-## OPTIONS
+== OPTIONS
 
-*  `-i` _JSON_, `--input`=_JSON_ :
+*  *-i* _JSON_, *--input*=_JSON_ :
   Parse JWE from JSON
 
-*  `-i` _FILE_, `--input`=_FILE_ :
+*  *-i* _FILE_, *--input*=_FILE_ :
   Read JWE from FILE
 
-*  `-i` -, `--input`=-:
+*  *-i* -, *--input*=-:
   Read JWE from standard input
 
-*  `-I` _FILE_, `--detached`=_FILE_ :
+*  *-I* _FILE_, *--detached*=_FILE_ :
   Read decoded ciphertext from FILE
 
-*  `-I` -, `--detached`=- :
+*  *-I* -, *--detached*=- :
   Read decoded ciphertext from standard input
 
-*  `-o` _FILE_, `--output`=_FILE_ :
+*  *-o* _FILE_, *--output*=_FILE_ :
   Write JWE to FILE
 
-*  `-o` -, `--output`=- :
+*  *-o* -, *--output*=- :
   Write JWE to stdout (default)
 
-*  `-O` _FILE_, `--detach`=_FILE_ :
+*  *-O* _FILE_, *--detach*=_FILE_ :
   Detach ciphertext and decode to FILE
 
-*  `-O` -, `--detach`=- :
+*  *-O* -, *--detach*=- :
   Detach ciphertext and decode to standard output
 
-*  `-c`, `--compact` :
+*  *-c*, *--compact* :
   Output JWE using compact serialization
 
-## EXAMPLES
+== EXAMPLES
 
 Attach ciphertext to a detached JWE and emit JWE Compact Serialization:
 
@@ -57,11 +62,11 @@ Detach ciphertext from a JWE:
 
     $ jose jwe fmt -i msg.jwe -o detached.jwe -O detached.ct
 
-## AUTHOR
+== AUTHOR
 
-Nathaniel McCallum &lt;npmccallum@redhat.com&gt;
+Nathaniel McCallum <npmccallum@redhat.com>
 
-## SEE ALSO
+== SEE ALSO
 
-`jose-jwe-dec`(1),
-`jose-jwe-enc`(1)
+link:jose-jwe-dec.1.adoc[*jose-jwe-dec*(1)],
+link:jose-jwe-enc.1.adoc[*jose-jwe-enc*(1)]
