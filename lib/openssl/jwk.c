@@ -305,6 +305,7 @@ jose_openssl_jwk_to_RSA(jose_cfg_t *cfg, const json_t *jwk)
 
     N = bn_decode_json(n);
     E = bn_decode_json(e);
+    D = bn_decode_json(d);
     P = bn_decode_json(p);
     Q = bn_decode_json(q);
     DP = bn_decode_json(dp);
