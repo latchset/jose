@@ -1,4 +1,14 @@
+sudo: required
+arch:
+  - amd64
+  - ppc64le
+os: linux
 language: c
+compiler:
+  - clang
+  - gcc
+
+services: docker
 
 matrix:
   include:
@@ -15,13 +25,11 @@ matrix:
         - DISTRO=osx:xcode8.3
         - PKG_CONFIG_PATH=/usr/local/opt/openssl/lib/pkgconfig:/usr/local/opt/zlib/lib/pkgconfig
 
-compiler:
-  - clang
-  - gcc
+  exclude:
+    - arch: ppc64le
+      env: 
+        - DISTRO=fedora:rawhide
 
-os: linux
-sudo: required
-services: docker
 env:
   matrix:
     - DISTRO=fedora:rawhide
