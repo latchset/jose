@@ -105,3 +105,29 @@ hi
 $ jose jwe dec -i msg.jwe -k oct.jwk
 Decryption failed!
 ```
+
+# Building and Installing from Source
+Building Jose is fairly straightforward:
+
+    $ mkdir build && cd build
+    $ meson .. --prefix=/usr
+    $ ninja
+    $ sudo ninja install
+
+You can even run the tests if you'd like:
+
+    $ meson test
+
+To build a FreeBSD, HardendBSD or OPNsense package
+use (lines preceded by # need to be run as root):
+
+    # pkg install meson pkgconf jansson openssl
+    $ mkdir build && cd build
+    $ meson .. --prefix=/usr/local
+    $ ninja
+    $ meson test
+    # ninja install
+
+And you can package to do binary installation on other systems.
+
+    $ pkg create -M BSD-MANIFEST

@@ -1,11 +1,11 @@
-#!/bin/bash -ex
+#!/bin/sh -ex
 
 a=`jose jwk thp -i $VECTORS/rfc7638_3.1.jwk -a S256`
 b=`cat $VECTORS/rfc7638_3.1.thp`
 [ $a == $b ]
 
 jwk=`jose jwk thp -i $VECTORS/rfc7520_4.8.jwkset -f HYRNOxxOOHap0amTONoy1bHnS5M`
-[ "`jose jwk thp -i- -a S1 <<< "$jwk"`" == "HYRNOxxOOHap0amTONoy1bHnS5M" ]
+[ "`echo ${jwk} | jose jwk thp -i- -a S1`" == "HYRNOxxOOHap0amTONoy1bHnS5M" ]
 jose fmt -j "$jwk" -O \
     -g kty -q EC    -EUU \
     -g crv -q P-521 -EUU \

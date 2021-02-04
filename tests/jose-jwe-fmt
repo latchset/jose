@@ -1,4 +1,4 @@
-#!/bin/bash -ex
+#!/bin/sh -ex
 
 for f in $VECTORS/*.jwec; do
     cmpct=`cat $f`

@@ -1,12 +1,13 @@
-#!/bin/bash -ex
+#!/bin/sh -ex
 
 tmpdir=`mktemp -d 2>/dev/null || mktemp -d -t jose`
 
-function onexit() {
+onexit() {
     rm -rf $tmpdir
 }
 
-trap exit ERR
+# not needed since the script is executed with -e
+# trap exit ERR
 trap onexit EXIT
 
 for T in '{"alg":"ECDH"}' '{"alg":"ECDH","crv":"P-256"}' '{"kty":"EC","crv":"P-256"}'; do

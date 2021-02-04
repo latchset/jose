@@ -1,14 +1,15 @@
-#!/bin/bash -ex
+#!/bin/sh -ex
 
 ALGS=`jose alg -k sign`
 
 tmpdir=`mktemp -d 2>/dev/null || mktemp -d -t jose`
 
-function onexit() {
+onexit() {
     rm -rf $tmpdir
 }
 
-trap exit ERR
+# not needed since the script is executed with -e
+# trap exit ERR
 trap onexit EXIT
 
 msg=$tmpdir/msg.txt
