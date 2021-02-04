@@ -1,0 +1,65 @@
+name: "jose"
+origin: "www/jose"
+version: "10"
+comment: "Tools for JSON Object Signing and Encryption (JOSE)"
+desc: "José is a command line utility for performing various tasks on JSON Object Signing and Encryption (JOSE) objects. José provides a full crypto stack including key generation, signing and encryption."
+abi: "FreeBSD:12:amd64"
+arch: "freebsd:12:x86:64"
+maintainer: "64922841+hdholm@users.noreply.github.com"
+www: "https://github.com/hdholm/jose"
+prefix: "/usr/local"
+licenselogic: "single"
+licenses: [
+    "ASL 2.0"
+]
+shlibs_provided: [
+    "libjose.so.0.0.0"
+]
+shlibs_required: [
+    "libjansson.so.4",
+    "libcrypto.so.11"
+]
+
+files: {
+  /usr/local/bin/jose: '0326e95543ed588d08b9ebf6d37ece0745e0f738fd152ec3f9bd4b915896ec6e',
+  /usr/local/lib/libjose.so: '-',
+  /usr/local/lib/libjose.so.0: '-',
+  /usr/local/lib/libjose.so.0.0.0: '335a19a1fbd95e5a6f4fc950bb25a8ffd84ab727feb1b7937a5f84bcf3e90c13',
+  /usr/local/libdata/pkgconfig/jose.pc: '974f4ed99d63357b95196a92fb53611cd82b20d3eac7e5207ee4b840f9f02367',
+  /usr/local/share/man/man1/jose-alg.1: '0dbea6da021c12dfddc5331a9f87291f2bfaac784b112df4660694b3cf809f97',
+  /usr/local/share/man/man1/jose-b64-dec.1: '9c59c8501ffdfd48f5215a62948e760e23342c2013267a4c86b98b847c47c9f7',
+  /usr/local/share/man/man1/jose-b64-enc.1: 'ee4ef17eca17a02898f64d59e91baf918f8ba9378ad750c4471d75cb3477c7ea',
+  /usr/local/share/man/man1/jose-fmt.1: '5c52973b0af4ffc0a7df9a1b07d80b7418574f62030052c77b58038da6928d85',
+  /usr/local/share/man/man1/jose-jwe-dec.1: '1ae5c8c5cc042667b6843d58bc216b743b899d4bb73c49913ea7a1028a4f3f48',
+  /usr/local/share/man/man1/jose-jwe-enc.1: '41a7a1c609a55466fbd3e07fa032070eb51c40b5d7605180c67af37319e9224d',
+  /usr/local/share/man/man1/jose-jwe-fmt.1: '4be961dfd1294071d254158a22729c42fe1c76461338ceb2a46cd9759befea19',
+  /usr/local/share/man/man1/jose-jwk-exc.1: 'edc341ffccf357436b86257e37c88e890d7f6e5c29d710061649a432b1ad44a5',
+  /usr/local/share/man/man1/jose-jwk-gen.1: '5673031475697a51fd4c0dcebca5c8ff56fdd4f92758e15c9485a902256beb76',
+  /usr/local/share/man/man1/jose-jwk-pub.1: '181277b9e0b9724e7bc252bbcea952b977b250decfb2fb31df676b2f28ecd8fa',
+  /usr/local/share/man/man1/jose-jwk-thp.1: 'f2ee800df318f993f75fe71a91acd497a7ad78f457cdb0112dcecc73f0bba0ee',
+  /usr/local/share/man/man1/jose-jwk-use.1: '5073ac138c396b394235208469497a90de573dfe6946aebb2923187135c7482c',
+  /usr/local/share/man/man1/jose-jws-fmt.1: '35d9338d73c54123f2a7dd73b6f43c873bc17398ca4d5527d953f1db337c3011',
+  /usr/local/share/man/man1/jose-jws-sig.1: '4fdc9ae82793ab40df98a9630e6d0570e7bb4cc06b53980a13d29bf353d04dea',
+  /usr/local/share/man/man1/jose-jws-ver.1: 'b200ed2b7bc23627e43a1089ba354bd0fb35ffb80baf970a170a10d82089850e',
+  /usr/local/share/man/man1/jose.1: '04fb64f51f57ae11b1c2d26615c274318525f25ad5a68a202c6e2313f0970c66',
+  /usr/local/include/jose/b64.h: 'c12a88a8a6e43f343ded046a6f631a789f6498b708ac9c3d6e550d4f0572ff55',
+  /usr/local/include/jose/cfg.h: '37bcb17b162f9545e45140fa35a3cdd92f614a4b609eca79df433fa83b97bef6',
+  /usr/local/include/jose/io.h: '76f699092e445f053654ba3d1e8533dcc4eb4e63ad18d3b1a07cb792b632af67',
+  /usr/local/include/jose/jose.h: '7a6b5abf01ce3dab96d4760e7921289849e8d1727ed0ec4c8d981331ae12346d',
+  /usr/local/include/jose/jwe.h: '04c1a7bcaba11126383cdcc6be6b78e1b5af784d14c1b0978dd7dd8dc4452827',
+  /usr/local/include/jose/jwk.h: '22a5bf5429aeaa6cae45b9f9317331ad7a5f6c9b44a5b5256b7722f3175f2d8f',
+  /usr/local/include/jose/jws.h: '784e7522461fce0d76a566551581c3867cb861ac355a8eded7d57dc18a7557e1',
+  /usr/local/include/jose/openssl.h: '04c4e0ec6bf82f174d2d6bcac9e2b4a39726909191a94fe07b1ae759210870f5',
+  /usr/local/share/man/man3/jose_b64.3: 'ef866bab56ce210a412f7c611a142b99513f8abf237610ccba77a969286c04a1',
+  /usr/local/share/man/man3/jose_cfg.3: 'c4c1836a1af61fedb21086e496d06554e8b98aa195d7bca4c677a22066dae9d0',
+  /usr/local/share/man/man3/jose_io.3: '84f8a4a1a69cf5b54696b02c3a05ff66b296dabd863adf40324c5555b78497ca',
+  /usr/local/share/man/man3/jose_io_t.3: 'dcb53b2a76c5afd460a91b87aea82474a41acf4e3072920638f45c42992f1283',
+  /usr/local/share/man/man3/jose_jwe.3: 'c92cece0d9622a52d9fbd00b443d81a4effd35753a6904c0aa47834c9e72fd17',
+  /usr/local/share/man/man3/jose_jwk.3: '6657e178fab07e3fdc2365dc6840751d193731107e2faf7f1594bcdea4ea4eb6',
+  /usr/local/share/man/man3/jose_jws.3: '32d8012e73bd25b36d1254882f56434358a34a149baa218f84a59a69480ae568',
+  /usr/local/share/licenses/jose-10/COPYING: '09e8a9bcec8067104652c168685ab0931e7868f9c8284b66f5ae6edae5f1130b'
+}
+
+directories: {
+  /usr/local/include/jose: 'y'
+}
