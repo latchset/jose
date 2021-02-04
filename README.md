@@ -119,15 +119,17 @@ You can even run the tests if you'd like:
     $ meson test
 
 To build a FreeBSD, HardendBSD or OPNsense package
-use (lines preceded by # need to be run as root):
+use:
 
-    # pkg install meson pkgconf jansson openssl
+    (as root) # pkg install meson pkgconf jansson openssl
     $ mkdir build && cd build
     $ meson .. --prefix=/usr/local
     $ ninja
     $ meson test
-    # ninja install
-
-And you can package to do binary installation on other systems.
-
+    (as root) # ninja install
     $ pkg create -M BSD-MANIFEST
+
+The install should be sufficient, but the pkg create allows you to
+create a binary package for installation on other systems. Once built it
+does not require install, meson and pkgconf, but still requires
+jansson and openssl.
