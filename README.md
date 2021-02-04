@@ -127,7 +127,7 @@ use:
     $ ninja
     $ meson test
     (as root) # ninja install
-    $ pkg create -M BSD-MANIFEST
+    $ pkg create -M ../BSD-MANIFEST
 
 The install should be sufficient, but the pkg create allows you to
 create a binary package for installation on other systems. Once built it
