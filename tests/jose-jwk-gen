@@ -17,6 +17,7 @@ done
 jose jwk gen -i '{ "kty": "EC", "crv": "P-256" }'
 jose jwk gen -i '{ "kty": "EC", "crv": "P-384" }'
 jose jwk gen -i '{ "kty": "EC", "crv": "P-521" }'
+jose jwk gen -i '{ "kty": "EC", "crv": "secp256k1" }'
 
 jose jwk gen -i '{ "kty": "RSA", "bits": 3072 }'
 ! jose jwk gen -i '{ "kty": "RSA", "bits": 3072, "e": 257 }'

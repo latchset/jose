@@ -48,10 +48,11 @@ jwk_make_execute(jose_cfg_t *cfg, json_t *jwk)
     if (json_unpack(jwk, "{s?s}", "crv", &crv) < 0)
         return false;
 
-    switch (str2enum(crv, "P-256", "P-384", "P-521", NULL)) {
+    switch (str2enum(crv, "P-256", "P-384", "P-521", "secp256k1", NULL)) {
     case 0: nid = NID_X9_62_prime256v1; break;
     case 1: nid = NID_secp384r1; break;
     case 2: nid = NID_secp521r1; break;
+    case 3: nid = NID_secp256k1; break;
     default: return false;
     }
 
