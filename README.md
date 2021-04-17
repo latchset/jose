@@ -1,5 +1,8 @@
 # Welcome to José!
+
 [![build](https://github.com/hdholm/jose/actions/workflows/build.yml/badge.svg)](https://github.com/hdholm/jose/actions/workflows/build.yml)
+[![coverage](https://github.com/hdholm/jose/actions/workflows/coverage.yml/badge.svg)](https://github.com/hdholm/jose/actions/workflows/coverage.yml)
+
 José is a C-language implementation of the Javascript Object Signing and
 Encryption standards. Specifically, José aims towards implementing the
 following standards:
