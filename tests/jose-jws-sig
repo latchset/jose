@@ -8,8 +8,6 @@ onexit() {
     rm -rf $tmpdir
 }
 
-# not needed since the script is executed with -e
-# trap exit ERR
 trap onexit EXIT
 
 msg=$tmpdir/msg.txt
