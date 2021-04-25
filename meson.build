@@ -7,7 +7,10 @@ project('jose', 'c', license: 'APL2', version: '10',
   ]
 )
 
-licensedir = join_paths(get_option('prefix'), 'share', 'licenses', meson.project_name()+'-'+meson.project_version())
+licensedir = join_paths(get_option('prefix'), 'share', 'licenses', meson.project_name())
+if build_machine.system() == 'freebsd'
+  licensedir += '-'+meson.project_version()
+endif
 
 add_project_arguments(
   '-I' + meson.current_source_dir(),
