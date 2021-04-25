@@ -46,3 +46,5 @@ foreach s: scripts
   exe = find_program('./' + s)
   test(s, exe, env: e, timeout: 60)
 endforeach
+
+subdir('issue-75')
