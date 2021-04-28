@@ -29,7 +29,7 @@ progs = [
 ]
 
 e = environment()
-e.append('PATH', meson.current_build_dir() + '/../cmd', separator: ':')
+e.prepend('PATH', meson.current_build_dir() + '/../cmd', separator: ':')
 e.set('VECTORS', meson.current_source_dir() + '/vectors')
 
 foreach p: progs
