@@ -21,6 +21,35 @@
 
 #include <string.h>
 
+/* The following functions are from OpenSSL 3 code base:
+ * - bn_is_three()
+ * - check_public_exponent() is ossl_rsa_check_public_exponent(), with
+ *   a minor change -- no FIPS check for allowing RSA_3. */
+static int bn_is_three(const BIGNUM *bn)
+{
+    BIGNUM *num = BN_dup(bn);
+    int ret = (num != NULL && BN_sub_word(num, 3) && BN_is_zero(num));
+
+    BN_free(num);
+    return ret;
+}
+
+/* Check exponent is odd, and has a bitlen ranging from [17..256]
+ * In practice, it allows odd integers greater than or equal to 65537. 3 is
+ * also allowed, for legacy purposes. */
+static int check_public_exponent(const BIGNUM* e)
+{
+    int bitlen;
+
+    /* In OpenSSL 3, RSA_3 is allowed in non-FIPS mode only, for
+     * legacy purposes. */
+    if (bn_is_three(e)) {
+        return 1;
+    }
+    bitlen = BN_num_bits(e);
+    return (BN_is_odd(e) && bitlen > 16 && bitlen < 257);
+}
+
 static RSA *
 mkrsa(const json_t *jwk)
 {
@@ -57,6 +86,10 @@ mkrsa(const json_t *jwk)
 
     default:
         break;
+    }
+
+    if (!check_public_exponent(bn)) {
+        return NULL;
     }
 
     key = RSA_new();
