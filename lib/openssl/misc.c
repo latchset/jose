@@ -193,21 +193,27 @@ copy_val(const json_t *from, json_t *into, ...)
         json_t *i = NULL;
 
         f = json_object_get(from, n);
-        if (!f)
+        if (!f) {
+            va_end(ap);
             return false;
+        }
 
         i = json_object_get(into, n);
         if (i) {
             if (json_equal(i, f))
                 continue;
 
+            va_end(ap);
             return false;
         }
 
-        if (json_object_set_new(into, n, json_deep_copy(f)) < 0)
+        if (json_object_set_new(into, n, json_deep_copy(f)) < 0) {
+            va_end(ap);
             return false;
+        }
     }
 
+    va_end(ap);
     return true;
 }
 
