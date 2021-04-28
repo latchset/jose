@@ -1,4 +1,4 @@
-#!/bin/bash -ex
+#!/bin/sh -ex
 
 ALGS=`jose alg -k sign -k wrap -k encr | grep -v '^dir$'`
 

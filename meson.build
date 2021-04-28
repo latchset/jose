@@ -1,12 +1,20 @@
-project('jose', 'c', license: 'APL2', version: '10')
+project('jose', 'c', license: 'APL2', version: '10',
+  default_options: [
+    'c_std=gnu99',
+    'prefix=/usr',
+    'warning_level=2',
+    'werror=true'
+  ]
+)
+
+licensedir = join_paths(get_option('prefix'), 'share', 'licenses', meson.project_name())
+if build_machine.system() == 'freebsd'
+  licensedir += '-'+meson.project_version()
+endif
 
 add_project_arguments(
   '-I' + meson.current_source_dir(),
   '-I' + meson.current_build_dir(),
-  '-std=gnu99',
-  '-Wall',
-  '-Wextra',
-  '-Werror',
   '-Wstrict-aliasing',
   '-Wchar-subscripts',
   '-Wformat-security',
@@ -31,11 +39,15 @@ threads = dependency('threads')
 jansson = dependency('jansson', version: '>=2.10')
 libcrypto = dependency('libcrypto', version: '>=1.0.2')
 
+licenses = ['COPYING']
+
 subdir('jose')
 subdir('doc')
 subdir('lib')
 subdir('cmd')
 subdir('tests')
+
+install_data(licenses, install_dir: licensedir)
 
 pkg = import('pkgconfig')
 pkg.generate(

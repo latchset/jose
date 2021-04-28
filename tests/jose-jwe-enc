@@ -1,21 +1,20 @@
-#!/bin/bash -ex
+#!/bin/sh -ex
 
 WRAP=`jose alg -k wrap`
 ENCR=`jose alg -k encr`
 
 tmpdir=`mktemp -d 2>/dev/null || mktemp -d -t jose`
 
-function onexit() {
+onexit() {
     rm -rf $tmpdir
 }
 
-trap exit ERR
 trap onexit EXIT
 
 jwk=$tmpdir/jwk
 jwe=$tmpdir/jwe
 
-function jqopt() {
+jqopt() {
     if ! which jq >/dev/null 2>&1; then
         echo "$3"
     else
@@ -23,7 +22,7 @@ function jqopt() {
     fi
 }
 
-function jqbopt() {
+jqbopt() {
     if ! which jq >/dev/null 2>&1; then
         echo "$4"
     else

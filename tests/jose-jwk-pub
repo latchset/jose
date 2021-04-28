@@ -1,4 +1,4 @@
-#!/bin/bash -ex
+#!/bin/sh -ex
 
 ioct='{"kty":"oct","k":"","a":"foo","key_ops":["encrypt","decrypt"]}'
 irsa='{"kty":"RSA","p":"","d":"","q":"","dp":"","dq":"","qi":"","oth":"","a":"bar","key_ops":["encrypt","decrypt"]}'
