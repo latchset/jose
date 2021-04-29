@@ -17,6 +17,12 @@
 
 #pragma once
 
+/* Don't warn about deprecated functions. */
+#ifndef OPENSSL_API_COMPAT
+  /* 0x10101000L == 1.1.1. */
+  #define OPENSSL_API_COMPAT 0x10101000L
+#endif
+
 #include <openssl/bn.h>
 #include <openssl/hmac.h>
 #include <openssl/ec.h>
