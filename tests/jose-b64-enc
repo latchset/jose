@@ -1,9 +1,9 @@
 #!/bin/sh -ex
 
-[ "`echo -n | jose b64 enc -I-`" == "" ]
-[ `echo -n "f" | jose b64 enc -I-` == "Zg" ]
-[ `echo -n "fo" | jose b64 enc -I-` == "Zm8" ]
-[ `echo -n "foo" | jose b64 enc -I-` == "Zm9v" ]
-[ `echo -n "foob" | jose b64 enc -I-` == "Zm9vYg" ]
-[ `echo -n "fooba" | jose b64 enc -I-` == "Zm9vYmE" ]
-[ `echo -n "foobar" | jose b64 enc -I-` == "Zm9vYmFy" ]
+test "`printf "" | jose b64 enc -I-`" = ""
+test `printf "f" | jose b64 enc -I-` = "Zg"
+test `printf "fo" | jose b64 enc -I-` = "Zm8"
+test `printf "foo" | jose b64 enc -I-` = "Zm9v"
+test `printf "foob" | jose b64 enc -I-` = "Zm9vYg"
+test `printf "fooba" | jose b64 enc -I-` = "Zm9vYmE"
+test `printf "foobar" | jose b64 enc -I-` = "Zm9vYmFy"

@@ -1,9 +1,9 @@
 #!/bin/sh -ex
 
-[ "`echo -n | jose b64 dec -i-`" == "" ]
-[ `echo -n "Zg" | jose b64 dec -i-` == "f" ]
-[ `echo -n "Zm8" | jose b64 dec -i-` == "fo" ]
-[ `echo -n "Zm9v" | jose b64 dec -i-` == "foo" ]
-[ `echo -n "Zm9vYg" | jose b64 dec -i-` == "foob" ]
-[ `echo -n "Zm9vYmE" | jose b64 dec -i-` == "fooba" ]
-[ `echo -n "Zm9vYmFy" | jose b64 dec -i-` == "foobar" ]
+test "`printf "" | jose b64 dec -i-`" = ""
+test `printf "Zg" | jose b64 dec -i-` = "f"
+test `printf "Zm8" | jose b64 dec -i-` = "fo"
+test `printf "Zm9v" | jose b64 dec -i-` = "foo"
+test `printf "Zm9vYg" | jose b64 dec -i-` = "foob"
+test `printf "Zm9vYmE" | jose b64 dec -i-` = "fooba"
+test `printf "Zm9vYmFy" | jose b64 dec -i-` = "foobar"
