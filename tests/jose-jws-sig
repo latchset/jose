@@ -11,7 +11,7 @@ onexit() {
 trap onexit EXIT
 
 msg=$tmpdir/msg.txt
-echo -n hi > $msg
+printf "hi" > $msg
 
 for a in $ALGS; do
     jwk=$tmpdir/$a.jwk
@@ -28,8 +28,8 @@ for a in $ALGS; do
     jwk=$tmpdir/$a.jwk
     jws=$tmpdir/$a.jws
 
-    echo -n hi | jose jws sig -I- -k $jwk    | jose jws ver -i- -k $jwk
-    echo -n hi | jose jws sig -I- -k $jwk -c | jose jws ver -i- -k $jwk
+    printf "hi" | jose jws sig -I- -k $jwk    | jose jws ver -i- -k $jwk
+    printf "hi" | jose jws sig -I- -k $jwk -c | jose jws ver -i- -k $jwk
 
     jose jws sig -o $jws -k $jwk -I $msg
     jose jws ver -i $jws -k $jwk
@@ -40,24 +40,24 @@ for a in $ALGS; do
     rm -f $jws
 
     det=`jose jws sig -I $msg -k $jwk -o /dev/null -O-`
-    [ "$det" == "hi" ]
+    [ "$det" = "hi" ]
 
     jws=`jose jws sig -I $msg -k $jwk -O /dev/null`
     ! jose jws ver -i "$jws" -k $jwk
     det=`jose jws ver -i "$jws" -k $jwk -I $msg -O-`
-    [ "$det" == "hi" ]
+    [ "$det" = "hi" ]
 
     jws=`jose jws sig -I $msg -k $jwk`
     det=`jose jws ver -i "$jws" -k $jwk`
-    [ "$det" == "" ]
+    [ "$det" = "" ]
     det=`jose jws ver -i "$jws" -k $jwk -O-`
-    [ "$det" == "hi" ]
+    [ "$det" = "hi" ]
 
     jws=`jose jws sig -I $msg -k $jwk -c`
     det=`jose jws ver -i "$jws" -k $jwk`
-    [ "$det" == "" ]
+    [ "$det" = "" ]
     det=`jose jws ver -i "$jws" -k $jwk -O-`
-    [ "$det" == "hi" ]
+    [ "$det" = "hi" ]
 
     jws=`jose jws sig -k $jwk -I $msg -s "{\"protected\":{\"alg\":\"$a\"}}"`
     jose jws ver -i "$jws" -k $jwk
@@ -66,7 +66,7 @@ for a in $ALGS; do
     jose jws ver -i "$jws" -k $jwk
 
     for b in $ALGS; do
-        [ $a == $b ] && continue
+        [ $a = $b ] && continue
 
         ! jose jws sig -I $msg -k $jwk -s "{\"protected\":{\"alg\":\"$b\"}}"
 
@@ -88,6 +88,6 @@ done
 for tmpl in '{"kty":"oct","bytes":32}' '{"kty":"RSA","bits":2048}' '{"kty":"EC","crv":"P-256"}'; do
     jose jwk gen -i "$tmpl" -o $tmpdir/jwk
 
-    echo -n "$msg" | jose jws sig -I- -k $tmpdir/jwk -o $tmpdir/jws
-    [ "`jose jws ver -i $tmpdir/jws -k $tmpdir/jwk -O-`" == "$msg" ]
+    printf '%s' "$msg" | jose jws sig -I- -k $tmpdir/jwk -o $tmpdir/jws
+    [ "`jose jws ver -i $tmpdir/jws -k $tmpdir/jwk -O-`" = "$msg" ]
 done

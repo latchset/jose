@@ -6,15 +6,15 @@ for f in $VECTORS/*.jwsc; do
     gen=`echo $f | sed 's|jwsc|jwsg|'`
 
     if [ -f $flat ]; then
-        [ `jose jws fmt -i $flat -c` == $cmpct ]
-        [ `jose jws fmt -i $flat | jose jws fmt -i- -c` == $cmpct ]
+        [ `jose jws fmt -i $flat -c` = $cmpct ]
+        [ `jose jws fmt -i $flat | jose jws fmt -i- -c` = $cmpct ]
     fi
 
     if [ -f $gen ]; then
-        [ `jose jws fmt -i $gen -c` == $cmpct ]
-        [ `jose jws fmt -i $gen | jose jws fmt -i- -c` == $cmpct ]
+        [ `jose jws fmt -i $gen -c` = $cmpct ]
+        [ `jose jws fmt -i $gen | jose jws fmt -i- -c` = $cmpct ]
     fi
 
-    [ `jose jws fmt -i $f -c` == $cmpct ]
-    [ `jose jws fmt -i $f | jose jws fmt -i- -c` == $cmpct ]
+    [ `jose jws fmt -i $f -c` = $cmpct ]
+    [ `jose jws fmt -i $f | jose jws fmt -i- -c` = $cmpct ]
 done
