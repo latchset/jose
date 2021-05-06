@@ -1,3 +1,5 @@
+[![build](https://github.com/latchset/jose/workflows/build/badge.svg)](https://github.com/latchset/jose/actions)
+
 # Welcome to José!
 
 José is a C-language implementation of the Javascript Object Signing and
