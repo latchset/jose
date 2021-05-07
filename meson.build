@@ -1,4 +1,5 @@
-project('jose', 'c', license: 'APL2', version: '10',
+project('jose', 'c', license: 'APL2',
+  version: '11',
   default_options: [
     'c_std=gnu99',
     'prefix=/usr',
