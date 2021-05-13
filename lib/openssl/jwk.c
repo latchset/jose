@@ -169,6 +169,7 @@ jose_openssl_jwk_from_EC_POINT(jose_cfg_t *cfg, const EC_GROUP *grp,
     case NID_X9_62_prime256v1: crv = "P-256"; break;
     case NID_secp384r1: crv = "P-384"; break;
     case NID_secp521r1: crv = "P-521"; break;
+    case NID_secp256k1: crv = "secp256k1"; break;
     default: return NULL;
     }
 
@@ -366,10 +367,11 @@ jose_openssl_jwk_to_EC_KEY(jose_cfg_t *cfg, const json_t *jwk)
     if (strcmp(kty, "EC") != 0)
         return NULL;
 
-    switch (str2enum(crv, "P-256", "P-384", "P-521", NULL)) {
+    switch (str2enum(crv, "P-256", "P-384", "P-521", "secp256k1", NULL)) {
     case 0: nid = NID_X9_62_prime256v1; break;
     case 1: nid = NID_secp384r1; break;
     case 2: nid = NID_secp521r1; break;
+    case 3: nid = NID_secp256k1; break;
     default: return NULL;
     }
 
