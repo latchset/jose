@@ -127,7 +127,7 @@ enc_done(jose_io_t *io)
     uint8_t tg[EVP_GCM_TLS_TAG_LEN] = {};
     int l = 0;
 
-    if (EVP_EncryptFinal(i->cctx, ct, &l) <= 0)
+    if (EVP_EncryptFinal_ex(i->cctx, ct, &l) <= 0)
         return false;
 
     if (!i->next->feed(i->next, ct, l) || !i->next->done(i->next))
@@ -190,7 +190,7 @@ dec_done(jose_io_t *io)
                             sizeof(tg), tg) <= 0)
         return false;
 
-    if (EVP_DecryptFinal(i->cctx, pt, &l) <= 0)
+    if (EVP_DecryptFinal_ex(i->cctx, pt, &l) <= 0)
         return false;
 
     if (!i->next->feed(i->next, pt, l) || !i->next->done(i->next)) {

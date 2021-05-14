@@ -181,7 +181,7 @@ enc_done(jose_io_t *io)
     uint8_t tg[EVP_MD_size(HMAC_CTX_get_md(i->hctx))];
     int l = 0;
 
-    if (EVP_EncryptFinal(i->cctx, ct, &l) <= 0)
+    if (EVP_EncryptFinal_ex(i->cctx, ct, &l) <= 0)
         return false;
 
     if (!i->next->feed(i->next, ct, l) || !i->next->done(i->next))
@@ -259,7 +259,7 @@ dec_done(jose_io_t *io)
     if (CRYPTO_memcmp(tg, bf, sizeof(bf)) != 0)
         return false;
 
-    if (EVP_DecryptFinal(i->cctx, pt, &l) <= 0)
+    if (EVP_DecryptFinal_ex(i->cctx, pt, &l) <= 0)
         return false;
 
     if (!i->next->feed(i->next, pt, l) || !i->next->done(i->next)) {

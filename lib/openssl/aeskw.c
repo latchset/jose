@@ -24,6 +24,10 @@
 
 #include <string.h>
 
+#if defined(LIBRESSL_VERSION_NUMBER)
+#include "libressl_evp.h"
+#endif
+
 #define NAMES "A128KW", "A192KW", "A256KW"
 
 static json_int_t
@@ -168,7 +172,7 @@ alg_wrap_wrp(const jose_hook_alg_t *alg, jose_cfg_t *cfg, json_t *jwe,
         goto egress;
     ctl = len;
 
-    if (EVP_EncryptFinal(ecc, &ct[len], &len) <= 0)
+    if (EVP_EncryptFinal_ex(ecc, &ct[len], &len) <= 0)
         goto egress;
     ctl += len;
 
@@ -235,7 +239,7 @@ alg_wrap_unw(const jose_hook_alg_t *alg, jose_cfg_t *cfg, const json_t *jwe,
         goto egress;
     ptl = len;
 
-    if (EVP_DecryptFinal(ecc, &pt[len], &len) <= 0)
+    if (EVP_DecryptFinal_ex(ecc, &pt[len], &len) <= 0)
         goto egress;
     ptl += len;
 
