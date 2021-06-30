@@ -21,7 +21,7 @@ executable(meson.project_name(),
   'jwe/enc.c',
   'alg.c',
   'fmt.c',
-  dependencies: jansson,
+  dependencies: [ jansson, libcrypto ],
   link_with: libjose,
   install: true
 )
