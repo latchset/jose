@@ -1,6 +1,6 @@
 e = environment()
 
-openssl = dependency('openssl', version: ">= 1.1.0",  required: false)
+openssl = dependency('openssl', version: '>= 1.1.0',  required: false)
 if openssl.found()
   issue75 = executable('issue75', 'issue-75.c',
                        dependencies: [jansson, openssl],
