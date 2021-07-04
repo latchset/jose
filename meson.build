@@ -9,7 +9,7 @@ project('jose', 'c', license: 'APL2',
 )
 
 licensedir = join_paths(get_option('prefix'), 'share', 'licenses', meson.project_name())
-if build_machine.system() == 'freebsd'
+if host_machine.system() == 'freebsd'
   licensedir += '-'+meson.project_version()
 endif
 
@@ -38,7 +38,7 @@ add_project_arguments(
 zlib = dependency('zlib')
 threads = dependency('threads')
 jansson = dependency('jansson', version: '>=2.10')
-if build_machine.system() == 'freebsd'
+if host_machine.system() == 'freebsd'
   libcrypto = meson.get_compiler('c').find_library('crypto', dirs: [ '/usr/lib/' ])
 else
   libcrypto = dependency('libcrypto', version: '>=1.0.2')
