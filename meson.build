@@ -9,7 +9,7 @@ project('jose', 'c', license: 'APL2',
 )
 
 licensedir = join_paths(get_option('prefix'), 'share', 'licenses', meson.project_name())
-if build_machine.system() == 'freebsd'
+if host_machine.system() == 'freebsd'
   licensedir += '-'+meson.project_version()
 endif
 
@@ -38,7 +38,11 @@ add_project_arguments(
 zlib = dependency('zlib')
 threads = dependency('threads')
 jansson = dependency('jansson', version: '>=2.10')
-libcrypto = dependency('libcrypto', version: '>=1.0.2')
+if host_machine.system() == 'freebsd'
+  libcrypto = meson.get_compiler('c').find_library('crypto', dirs: [ '/usr/lib/' ])
+else
+  libcrypto = dependency('libcrypto', version: '>=1.0.2')
+endif
 a2x = find_program('a2x', required: false)
 
 mans = []
@@ -54,16 +58,27 @@ subdir('tests')
 install_data(licenses, install_dir: licensedir)
 
 pkg = import('pkgconfig')
-pkg.generate(
-  description: 'Library for managing JOSE objects',
-  version: meson.project_version(),
-  filebase: meson.project_name(),
-  name: 'José Library',
-
-  requires_private: [ 'zlib', 'libcrypto' ],
-  libraries: libjose,
-  requires: 'jansson',
-)
+if host_machine.system() == 'freebsd'
+  pkg.generate(
+    description: 'Library for managing JOSE objects',
+    version: meson.project_version(),
+    filebase: meson.project_name(),
+    name: 'José Library',
+    requires_private: 'zlib',
+    libraries: libjose,
+    requires: 'jansson',
+  )
+else
+  pkg.generate(
+    description: 'Library for managing JOSE objects',
+    version: meson.project_version(),
+    filebase: meson.project_name(),
+    name: 'José Library',
+    requires_private: [ 'zlib', 'libcrypto' ],
+    libraries: libjose,
+    requires: 'jansson',
+  )
+endif
 
 if a2x.found()
   foreach m : mans
