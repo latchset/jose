@@ -1,7 +1,7 @@
 e = environment()
 
 openssl = dependency('openssl', required: false)
-if openssl.found()
+if openssl.found() or build_machine.system() == 'freebsd'
   issue75 = executable('issue75', 'issue-75.c',
                        dependencies: [jansson, openssl],
                        link_with: libjose)
