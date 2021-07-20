@@ -16,6 +16,7 @@
  */
 
 #include "jwk.h"
+#include "jose/jose_log.h"
 #include <unistd.h>
 
 #define SUMMARY "Creates a random JWK for each input JWK template"
@@ -75,13 +76,13 @@ jcmd_jwk_gen(int argc, char *argv[])
         return EXIT_FAILURE;
 
     if (json_array_size(opt.keys) == 0) {
-        fprintf(stderr, "At least one JWK template is required!\n");
+        jose_logerr("At least one JWK template is required!\n");
         return EXIT_FAILURE;
     }
 
     for (size_t i = 0; i < json_array_size(opt.keys); i++) {
         if (!jose_jwk_gen(NULL, json_array_get(opt.keys, i))) {
-            fprintf(stderr, "JWK generation failed!\n");
+            jose_logerr("JWK generation failed!\n");
             return EXIT_FAILURE;
         }
     }
@@ -89,7 +90,7 @@ jcmd_jwk_gen(int argc, char *argv[])
     if (json_array_size(opt.keys) == 1 && !opt.set) {
         if (json_dumpf(json_array_get(opt.keys, 0), opt.output,
                        JSON_COMPACT | JSON_SORT_KEYS) < 0) {
-            fprintf(stderr, "Error dumping JWK!\n");
+            jose_logerr("Error dumping JWK!\n");
             return EXIT_FAILURE;
         }
     } else {
@@ -100,7 +101,7 @@ jcmd_jwk_gen(int argc, char *argv[])
             return EXIT_FAILURE;
 
         if (json_dumpf(jwks, opt.output, JSON_COMPACT | JSON_SORT_KEYS) < 0) {
-            fprintf(stderr, "Error dumping JWKSet!\n");
+            jose_logerr("Error dumping JWKSet!\n");
             return EXIT_FAILURE;
         }
     }

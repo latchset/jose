@@ -16,6 +16,7 @@
  */
 
 #include "jws.h"
+#include "jose/jose_log.h"
 #include <string.h>
 #include <unistd.h>
 
@@ -111,12 +112,12 @@ validate_input(jcmd_opt_t *opt)
         return false;
 
     if (json_array_size(opt->keys) == 0) {
-        fprintf(stderr, "At least one JWK is required to sign!\n");
+        jose_logerr("At least one JWK is required to sign!\n");
         return false;
     }
 
     if (json_array_size(opt->keys) < json_array_size(opt->sigs)) {
-        fprintf(stderr, "Specified more signature templates than JWKs!\n");
+        jose_logerr("Specified more signature templates than JWKs!\n");
         return false;
     }
 
@@ -130,12 +131,12 @@ validate_input(jcmd_opt_t *opt)
         nsigs += 1;
 
     if (opt->io.compact && nsigs > 1) {
-        fprintf(stderr, "Too many signatures for compact serialization!\n");
+        jose_logerr("Too many signatures for compact serialization!\n");
         return false;
     }
 
     if (json_array_size(opt->keys) < json_array_size(opt->sigs)) {
-        fprintf(stderr, "Specified more signatures than keys!\n");
+        jose_logerr("Specified more signatures than keys!\n");
         return false;
     }
 
@@ -210,7 +211,7 @@ jcmd_jws_sig(int argc, char *argv[])
     if (opt.io.input) {
         if (json_object_set_new(opt.io.obj, "signature",
                                 jcmd_compact_field(opt.io.input)) < 0) {
-            fprintf(stderr, "Error reading last compact field!\n");
+            jose_logerr("Error reading last compact field!\n");
             return EXIT_FAILURE;
         }
     }
@@ -222,7 +223,7 @@ jcmd_jws_sig(int argc, char *argv[])
         const char *v = NULL;
 
         if (json_unpack(opt.io.obj, "{s:s}", "signature", &v) < 0) {
-            fprintf(stderr, "Missing signature parameter!\n");
+            jose_logerr("Missing signature parameter!\n");
             return EXIT_FAILURE;
         }
 

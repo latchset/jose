@@ -16,6 +16,7 @@
  */
 
 #include "jose.h"
+#include "jose/jose_log.h"
 #include "../lib/hooks.h"
 #include <string.h>
 
@@ -61,7 +62,7 @@ opt_set_kind(const jcmd_cfg_t *cfg, void *vopt, const char *arg)
 
     if (strcmp(arg, "?") == 0) {
         for (size_t i = 0; kinds[i].name; i++)
-            fprintf(stdout, "%s\n", kinds[i].name);
+            jose_output("%s\n", kinds[i].name);
 
         exit(EXIT_SUCCESS);
     }
@@ -143,7 +144,7 @@ jcmd_alg(int argc, char *argv[])
     qsort(names, sizeof(names) / sizeof(*names), sizeof(*names), cmp);
 
     for (size_t i = 0; i < sizeof(names) / sizeof(*names); i++)
-        fprintf(stdout, "%s\n", names[i]);
+        jose_output("%s\n", names[i]);
 
     return EXIT_SUCCESS;
 }

@@ -17,6 +17,7 @@
 
 #include "jwe.h"
 #include "pwd.h"
+#include "jose/jose_log.h"
 #include <unistd.h>
 #include <string.h>
 
@@ -142,18 +143,18 @@ jcmd_jwe_dec(int argc, char *argv[])
         return EXIT_FAILURE;
 
     if (!opt.io.obj) {
-        fprintf(stderr, "Invalid JWE!\n");
+        jose_logerr("Invalid JWE!\n");
         return EXIT_FAILURE;
     }
 
     if (json_array_size(opt.keys) == 0 && !opt.pwd) {
-        fprintf(stderr, "MUST specify a JWK in non-interactive mode!\n\n");
+        jose_logerr("MUST specify a JWK in non-interactive mode!\n\n");
         return EXIT_FAILURE;
     }
 
     cek = unwrap(opt.io.obj, opt.keys, opt.pwd);
     if (!cek) {
-        fprintf(stderr, "Unwrapping failed!\n");
+        jose_logerr("Unwrapping failed!\n");
         return EXIT_FAILURE;
     }
 
@@ -205,7 +206,7 @@ jcmd_jwe_dec(int argc, char *argv[])
     if (opt.io.input) {
         if (json_object_set_new(opt.io.obj, "tag",
                                 jcmd_compact_field(opt.io.input)) < 0) {
-            fprintf(stderr, "Error reading last compact field!\n");
+            jose_logerr("Error reading last compact field!\n");
             return EXIT_FAILURE;
         }
     }

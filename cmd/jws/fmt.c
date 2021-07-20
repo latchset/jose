@@ -16,6 +16,7 @@
  */
 
 #include "jws.h"
+#include "jose/jose_log.h"
 #include <string.h>
 #include <unistd.h>
 
@@ -78,10 +79,9 @@ jcmd_jws_fmt(int argc, char *argv[])
 
         if (json_unpack(opt.obj, "{s:[{s?s}!]}", f->mult, k, &v) < 0 &&
             json_unpack(opt.obj, "{s?s}", k, &v) < 0) {
-            fprintf(stderr, "Input JWS cannot be converted to compact.\n");
+            jose_logerr("Input JWS cannot be converted to compact.\n");
             return EXIT_FAILURE;
         }
-
         fprintf(opt.output, "%s.", v ? v : "");
     } else {
         fprintf(opt.output, "{");
@@ -121,7 +121,7 @@ jcmd_jws_fmt(int argc, char *argv[])
     if (opt.input) {
         if (json_object_set_new(opt.obj, "signature",
                                 jcmd_compact_field(opt.input)) < 0) {
-            fprintf(stderr, "Error reading last compact field!\n");
+            jose_logerr("Error reading last compact field!\n");
             return EXIT_FAILURE;
         }
     }
@@ -132,7 +132,7 @@ jcmd_jws_fmt(int argc, char *argv[])
         if (json_unpack(opt.obj, "{s:s}", "signature", &v) < 0 &&
             json_unpack(opt.obj, "{s:[{s:s}!]}",
                         "signatures", "signature", &v) < 0) {
-            fprintf(stderr, "Missing signature parameter!\n");
+            jose_logerr("Missing signature parameter!\n");
             return EXIT_FAILURE;
         }
 

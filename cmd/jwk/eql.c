@@ -16,6 +16,7 @@
  */
 
 #include "jwk.h"
+#include "jose/jose_log.h"
 #include <string.h>
 
 #define SUMMARY "Determines if two or more JWKs are equal"
@@ -52,7 +53,7 @@ jcmd_jwk_eql(int argc, char *argv[])
         return EXIT_FAILURE;
 
     if (json_array_size(opt.keys) < 2) {
-        fprintf(stderr, "Must specify at least two JWKs!\n");
+        jose_logerr("Must specify at least two JWKs!\n");
         return EXIT_FAILURE;
     }
 

@@ -16,6 +16,7 @@
  */
 
 #include "jwk.h"
+#include "jose/jose_log.h"
 #include <string.h>
 #include <unistd.h>
 
@@ -109,19 +110,19 @@ jcmd_jwk_exc(int argc, char *argv[])
         return EXIT_FAILURE;
 
     if (json_array_size(opt.lcl) != 1) {
-        fprintf(stderr, "Local JWK must be specified exactly once!\n");
+        jose_logerr("Local JWK must be specified exactly once!\n");
         return EXIT_FAILURE;
     }
 
     if (json_array_size(opt.rem) != 1) {
-        fprintf(stderr, "Remote JWK must be specified exactly once!\n");
+        jose_logerr("Remote JWK must be specified exactly once!\n");
         return EXIT_FAILURE;
     }
 
     key = jose_jwk_exc(NULL, json_array_get(opt.lcl, 0),
                        json_array_get(opt.rem, 0));
     if (!key) {
-        fprintf(stderr, "Error performing exchange!\n");
+        jose_logerr("Error performing exchange!\n");
         return EXIT_FAILURE;
     }
 
@@ -131,7 +132,7 @@ jcmd_jwk_exc(int argc, char *argv[])
         return EXIT_FAILURE;
 
     if (json_dumpf(tmpl, opt.output, JSON_COMPACT | JSON_SORT_KEYS) < 0) {
-        fprintf(stderr, "Error writing JWK!\n");
+        jose_logerr("Error writing JWK!\n");
         return EXIT_FAILURE;
     }
 

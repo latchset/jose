@@ -16,6 +16,7 @@
  */
 
 #include "jwk.h"
+#include "jose/jose_log.h"
 #include <unistd.h>
 
 #define SUMMARY "Cleans private keys from a JWK"
@@ -72,13 +73,13 @@ jcmd_jwk_pub(int argc, char *argv[])
     for (size_t i = 0; !fail && i < json_array_size(opt.keys); i++)
         fail |= !jose_jwk_pub(NULL, json_array_get(opt.keys, i));
     if (fail) {
-        fprintf(stderr, "Error removing private keys!\n");
+        jose_logerr("Error removing private keys!\n");
         return EXIT_FAILURE;
     }
 
     switch (json_array_size(opt.keys)) {
     case 0:
-        fprintf(stderr, "MUST specify at least one JWK(Set)!\n");
+        jose_logerr("MUST specify at least one JWK(Set)!\n");
         return EXIT_FAILURE;
 
     case 1:
@@ -94,7 +95,7 @@ jcmd_jwk_pub(int argc, char *argv[])
     }
 
     if (json_dumpf(out, opt.output, JSON_SORT_KEYS | JSON_COMPACT) < 0) {
-        fprintf(stderr, "Error dumping JWK(Set)!\n");
+        jose_logerr("Error dumping JWK(Set)!\n");
         return EXIT_FAILURE;
     }
 

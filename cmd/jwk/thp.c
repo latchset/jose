@@ -17,6 +17,7 @@
 
 #include "jwk.h"
 #include "../../lib/hooks.h"
+#include "jose/jose_log.h"
 #include <string.h>
 #include <unistd.h>
 
@@ -48,7 +49,7 @@ opt_set_hash(const jcmd_cfg_t *cfg, void *vopt, const char *arg)
     if (strcmp(arg, "?") == 0) {
         for (const jose_hook_alg_t *a = jose_hook_alg_list(); a; a = a->next) {
             if (a->kind == JOSE_HOOK_ALG_KIND_HASH)
-                fprintf(stdout, "%s\n", a->name);
+                jose_logerr("%s\n", a->name);
         }
 
         exit(EXIT_SUCCESS);
@@ -126,13 +127,13 @@ jcmd_jwk_thp(int argc, char *argv[])
         return EXIT_FAILURE;
 
     if (json_array_size(opt.keys) == 0) {
-        fprintf(stderr, "Must specify JWK(Set)!\n");
+        jose_logerr("Must specify JWK(Set)!\n");
         return EXIT_FAILURE;
     }
 
     dlen = jose_jwk_thp_buf(NULL, NULL, opt.hash, NULL, 0);
     if (dlen == SIZE_MAX) {
-        fprintf(stderr, "Error determining hash size!\n");
+        jose_logerr("Error determining hash size!\n");
         return EXIT_FAILURE;
     }
 
@@ -154,7 +155,7 @@ jcmd_jwk_thp(int argc, char *argv[])
                 continue;
 
             if (!jose_jwk_thp_buf(NULL, jwk, opt.hash, dec, sizeof(dec))) {
-                fprintf(stderr, "Error making thumbprint!\n");
+                jose_logerr("Error making thumbprint!\n");
                 return EXIT_FAILURE;
             }
 

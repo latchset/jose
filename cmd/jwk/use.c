@@ -16,6 +16,7 @@
  */
 
 #include "jwk.h"
+#include "jose/jose_log.h"
 #include <string.h>
 #include <unistd.h>
 
@@ -130,12 +131,12 @@ jcmd_jwk_use(int argc, char *argv[])
         return EXIT_FAILURE;
 
     if (json_array_size(opt.uses) == 0) {
-        fprintf(stderr, "No uses specified!\n");
+        jose_logerr("No uses specified!\n");
         return EXIT_FAILURE;
     }
 
     if (json_array_size(opt.keys) == 0) {
-        fprintf(stderr, "No JWK specified!\n");
+        jose_logerr("No JWK specified!\n");
         return EXIT_FAILURE;
     }
 
