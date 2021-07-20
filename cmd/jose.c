@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+#include "jose/jose_log.h"
+
 #include <cmd/jose.h>
 
 #include <sys/types.h>
@@ -97,7 +99,7 @@ jcmd_opt_parse(int argc, char *argv[], const jcmd_cfg_t *cfgs, void *vopt,
         if (cfg->def) {
             uint8_t *buf = vopt;
             if (!cfg->set(cfg, &buf[cfg->off], cfg->def)) {
-                fprintf(stderr, "Invalid default value for %s!\n", cfg->opt.name);
+                jose_logerr("Invalid default value for %s!\n", cfg->opt.name);
                 return false;
             }
         }
@@ -134,7 +136,7 @@ jcmd_opt_parse(int argc, char *argv[], const jcmd_cfg_t *cfgs, void *vopt,
                 found = true;
 
                 if (!cfgs[i].set(&cfgs[i], &buf[cfgs[i].off], optarg)) {
-                    fprintf(stderr, "Invalid %s!\n", cfgs[i].opt.name);
+                    jose_logerr("Invalid %s!\n", cfgs[i].opt.name);
                     goto usage;
                 }
 
@@ -145,8 +147,8 @@ jcmd_opt_parse(int argc, char *argv[], const jcmd_cfg_t *cfgs, void *vopt,
         if (!found) {
             switch (c) {
             case 'h': goto usage;
-            case 'v': fprintf(stderr, "José %d\n", JOSE_VERSION); return false;
-            default:  fprintf(stderr, "Unknown option: %c!\n", c); goto usage;
+            case 'v': jose_logerr("José %d\n", JOSE_VERSION); return false;
+            default:  jose_logerr("Unknown option: %c!\n", c); goto usage;
             }
         }
     }
@@ -154,7 +156,7 @@ jcmd_opt_parse(int argc, char *argv[], const jcmd_cfg_t *cfgs, void *vopt,
     return true;
 
 usage:
-    fprintf(stderr, "Usage: %s\n\n", prefix);
+    jose_logerr("Usage: %s\n\n", prefix);
 
     for (size_t i = 0; i < ncfgs; i++) {
         for (size_t j = 0; cfgs[i].doc[j].doc; j++) {
@@ -163,18 +165,18 @@ usage:
             const char *a = cfgs[i].doc[j].arg;
             const char d = a ? '=' : ' ';
             a = a ? a : "";
-            fprintf(stderr, "  -%c %-*s --%s%c%-*s  %s\n",
+            jose_logerr("  -%c %-*s --%s%c%-*s  %s\n",
                     v, maxa, a,
                     n, d, maxl - (int) strlen(n), a,
                     cfgs[i].doc[j].doc);
         }
 
         if (cfgs[i].def) {
-            fprintf(stderr, "%*sDefault: \"%s\"\n",
+            jose_logerr("%*sDefault: \"%s\"\n",
                     maxa + maxl + 11, "", cfgs[i].def);
         }
 
-        fprintf(stderr, "\n");
+        jose_logerr("\n");
     }
 
     return false;
@@ -515,11 +517,11 @@ main(int argc, char *argv[])
 
     qsort(all, sizeof(all) / sizeof(*all), sizeof(*all), cmp);
 
-    fprintf(stderr, "Usage: jose COMMAND [OPTIONS] [ARGUMENTS]\n\n");
-    fprintf(stderr, "Commands:\n");
+    jose_logerr("Usage: jose COMMAND [OPTIONS] [ARGUMENTS]\n\n");
+    jose_logerr("Commands:\n");
     for (size_t i = 0; i < sizeof(all) / sizeof(*all); i++) {
         if (!(last && strcmp(all[i]->names[0], last) == 0))
-            fprintf(stderr, "\n");
+            jose_logerr("\n");
 
         strcpy(full, "jose");
         for (size_t j = 0; all[i]->names[j]; j++) {
@@ -528,10 +530,10 @@ main(int argc, char *argv[])
                      " %s", all[i]->names[j]);
         }
 
-        fprintf(stderr, "  %-13s %s\n", full, all[i]->desc);
+        jose_logerr("  %-13s %s\n", full, all[i]->desc);
         last = all[i]->names[0];
     }
 
-    fprintf(stderr, "\n");
+    jose_logerr("\n");
     return EXIT_FAILURE;
 }

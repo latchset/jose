@@ -17,6 +17,7 @@
 
 #include "jwe.h"
 #include "pwd.h"
+#include "jose/jose_log.h"
 #include <string.h>
 #include <unistd.h>
 
@@ -45,7 +46,7 @@ prompt(void)
             continue;
 
         if (strlen(p) < 8) {
-            fprintf(stderr, "Password too short!\n");
+            jose_logerr("Password too short!\n");
             continue;
         }
 
@@ -147,15 +148,15 @@ opt_validate(jcmd_opt_t *opt)
     size_t nkeys = json_array_size(opt->keys);
 
     if (nkeys == 0) {
-        fprintf(stderr, "Must specify a JWK or password!\n");
+        jose_logerr("Must specify a JWK or password!\n");
         return false;
     } else if (nkeys > 1 && opt->io.compact) {
-        fprintf(stderr, "Requested compact format with >1 recipient!\n");
+        jose_logerr("Requested compact format with >1 recipient!\n");
         return false;
     }
 
     if (!opt->io.detached) {
-        fprintf(stderr, "Must specify detached input!\n");
+        jose_logerr("Must specify detached input!\n");
         return false;
     }
 
@@ -163,7 +164,7 @@ opt_validate(jcmd_opt_t *opt)
         return false;
 
     if (json_array_size(opt->keys) < json_array_size(opt->rcps)) {
-        fprintf(stderr, "Specified more recipients than keys!\n");
+        jose_logerr("Specified more recipients than keys!\n");
         return false;
     }
 
@@ -190,7 +191,7 @@ wrap(jcmd_opt_t *opt)
         }
 
         if (!jose_jwe_enc_jwk(NULL, opt->io.obj, rcp, jwk, cek)) {
-            fprintf(stderr, "Wrapping failed!\n");
+            jose_logerr("Wrapping failed!\n");
             return NULL;
         }
     }
@@ -310,7 +311,7 @@ jcmd_jwe_enc(int argc, char *argv[])
     if (opt.io.input) {
         if (json_object_set_new(opt.io.obj, "tag",
                                 jcmd_compact_field(opt.io.input)) < 0) {
-            fprintf(stderr, "Error reading last compact field!\n");
+            jose_logerr("Error reading last compact field!\n");
             return EXIT_FAILURE;
         }
     }
@@ -322,7 +323,7 @@ jcmd_jwe_enc(int argc, char *argv[])
         const char *v = NULL;
 
         if (json_unpack(opt.io.obj, "{s:s}", "tag", &v) < 0) {
-            fprintf(stderr, "Missing tag parameter!\n");
+            jose_logerr("Missing tag parameter!\n");
             return false;
         }
 

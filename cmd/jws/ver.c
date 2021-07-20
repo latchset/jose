@@ -16,6 +16,7 @@
  */
 
 #include "jws.h"
+#include "jose/jose_log.h"
 #include <string.h>
 #include <unistd.h>
 
@@ -87,12 +88,12 @@ static bool
 validate_input(const jcmd_opt_t *opt, json_t **sigs)
 {
     if (json_array_size(opt->keys) == 0) {
-        fprintf(stderr, "MUST specify a JWK(Set)!\n");
+        jose_logerr("MUST specify a JWK(Set)!\n");
         return false;
     }
 
     if (!opt->io.obj) {
-        fprintf(stderr, "Invalid JWS!\n");
+        jose_logerr("Invalid JWS!\n");
         return false;
     }
 
@@ -100,7 +101,7 @@ validate_input(const jcmd_opt_t *opt, json_t **sigs)
     if (!*sigs)
         *sigs = json_pack("[O]", opt->io.obj);
     if (!json_is_array(*sigs)) {
-        fprintf(stderr, "Signatures value must be an array!\n");
+        jose_logerr("Signatures value must be an array!\n");
         return false;
     }
 
@@ -123,7 +124,7 @@ jcmd_jws_ver(int argc, char *argv[])
     io = jose_jws_ver_io(NULL, opt.io.obj, NULL, opt.keys, opt.all);
     io = jcmd_jws_prep_io(&opt.io, io);
     if (!io) {
-        fprintf(stderr, "Error initializing signature context!\n");
+        jose_logerr("Error initializing signature context!\n");
         return EXIT_FAILURE;
     }
 
@@ -156,13 +157,13 @@ jcmd_jws_ver(int argc, char *argv[])
     if (opt.io.input) {
         if (json_object_set_new(opt.io.obj, "signature",
                                 jcmd_compact_field(opt.io.input)) < 0) {
-            fprintf(stderr, "Error reading last compact field!\n");
+            jose_logerr("Error reading last compact field!\n");
             return EXIT_FAILURE;
         }
     }
 
     if (!io->done(io)) {
-        fprintf(stderr, "Signature validation failed!\n");
+        jose_logerr("Signature validation failed!\n");
         return EXIT_FAILURE;
     }
 

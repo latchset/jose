@@ -16,6 +16,7 @@
  */
 
 #include "b64.h"
+#include "jose/jose_log.h"
 #include <ctype.h>
 #include <string.h>
 #include <unistd.h>
@@ -64,7 +65,7 @@ jcmd_b64_dec(int argc, char *argv[])
         return EXIT_FAILURE;
 
     if (!opt.input) {
-        fprintf(stderr, "Input not specified!\n");
+        jose_logerr("Input not specified!\n");
         return EXIT_FAILURE;
     }
 
