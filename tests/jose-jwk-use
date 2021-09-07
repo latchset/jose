@@ -1,7 +1,5 @@
 #!/bin/sh -ex
 
-export PATH=../cmd:$PATH
-
 echo '{}' | jose jwk use -i- -u encrypt
 ! echo '{}' | jose jwk use -i- -r -u encrypt
 

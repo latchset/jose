@@ -6,7 +6,7 @@ if not cc.links(code, args: flags, name: '-Wl,--version-script=...')
   flags = [ '-export-symbols-regex=^jose_.*' ]
 endif
 
-libjose = library('jose',
+libjose_lib = library('jose',
   'misc.c',           'misc.h',
   'cfg.c',
   'io.c',
@@ -39,9 +39,15 @@ libjose = library('jose',
   'openssl/rsaes.c',
   'openssl/rsassa.c',
 
+  include_directories: incdir,
   dependencies: [zlib, jansson, libcrypto, threads],
   version: '0.0.0',
   link_args: flags,
   install: true
 )
 
+libjose_dep = declare_dependency(
+  include_directories: incdir,
+  dependencies: jansson,
+  link_with: libjose_lib
+)

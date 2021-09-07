@@ -14,8 +14,6 @@ if build_machine.system() == 'freebsd'
 endif
 
 add_project_arguments(
-  '-I' + meson.current_source_dir(),
-  '-I' + meson.current_build_dir(),
   '-Wstrict-aliasing',
   '-Wchar-subscripts',
   '-Wformat-security',
@@ -45,7 +43,7 @@ mans = []
 
 licenses = ['COPYING']
 
-subdir('jose')
+subdir('include')
 subdir('doc')
 subdir('lib')
 subdir('cmd')
@@ -61,7 +59,7 @@ pkg.generate(
   name: 'José Library',
 
   requires_private: [ 'zlib', 'libcrypto' ],
-  libraries: libjose,
+  libraries: libjose_lib,
   requires: 'jansson',
 )
 

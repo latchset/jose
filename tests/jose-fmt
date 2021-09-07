@@ -1,7 +1,5 @@
 #!/bin/sh -ex
 
-export PATH=../cmd:$PATH
-
 jose fmt -j '{}' -O
 ! jose fmt -j '{}' -A
 ! jose fmt -j '{}' -S
