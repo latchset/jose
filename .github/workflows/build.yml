@@ -6,19 +6,32 @@ on: [push, pull_request]
 jobs:
   linux:
     runs-on: ubuntu-18.04
+    continue-on-error: ${{ ! matrix.stable }}
     strategy:
       matrix:
         compiler:
           - gcc
           - clang
         os:
-          - fedora:rawhide
           - fedora:latest
           - centos:8
           - debian:testing
           - debian:latest
-          - ubuntu:devel
           - ubuntu:rolling
+        stable:: [true]
+        include:
+          - compiler: gcc
+            os: fedora:rawhide
+            stable: false
+          - compiler: clang
+            os: fedora:rawhide
+            stable: false
+          - compiler: gcc
+            os: ubuntu:devel
+            stable: false
+          - compiler: clang
+            os: ubuntu:devel
+            stable: false
     steps:
       - uses: actions/checkout@v2
 
