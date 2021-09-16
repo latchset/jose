@@ -15,8 +15,12 @@ debian:*|ubuntu:*)
     export DEBIAN_FRONTEND=noninteractive
     apt clean
     apt update
-    apt -y install build-essential pkg-config libssl-dev zlib1g-dev \
-                   libjansson-dev ${COMMON}
+    # We get some errors once in a while, so let's try a few times.
+    for i in 1 2 3; do
+        apt -y install build-essential pkg-config libssl-dev zlib1g-dev \
+                       libjansson-dev ${COMMON} && break
+        sleep 5
+    done
     ;;
 
 fedora:*)
