@@ -110,6 +110,7 @@ Compress plaintext before encryption:
     $ jose jwe enc -i '{"protected":{"zip":"DEF"}}' ...
 
 Encrypt with two keys and two passwords:
+
     $ jose jwk gen -i '{"alg":"ECDH-ES+A128KW"}' -o ec.jwk
     $ jose jwk gen -i '{"alg":"RSA1_5"}' -o rsa.jwk
     $ jose jwe enc -I msg.txt -p -k ec.jwk -p -k rsa.jwk -o msg.jwe
