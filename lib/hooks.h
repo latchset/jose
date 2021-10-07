@@ -184,3 +184,6 @@ jose_hook_alg_list(void);
 
 const jose_hook_alg_t *
 jose_hook_alg_find(jose_hook_alg_kind_t kind, const char *name);
+
+const jose_hook_alg_t *
+jose_hook_alg_find_any(const char *name);

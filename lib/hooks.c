@@ -60,3 +60,14 @@ jose_hook_alg_find(jose_hook_alg_kind_t kind, const char *name)
 
     return NULL;
 }
+
+const jose_hook_alg_t *
+jose_hook_alg_find_any(const char *name)
+{
+    for (const jose_hook_alg_t *a = algs; a; a = a->next) {
+        if (strcmp(a->name, name) == 0) {
+            return a;
+        }
+    }
+    return NULL;
+}
