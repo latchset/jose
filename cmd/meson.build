@@ -21,7 +21,6 @@ executable(meson.project_name(),
   'jwe/enc.c',
   'alg.c',
   'fmt.c',
-
-  dependencies: libjose_dep,
+  dependencies: [ libjose_dep, libcrypto ],
   install: true
 )

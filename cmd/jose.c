@@ -23,6 +23,10 @@
 #include <unistd.h>
 #include <ctype.h>
 
+#include <jose/openssl.h>
+#include <openssl/evp.h>
+#include <openssl/pem.h>
+
 #define MAXBUFLEN 1024
 #define RQARG required_argument
 #define NOARG no_argument
@@ -374,6 +378,37 @@ jcmd_opt_set_jwks(const jcmd_cfg_t *cfg, void *vopt, const char *arg)
     default:
         return false;
     }
+}
+
+bool
+jcmd_opt_set_pem(const jcmd_cfg_t *cfg, void *vopt, const char *arg)
+{
+    bool retval;
+    json_t **jwks = vopt;
+    EVP_PKEY *pkey = EVP_PKEY_new();
+
+    if (!pkey)
+        return false;
+
+    if (!*jwks)
+        *jwks = json_array();
+
+    if (strcmp(arg, "-") == 0) {
+        if (!PEM_read_PrivateKey(stdin, &pkey, NULL, NULL))
+            return false;
+    } else {
+        FILE_AUTO *file = fopen(arg, "r");
+        // TODO: encrypted key callback for password.
+        if (!(file && PEM_read_PrivateKey(file, &pkey, NULL, NULL)))
+            return false;
+    }
+
+    retval = json_array_append_new(*jwks,
+             jose_openssl_jwk_from_EVP_PKEY(NULL, pkey)) == 0;
+
+    EVP_PKEY_free(pkey);
+
+    return retval;
 }
 
 bool

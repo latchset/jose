@@ -73,6 +73,12 @@ static const jcmd_cfg_t cfgs[] = {
         .doc = jcmd_doc_key,
     },
     {
+        .opt = { "pem", required_argument, .val = 'p' },
+        .off = offsetof(jcmd_opt_t, keys),
+        .set = jcmd_opt_set_pem,
+        .doc = jcmd_doc_pem,
+    },
+    {
         .opt = { "output", required_argument, .val = 'o' },
         .off = offsetof(jcmd_opt_t, io.output),
         .set = jcmd_opt_set_ofile,
