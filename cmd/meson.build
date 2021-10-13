@@ -21,7 +21,7 @@ executable(meson.project_name(),
   'jwe/enc.c',
   'alg.c',
   'fmt.c',
-  dependencies: jansson,
-  link_with: libjose,
+
+  dependencies: libjose_dep,
   install: true
 )

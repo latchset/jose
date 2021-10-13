@@ -14,8 +14,6 @@ if host_machine.system() == 'freebsd'
 endif
 
 add_project_arguments(
-  '-I' + meson.current_source_dir(),
-  '-I' + meson.current_build_dir(),
   '-Wstrict-aliasing',
   '-Wchar-subscripts',
   '-Wformat-security',
@@ -38,7 +36,7 @@ add_project_arguments(
 zlib = dependency('zlib')
 threads = dependency('threads')
 jansson = dependency('jansson', version: '>=2.10')
-if host_machine.system() == 'freebsd'
+if build_machine.system() == 'freebsd'
   libcrypto = meson.get_compiler('c').find_library('crypto', dirs: [ '/usr/lib/' ])
 else
   libcrypto = dependency('libcrypto', version: '>=1.0.2')
@@ -49,7 +47,7 @@ mans = []
 
 licenses = ['COPYING']
 
-subdir('jose')
+subdir('include')
 subdir('doc')
 subdir('lib')
 subdir('cmd')
@@ -58,14 +56,14 @@ subdir('tests')
 install_data(licenses, install_dir: licensedir)
 
 pkg = import('pkgconfig')
-if host_machine.system() == 'freebsd'
+if build_machine.system() == 'freebsd'
   pkg.generate(
     description: 'Library for managing JOSE objects',
     version: meson.project_version(),
     filebase: meson.project_name(),
     name: 'José Library',
     requires_private: 'zlib',
-    libraries: libjose,
+    libraries: libjose_lib,
     requires: 'jansson',
   )
 else
@@ -75,7 +73,7 @@ else
     filebase: meson.project_name(),
     name: 'José Library',
     requires_private: [ 'zlib', 'libcrypto' ],
-    libraries: libjose,
+    libraries: libjose_lib,
     requires: 'jansson',
   )
 endif
