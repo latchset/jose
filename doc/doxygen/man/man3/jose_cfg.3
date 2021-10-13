@@ -2,7 +2,7 @@
 .ad l
 .nh
 .SH NAME
-jose_cfg \- José Configuration\&.  
+jose_cfg \- José Configuration\&.
 
 .SH SYNOPSIS
 .br
@@ -37,23 +37,23 @@ jose_cfg \- José Configuration\&.
 .ti -1c
 .RI "void * \fBjose_cfg_get_err_misc\fP (jose_cfg_t *cfg)"
 .br
-.RI "Gets the miscelaneous data associated with the current error handler\&. "
+.RI "Gets the miscellaneous data associated with the current error handler\&. "
 .ti -1c
 .RI "void \fBjose_cfg_err\fP (jose_cfg_t *cfg, uint64_t err, const char *fmt,\&.\&.\&.)"
 .br
 .RI "Submit an error\&. "
 .in -1c
 .SH "Detailed Description"
-.PP 
-José Configuration\&. 
+.PP
+José Configuration\&.
 
 
 .SH "Typedef Documentation"
-.PP 
+.PP
 .SS "typedef jose_cfg_t \fBjose_cfg_auto_t\fP"
 
 .PP
-Defines a jose_cfg_t which calls \fBjose_cfg_decref()\fP at end of scope\&. For example: 
+Defines a jose_cfg_t which calls \fBjose_cfg_decref()\fP at end of scope\&. For example:
 .PP
 .nf
 void foo() {
@@ -62,17 +62,17 @@ void foo() {
 }
 .fi
 .PP
- 
+
 .SH "Function Documentation"
-.PP 
+.PP
 .SS "jose_cfg_t* jose_cfg (void)"
 
 .PP
-Creates a new configuration instance\&. 
+Creates a new configuration instance\&.
 .PP
 \fBReturns:\fP
 .RS 4
-A newly-allocated configuration instance\&. 
+A newly-allocated configuration instance\&.
 .RE
 .PP
 
@@ -83,12 +83,12 @@ Increases the reference count of a configuration instance\&. This function alway
 .PP
 \fBParameters:\fP
 .RS 4
-\fIcfg\fP The configuration context\&. 
+\fIcfg\fP The configuration context\&.
 .RE
 .PP
 \fBReturns:\fP
 .RS 4
-The value of \fCcfg\fP (for convenience)\&. 
+The value of \fCcfg\fP (for convenience)\&.
 .RE
 .PP
 
@@ -99,7 +99,7 @@ Decreases the reference count of a configuration instance\&. When the reference 
 .PP
 \fBParameters:\fP
 .RS 4
-\fIcfg\fP The configuration context\&. 
+\fIcfg\fP The configuration context\&.
 .RE
 .PP
 
@@ -112,27 +112,27 @@ You may pass NULL to \fCerr\fP to return to the default error handler\&.
 .PP
 \fBParameters:\fP
 .RS 4
-\fIcfg\fP The configuration context\&. 
+\fIcfg\fP The configuration context\&.
 .br
-\fIerr\fP The error handler function you wish to enable\&. 
+\fIerr\fP The error handler function you wish to enable\&.
 .br
-\fImisc\fP The miscelaneous data you wish to pass to the error handler\&. 
+\fImisc\fP The miscellaneous data you wish to pass to the error handler\&.
 .RE
 .PP
 
 .SS "void* jose_cfg_get_err_misc (jose_cfg_t * cfg)"
 
 .PP
-Gets the miscelaneous data associated with the current error handler\&. 
+Gets the miscellaneous data associated with the current error handler\&.
 .PP
 \fBParameters:\fP
 .RS 4
-\fIcfg\fP The configuration context\&. 
+\fIcfg\fP The configuration context\&.
 .RE
 .PP
 \fBReturns:\fP
 .RS 4
-The miscelaneous data associated with the error handler\&. 
+The miscellaneous data associated with the error handler\&.
 .RE
 .PP
 
@@ -143,16 +143,16 @@ Submit an error\&. The error handler will be called with the error provided\&.
 .PP
 \fBParameters:\fP
 .RS 4
-\fIcfg\fP The configuration context (optional)\&. 
+\fIcfg\fP The configuration context (optional)\&.
 .br
-\fIerr\fP The number corresponding to this error type\&. 
+\fIerr\fP The number corresponding to this error type\&.
 .br
-\fIfmt\fP A printf()-style format string\&. 
+\fIfmt\fP A printf()-style format string\&.
 .br
-\fI\&.\&.\&.\fP The printf()-style arguments\&. 
+\fI\&.\&.\&.\fP The printf()-style arguments\&.
 .RE
 .PP
 
 .SH "Author"
-.PP 
+.PP
 Generated automatically by Doxygen for José from the source code\&.

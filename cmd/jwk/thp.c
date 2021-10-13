@@ -90,7 +90,7 @@ static const jcmd_cfg_t cfgs[] = {
         .off = offsetof(jcmd_opt_t, hash),
         .set = opt_set_hash,
         .doc = doc_hash,
-        .def = "S1",
+        .def = "S256",
     },
     {
         .opt = { "output", required_argument, .val = 'o' },

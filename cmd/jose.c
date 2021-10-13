@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-#include <cmd/jose.h>
+#include "jose.h"
 
 #include <sys/types.h>
 #include <sys/stat.h>

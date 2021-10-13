@@ -1,12 +1,11 @@
-#!/bin/bash -ex
+#!/bin/sh -ex
 
 tmpdir=`mktemp -d 2>/dev/null || mktemp -d -t jose`
 
-function onexit() {
+onexit() {
     rm -rf $tmpdir
 }
 
-trap exit ERR
 trap onexit EXIT
 
 for T in '{"alg":"ECDH"}' '{"alg":"ECDH","crv":"P-256"}' '{"kty":"EC","crv":"P-256"}'; do
@@ -20,9 +19,9 @@ for T in '{"alg":"ECDH"}' '{"alg":"ECDH","crv":"P-256"}' '{"kty":"EC","crv":"P-2
     b=`jose jwk exc -l $tmpdir/exc_b.jwk -r $tmpdir/exc_a.pub.jwk`
     c=`jose jwk exc -l $tmpdir/exc_a.jwk -r $tmpdir/exc_b.jwk`
     d=`jose jwk exc -l $tmpdir/exc_b.jwk -r $tmpdir/exc_a.jwk`
-    test "$a" == "$b"
-    test "$c" == "$d"
-    test "$a" == "$c"
+    test "$a" = "$b"
+    test "$c" = "$d"
+    test "$a" = "$c"
 
     ! jose jwk exc -l $tmpdir/exc_a.pub.jwk -r $tmpdir/exc_b.jwk
     ! jose jwk exc -l $tmpdir/exc_b.pub.jwk -r $tmpdir/exc_a.jwk
