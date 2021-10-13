@@ -15,82 +15,99 @@
  * limitations under the License.
  */
 
+#pragma once
+
 #include <jose/jose.h>
 #include <getopt.h>
 
-#define GEN_USE \
-    "gen -t TMPL ... [-o JWK(Set)]"
+#define __JCMD_AUTO(t) t ## _t __attribute__((cleanup(t ## _cleanup)))
+#define jcmd_opt_key_auto_t __JCMD_AUTO(jcmd_opt_key)
+#define jcmd_opt_io_auto_t  __JCMD_AUTO(jcmd_opt_io)
+#define jcmd_opt_auto_t     __JCMD_AUTO(jcmd_opt)
+#define FILE_AUTO      FILE __attribute__((cleanup(jcmd_file_cleanup)))
 
-#define PUB_USE \
-    "pub -i JWK(Set) [-o JWK(Set)]"
+#define JCMD_REGISTER(summary, function, ...)               \
+    static void __attribute__((constructor))                \
+    jcmd_ ## function ## _register(void)                    \
+    {                                                       \
+        static const char *names[] = { __VA_ARGS__, NULL }; \
+        static jcmd_t cmd = {                               \
+            .names = names,                                 \
+            .func = function,                               \
+            .desc = summary                                 \
+        };                                                  \
+        jcmd_push(&cmd);                                    \
+    }
 
-#define USE_USE \
-    "use -i JWK [-a] [-r] -o OP ..."
+typedef struct jcmd_cfg jcmd_cfg_t;
+typedef bool jcmd_set_t(const jcmd_cfg_t *cfg, void *vopt, const char *arg);
 
-#define THP_USE \
-    "thp -i JWK(Set) [-H HASH] [-o THMB]"
+typedef struct {
+    const char *arg;
+    const char *doc;
+} jcmd_doc_t;
 
-#define EXC_USE \
-    "exc [-t TMPL] -l JWK -r JWK [-o JWK]"
+struct jcmd_cfg {
+    const jcmd_doc_t *doc;
+    struct option opt;
+    const char *def;
+    jcmd_set_t *set;
+    off_t off;
+};
 
-#define SIG_USE \
-    "sig -i PLD [-t TMPL] [-s SIGT ...] -k JWK(Set) ... [-o JWS] [-c] [-d]"
+typedef struct {
+    const char *name;
+    const char *mult;
+} jcmd_field_t;
 
-#define VER_USE \
-    "ver -i JWS [-d DTCH] -k JWK(Set) ... [-a] [-o PLD]"
+typedef struct {
+    const jcmd_field_t *fields;
+    FILE *detached;
+    bool  compact;
+    FILE *detach;
+    FILE *output;
+    FILE *input;
+    json_t *obj;
+} jcmd_opt_io_t;
 
-#define ENC_USE \
-    "enc -i PLD [-t TMPL] [-r RCPT ...] [-p ...] -k JWK(Set) ... [-c] [-o JWE]"
+typedef struct jcmd jcmd_t;
+struct jcmd {
+    const jcmd_t *next;
+    const char *const *names;
+    int (*func)(int argc, char *argv[]);
+    const char *desc;
+};
 
-#define DEC_USE \
-    "dec -i JWE [-n] [-k JWK(Set) ...] [-o PLD]"
+static const jcmd_doc_t jcmd_doc_key[] = {
+    { .arg = "FILE", .doc="Read JWK(Set) from FILE" },
+    { .arg = "-",    .doc="Read JWK(Set) from standard input" },
+    {}
+};
 
-#define SUP_USE \
-    "sup"
+void
+jcmd_push(jcmd_t *cmd);
 
-void *
-jcmd_load_data(const char *file, size_t *len);
+bool
+jcmd_opt_parse(int argc, char *argv[], const jcmd_cfg_t *cfgs, void *arg,
+               const char *prefix);
+
+jcmd_set_t jcmd_opt_io_set_input; /* Takes jcmd_opt_io_t* */
+jcmd_set_t jcmd_opt_set_ifile;    /* Takes FILE** */
+jcmd_set_t jcmd_opt_set_ofile;    /* Takes FILE** */
+jcmd_set_t jcmd_opt_set_jsons;    /* Takes json_t** */
+jcmd_set_t jcmd_opt_set_json;     /* Takes json_t** */
+jcmd_set_t jcmd_opt_set_jwkt;     /* Takes json_t** */
+jcmd_set_t jcmd_opt_set_jwks;     /* Takes json_t** */
+jcmd_set_t jcmd_opt_set_flag;     /* Takes bool* */
+
+void
+jcmd_opt_io_cleanup(jcmd_opt_io_t *io);
+
+void
+jcmd_opt_key_cleanup(jcmd_opt_io_t *io);
 
 json_t *
-jcmd_load_json(const char *file, const char *raw,
-               json_t *(*conv)(const char *));
+jcmd_compact_field(FILE *file);
 
-bool
-jcmd_dump_data(const char *filename, const uint8_t buf[], size_t len);
-
-bool
-jcmd_dump_json(const json_t *json, const char *filename,
-               char *(*conv)(const json_t *));
-
-bool
-jcmd_jwks_extend(json_t *jwks, json_t *jwk_or_jwkset);
-
-int
-jcmd_gen(int argc, char *argv[]);
-
-int
-jcmd_pub(int argc, char *argv[]);
-
-int
-jcmd_thp(int argc, char *argv[]);
-
-int
-jcmd_use(int argc, char *argv[]);
-
-int
-jcmd_exc(int argc, char *argv[]);
-
-int
-jcmd_sig(int argc, char *argv[]);
-
-int
-jcmd_ver(int argc, char *argv[]);
-
-int
-jcmd_enc(int argc, char *argv[]);
-
-int
-jcmd_dec(int argc, char *argv[]);
-
-int
-jcmd_sup(int argc, char *argv[]);
+void
+jcmd_file_cleanup(FILE **file);

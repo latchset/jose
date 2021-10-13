@@ -19,13 +19,14 @@
 
 #include <jansson.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
-bool
-set_protected_new(json_t *obj, const char *key, json_t *val);
+#define containerof(ptr, type, member) \
+    ((type *)((char *) ptr - offsetof(type, member)))
 
-const char *
+bool
 encode_protected(json_t *obj);
 
-bool
-add_entity(json_t *root, json_t *obj, const char *plural, ...);
+void
+zero(void *mem, size_t len);

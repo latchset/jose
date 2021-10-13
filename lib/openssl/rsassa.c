@@ -16,7 +16,8 @@
  */
 
 #include "misc.h"
-#include <jose/hooks.h>
+#include <jose/b64.h>
+#include "../hooks.h"
 #include <jose/openssl.h>
 
 #include <openssl/sha.h>
@@ -25,49 +26,192 @@
 
 #define NAMES "RS256", "RS384", "RS512", "PS256", "PS384", "PS512"
 
-declare_cleanup(EVP_MD_CTX)
+typedef typeof(EVP_DigestSignInit) init_t;
+
 declare_cleanup(EVP_PKEY)
 
-static bool
-resolve(json_t *jwk)
+typedef struct {
+    jose_io_t io;
+
+    EVP_MD_CTX *emc;
+    json_t *obj;
+    json_t *sig;
+} io_t;
+
+static void
+io_free(jose_io_t *io)
 {
-    json_auto_t *upd = NULL;
+    io_t *i = containerof(io, io_t, io);
+    EVP_MD_CTX_free(i->emc);
+    json_decref(i->obj);
+    json_decref(i->sig);
+    free(i);
+}
+
+static bool
+io_feed(jose_io_t *io, const void *in, size_t len)
+{
+    io_t *i = containerof(io, io_t, io);
+    return EVP_DigestUpdate(i->emc, in, len) > 0;
+}
+
+static bool
+sig_done(jose_io_t *io)
+{
+    io_t *i = containerof(io, io_t, io);
+    size_t len = 0;
+
+    if (EVP_DigestSignFinal(i->emc, NULL, &len) <= 0)
+        return false;
+
+    uint8_t buf[len];
+
+    if (EVP_DigestSignFinal(i->emc, buf, &len) <= 0)
+        return false;
+
+    if (json_object_set_new(i->sig, "signature",
+                            jose_b64_enc(buf, len)) < 0)
+        return false;
+
+    return add_entity(i->obj, i->sig,
+                      "signatures", "signature", "protected", "header", NULL);
+}
+
+static bool
+ver_done(jose_io_t *io)
+{
+    io_t *i = containerof(io, io_t, io);
+    const json_t *sig = NULL;
+    uint8_t *buf = NULL;
+    bool ret = false;
+    size_t len = 0;
+
+    sig = json_object_get(i->sig, "signature");
+    if (!sig)
+        return false;
+
+    len = jose_b64_dec(sig, NULL, 0);
+    if (len == SIZE_MAX)
+        return false;
+
+    buf = malloc(len);
+    if (!buf)
+        return false;
+
+    if (jose_b64_dec(sig, buf, len) != len) {
+        free(buf);
+        return false;
+    }
+
+    ret = EVP_DigestVerifyFinal(i->emc, buf, len) == 1;
+    free(buf);
+    return ret;
+}
+
+static EVP_MD_CTX *
+setup(jose_cfg_t *cfg, const json_t *jwk, const json_t *sig, const char *alg,
+      init_t *func)
+{
+    openssl_auto(EVP_PKEY) *key = NULL;
+    EVP_PKEY_CTX *epc = NULL;
+    const EVP_MD *md = NULL;
+    EVP_MD_CTX *emc = NULL;
+    const RSA *rsa = NULL;
+    int slen = 0;
+    int pad = 0;
+
+    switch (str2enum(alg, NAMES, NULL)) {
+    case 0: md = EVP_sha256(); pad = RSA_PKCS1_PADDING; break;
+    case 1: md = EVP_sha384(); pad = RSA_PKCS1_PADDING; break;
+    case 2: md = EVP_sha512(); pad = RSA_PKCS1_PADDING; break;
+    case 3: md = EVP_sha256(); pad = RSA_PKCS1_PSS_PADDING; slen = -1; break;
+    case 4: md = EVP_sha384(); pad = RSA_PKCS1_PSS_PADDING; slen = -1; break;
+    case 5: md = EVP_sha512(); pad = RSA_PKCS1_PSS_PADDING; slen = -1; break;
+    default: return NULL;
+    }
+
+    key = jose_openssl_jwk_to_EVP_PKEY(cfg, jwk);
+    if (!key || EVP_PKEY_base_id(key) != EVP_PKEY_RSA)
+        return NULL;
+
+    /* Don't use small keys. RFC 7518 3.3 */
+    rsa = EVP_PKEY_get0_RSA(key);
+    if (!rsa)
+        return NULL;
+    if (RSA_size(rsa) < 2048 / 8)
+        return NULL;
+
+    emc = EVP_MD_CTX_new();
+    if (!emc)
+        return NULL;
+
+    if (func(emc, &epc, md, NULL, key) <= 0)
+        goto error;
+
+    if (EVP_PKEY_CTX_set_rsa_padding(epc, pad) <= 0)
+        goto error;
+
+    if (slen != 0) {
+        if (EVP_PKEY_CTX_set_rsa_pss_saltlen(epc, slen) <= 0)
+            goto error;
+    }
+
+    return emc;
+
+error:
+    EVP_MD_CTX_free(emc);
+    return NULL;
+}
+
+static bool
+jwk_prep_handles(jose_cfg_t *cfg, const json_t *jwk)
+{
     const char *alg = NULL;
+
+    if (json_unpack((json_t *) jwk, "{s:s}", "alg", &alg) == -1)
+        return false;
+
+    return str2enum(alg, NAMES, NULL) != SIZE_MAX;
+}
+
+static bool
+jwk_prep_execute(jose_cfg_t *cfg, json_t *jwk)
+{
     const char *kty = NULL;
 
-    if (json_unpack(jwk, "{s?s,s?s}", "kty", &kty, "alg", &alg) == -1)
+    if (!jwk_prep_handles(cfg, jwk))
         return false;
 
-    if (str2enum(alg, NAMES, NULL) >= 6)
-        return true;
-
-    if (!kty && json_object_set_new(jwk, "kty", json_string("RSA")) == -1)
+    if (json_unpack(jwk, "{s?s}", "kty", &kty) < 0)
         return false;
+
     if (kty && strcmp(kty, "RSA") != 0)
         return false;
 
-    upd = json_pack("{s:s,s:[s,s]}", "use", "sig", "key_ops",
-                    "sign", "verify");
-    if (!upd)
+    if (json_object_set_new(jwk, "kty", json_string("RSA")) < 0)
         return false;
 
-    return json_object_update_missing(jwk, upd) == 0;
+    return true;
 }
 
 static const char *
-suggest(const json_t *jwk)
+alg_sign_sug(const jose_hook_alg_t *alg, jose_cfg_t *cfg, const json_t *jwk)
 {
-    const char *kty = NULL;
-    const char *n = NULL;
+    const char *name = NULL;
+    const char *type = NULL;
     size_t len = 0;
 
-    if (json_unpack((json_t *) jwk, "{s:s,s:s}", "kty", &kty, "n", &n) == -1)
+    if (json_unpack((json_t *) jwk, "{s?s,s?s}",
+                    "alg", &name, "kty", &type) < 0)
         return NULL;
 
-    if (strcmp(kty, "RSA") != 0)
+    if (name)
+        return str2enum(name, NAMES, NULL) != SIZE_MAX ? name : NULL;
+
+    if (!type || strcmp(type, "RSA") != 0)
         return NULL;
 
-    len = jose_b64_dlen(strlen(n)) * 8;
+    len = jose_b64_dec(json_object_get(jwk, "n"), NULL, 0) * 8;
 
     switch ((len < 4096 ? len : 4096) & (4096 | 3072 | 2048)) {
     case 4096: return "RS512";
@@ -77,151 +221,111 @@ suggest(const json_t *jwk)
     }
 }
 
-static bool
-sign(json_t *sig, const json_t *jwk,
-     const char *alg, const char *prot, const char *payl)
+static jose_io_t *
+alg_sign_sig(const jose_hook_alg_t *alg, jose_cfg_t *cfg, json_t *jws,
+             json_t *sig, const json_t *jwk)
 {
-    openssl_auto(EVP_MD_CTX) *ctx = NULL;
-    openssl_auto(EVP_PKEY) *key = NULL;
-    jose_buf_auto_t *sg = NULL;
-    EVP_PKEY_CTX *pctx = NULL;
-    const EVP_MD *md = NULL;
-    const RSA *rsa = NULL;
-    size_t sgl = 0;
-    int pad = 0;
+    jose_io_auto_t *io = NULL;
+    io_t *i = NULL;
 
-    switch (str2enum(alg, NAMES, NULL)) {
-    case 0: md = EVP_sha256(); pad = RSA_PKCS1_PADDING; break;
-    case 1: md = EVP_sha384(); pad = RSA_PKCS1_PADDING; break;
-    case 2: md = EVP_sha512(); pad = RSA_PKCS1_PADDING; break;
-    case 3: md = EVP_sha256(); pad = RSA_PKCS1_PSS_PADDING; break;
-    case 4: md = EVP_sha384(); pad = RSA_PKCS1_PSS_PADDING; break;
-    case 5: md = EVP_sha512(); pad = RSA_PKCS1_PSS_PADDING; break;
-    default: return false;
-    }
+    i = calloc(1, sizeof(*i));
+    if (!i)
+        return NULL;
 
-    key = jose_openssl_jwk_to_EVP_PKEY(jwk);
-    if (!key || EVP_PKEY_base_id(key) != EVP_PKEY_RSA)
-        return false;
+    io = jose_io_incref(&i->io);
+    io->feed = io_feed;
+    io->done = sig_done;
+    io->free = io_free;
 
-    /* Don't use small keys. RFC 7518 3.3 */
-    rsa = EVP_PKEY_get0_RSA(key);
-    if (!rsa)
-        return false;
-    if (RSA_size(rsa) < 2048 / 8)
-        return false;
+    i->obj = json_incref(jws);
+    i->sig = json_incref(sig);
+    i->emc = setup(cfg, jwk, sig, alg->name, EVP_DigestSignInit);
+    if (!i->obj || !i->sig || !i->emc)
+        return NULL;
 
-    ctx = EVP_MD_CTX_new();
-    if (!ctx)
-        return false;
-
-    if (EVP_DigestSignInit(ctx, &pctx, md, NULL, key) < 0)
-        return false;
-
-    if (EVP_PKEY_CTX_set_rsa_padding(pctx, pad) < 0)
-        return false;
-
-    if (EVP_DigestSignUpdate(ctx, prot, strlen(prot)) < 0)
-        return false;
-
-    if (EVP_DigestSignUpdate(ctx, ".", 1) < 0)
-        return false;
-
-    if (EVP_DigestSignUpdate(ctx, payl, strlen(payl)) < 0)
-        return false;
-
-    if (EVP_DigestSignFinal(ctx, NULL, &sgl) < 0)
-        return false;
-
-    sg = jose_buf(sgl, JOSE_BUF_FLAG_WIPE);
-    if (!sg)
-        return false;
-
-    if (EVP_DigestSignFinal(ctx, sg->data, &sg->size) < 0)
-        return false;
-
-    return json_object_set_new(sig, "signature",
-                               jose_b64_encode_json(sg->data, sg->size)) == 0;
+    return jose_io_incref(io);
 }
 
-static bool
-verify(const json_t *sig, const json_t *jwk,
-       const char *alg, const char *prot, const char *payl)
+static jose_io_t *
+alg_sign_ver(const jose_hook_alg_t *alg, jose_cfg_t *cfg, const json_t *jws,
+             const json_t *sig, const json_t *jwk)
 {
-    openssl_auto(EVP_MD_CTX) *ctx = NULL;
-    openssl_auto(EVP_PKEY) *key = NULL;
-    jose_buf_auto_t *sgn = NULL;
-    EVP_PKEY_CTX *pctx = NULL;
-    const EVP_MD *md = NULL;
-    const RSA *rsa = NULL;
-    int pad = 0;
+    jose_io_auto_t *io = NULL;
+    io_t *i = NULL;
 
-    switch (str2enum(alg, NAMES, NULL)) {
-    case 0: md = EVP_sha256(); pad = RSA_PKCS1_PADDING; break;
-    case 1: md = EVP_sha384(); pad = RSA_PKCS1_PADDING; break;
-    case 2: md = EVP_sha512(); pad = RSA_PKCS1_PADDING; break;
-    case 3: md = EVP_sha256(); pad = RSA_PKCS1_PSS_PADDING; break;
-    case 4: md = EVP_sha384(); pad = RSA_PKCS1_PSS_PADDING; break;
-    case 5: md = EVP_sha512(); pad = RSA_PKCS1_PSS_PADDING; break;
-    default: return false;
-    }
+    i = calloc(1, sizeof(*i));
+    if (!i)
+        return NULL;
 
-    key = jose_openssl_jwk_to_EVP_PKEY(jwk);
-    if (!key || EVP_PKEY_base_id(key) != EVP_PKEY_RSA)
-        return false;
+    io = jose_io_incref(&i->io);
+    io->feed = io_feed;
+    io->done = ver_done;
+    io->free = io_free;
 
-    /* Don't use small keys. RFC 7518 3.3 */
-    rsa = EVP_PKEY_get0_RSA(key);
-    if (!rsa)
-        return false;
-    if (RSA_size(rsa) < 2048 / 8)
-        return false;
+    i->sig = json_incref((json_t *) sig);
+    i->emc = setup(cfg, jwk, sig, alg->name, EVP_DigestVerifyInit);
+    if (!i->sig || !i->emc)
+        return NULL;
 
-    sgn = jose_b64_decode_json(json_object_get(sig, "signature"));
-    if (!sgn)
-        return false;
-
-    ctx = EVP_MD_CTX_new();
-    if (!ctx)
-        return false;
-
-    if (EVP_DigestVerifyInit(ctx, &pctx, md, NULL, key) < 0)
-        return false;
-
-    if (EVP_PKEY_CTX_set_rsa_padding(pctx, pad) < 0)
-        return false;
-
-    if (EVP_DigestVerifyUpdate(ctx, prot, strlen(prot)) < 0)
-        return false;
-
-    if (EVP_DigestVerifyUpdate(ctx, ".", 1) < 0)
-        return false;
-
-    if (EVP_DigestVerifyUpdate(ctx, payl, strlen(payl)) < 0)
-        return false;
-
-    return EVP_DigestVerifyFinal(ctx, sgn->data, sgn->size) == 1;
+    return jose_io_incref(io);
 }
 
 static void __attribute__((constructor))
 constructor(void)
 {
-    static jose_jwk_resolver_t resolver = {
-        .resolve = resolve
+    static jose_hook_jwk_t jwk = {
+        .kind = JOSE_HOOK_JWK_KIND_PREP,
+        .prep.handles = jwk_prep_handles,
+        .prep.execute = jwk_prep_execute,
     };
 
-    static jose_jws_signer_t signers[] = {
-        { NULL, "RS256", suggest, sign, verify },
-        { NULL, "RS384", suggest, sign, verify },
-        { NULL, "RS512", suggest, sign, verify },
-        { NULL, "PS256", suggest, sign, verify },
-        { NULL, "PS384", suggest, sign, verify },
-        { NULL, "PS512", suggest, sign, verify },
+    static jose_hook_alg_t algs[] = {
+        { .kind = JOSE_HOOK_ALG_KIND_SIGN,
+          .name = "RS256",
+          .sign.sprm = "sign",
+          .sign.vprm = "verify",
+          .sign.sug = alg_sign_sug,
+          .sign.sig = alg_sign_sig,
+          .sign.ver = alg_sign_ver },
+        { .kind = JOSE_HOOK_ALG_KIND_SIGN,
+          .name = "RS384",
+          .sign.sprm = "sign",
+          .sign.vprm = "verify",
+          .sign.sug = alg_sign_sug,
+          .sign.sig = alg_sign_sig,
+          .sign.ver = alg_sign_ver },
+        { .kind = JOSE_HOOK_ALG_KIND_SIGN,
+          .name = "RS512",
+          .sign.sprm = "sign",
+          .sign.vprm = "verify",
+          .sign.sug = alg_sign_sug,
+          .sign.sig = alg_sign_sig,
+          .sign.ver = alg_sign_ver },
+        { .kind = JOSE_HOOK_ALG_KIND_SIGN,
+          .name = "PS256",
+          .sign.sprm = "sign",
+          .sign.vprm = "verify",
+          .sign.sug = alg_sign_sug,
+          .sign.sig = alg_sign_sig,
+          .sign.ver = alg_sign_ver },
+        { .kind = JOSE_HOOK_ALG_KIND_SIGN,
+          .name = "PS384",
+          .sign.sprm = "sign",
+          .sign.vprm = "verify",
+          .sign.sug = alg_sign_sug,
+          .sign.sig = alg_sign_sig,
+          .sign.ver = alg_sign_ver },
+        { .kind = JOSE_HOOK_ALG_KIND_SIGN,
+          .name = "PS512",
+          .sign.sprm = "sign",
+          .sign.vprm = "verify",
+          .sign.sug = alg_sign_sug,
+          .sign.sig = alg_sign_sig,
+          .sign.ver = alg_sign_ver },
         {}
     };
 
-    jose_jwk_register_resolver(&resolver);
-
-    for (size_t i = 0; signers[i].alg; i++)
-        jose_jws_register_signer(&signers[i]);
+    jose_hook_jwk_push(&jwk);
+    for (size_t i = 0; algs[i].name; i++)
+        jose_hook_alg_push(&algs[i]);
 }

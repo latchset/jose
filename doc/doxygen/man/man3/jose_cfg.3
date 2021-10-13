@@ -1,0 +1,158 @@
+.TH "jose_cfg" 3 "Tue May 30 2017" "José" \" -*- nroff -*-
+.ad l
+.nh
+.SH NAME
+jose_cfg \- José Configuration\&.
+
+.SH SYNOPSIS
+.br
+.PP
+.SS "Typedefs"
+
+.in +1c
+.ti -1c
+.RI "typedef jose_cfg_t \fBjose_cfg_auto_t\fP"
+.br
+.RI "Defines a jose_cfg_t which calls \fBjose_cfg_decref()\fP at end of scope\&. "
+.in -1c
+.SS "Functions"
+
+.in +1c
+.ti -1c
+.RI "jose_cfg_t * \fBjose_cfg\fP (void)"
+.br
+.RI "Creates a new configuration instance\&. "
+.ti -1c
+.RI "jose_cfg_t * \fBjose_cfg_incref\fP (jose_cfg_t *cfg)"
+.br
+.RI "Increases the reference count of a configuration instance\&. "
+.ti -1c
+.RI "void \fBjose_cfg_decref\fP (jose_cfg_t *cfg)"
+.br
+.RI "Decreases the reference count of a configuration instance\&. "
+.ti -1c
+.RI "void \fBjose_cfg_set_err_func\fP (jose_cfg_t *cfg, jose_cfg_err_t *err, void *misc)"
+.br
+.RI "Sets the error handler function for this configuration instance\&. "
+.ti -1c
+.RI "void * \fBjose_cfg_get_err_misc\fP (jose_cfg_t *cfg)"
+.br
+.RI "Gets the miscellaneous data associated with the current error handler\&. "
+.ti -1c
+.RI "void \fBjose_cfg_err\fP (jose_cfg_t *cfg, uint64_t err, const char *fmt,\&.\&.\&.)"
+.br
+.RI "Submit an error\&. "
+.in -1c
+.SH "Detailed Description"
+.PP
+José Configuration\&.
+
+
+.SH "Typedef Documentation"
+.PP
+.SS "typedef jose_cfg_t \fBjose_cfg_auto_t\fP"
+
+.PP
+Defines a jose_cfg_t which calls \fBjose_cfg_decref()\fP at end of scope\&. For example:
+.PP
+.nf
+void foo() {
+    jose_cfg_auto_t *cfg = jose_cfg();
+    // jose_cfg_decref() implicitly called
+}
+.fi
+.PP
+
+.SH "Function Documentation"
+.PP
+.SS "jose_cfg_t* jose_cfg (void)"
+
+.PP
+Creates a new configuration instance\&.
+.PP
+\fBReturns:\fP
+.RS 4
+A newly-allocated configuration instance\&.
+.RE
+.PP
+
+.SS "jose_cfg_t* jose_cfg_incref (jose_cfg_t * cfg)"
+
+.PP
+Increases the reference count of a configuration instance\&. This function always succeeds\&.
+.PP
+\fBParameters:\fP
+.RS 4
+\fIcfg\fP The configuration context\&.
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+The value of \fCcfg\fP (for convenience)\&.
+.RE
+.PP
+
+.SS "void jose_cfg_decref (jose_cfg_t * cfg)"
+
+.PP
+Decreases the reference count of a configuration instance\&. When the reference count reaches zero, the configuration instance is freed\&.
+.PP
+\fBParameters:\fP
+.RS 4
+\fIcfg\fP The configuration context\&.
+.RE
+.PP
+
+.SS "void jose_cfg_set_err_func (jose_cfg_t * cfg, jose_cfg_err_t * err, void * misc)"
+
+.PP
+Sets the error handler function for this configuration instance\&. The value of \fCmisc\fP will be passed to the error handler function\&.
+.PP
+You may pass NULL to \fCerr\fP to return to the default error handler\&.
+.PP
+\fBParameters:\fP
+.RS 4
+\fIcfg\fP The configuration context\&.
+.br
+\fIerr\fP The error handler function you wish to enable\&.
+.br
+\fImisc\fP The miscellaneous data you wish to pass to the error handler\&.
+.RE
+.PP
+
+.SS "void* jose_cfg_get_err_misc (jose_cfg_t * cfg)"
+
+.PP
+Gets the miscellaneous data associated with the current error handler\&.
+.PP
+\fBParameters:\fP
+.RS 4
+\fIcfg\fP The configuration context\&.
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+The miscellaneous data associated with the error handler\&.
+.RE
+.PP
+
+.SS "void jose_cfg_err (jose_cfg_t * cfg, uint64_t err, const char * fmt,  \&.\&.\&.)"
+
+.PP
+Submit an error\&. The error handler will be called with the error provided\&.
+.PP
+\fBParameters:\fP
+.RS 4
+\fIcfg\fP The configuration context (optional)\&.
+.br
+\fIerr\fP The number corresponding to this error type\&.
+.br
+\fIfmt\fP A printf()-style format string\&.
+.br
+\fI\&.\&.\&.\fP The printf()-style arguments\&.
+.RE
+.PP
+
+.SH "Author"
+.PP
+Generated automatically by Doxygen for José from the source code\&.

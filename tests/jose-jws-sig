@@ -1,0 +1,93 @@
+#!/bin/sh -ex
+
+ALGS=`jose alg -k sign`
+
+tmpdir=`mktemp -d 2>/dev/null || mktemp -d -t jose`
+
+onexit() {
+    rm -rf $tmpdir
+}
+
+trap onexit EXIT
+
+msg=$tmpdir/msg.txt
+printf "hi" > $msg
+
+for a in $ALGS; do
+    jwk=$tmpdir/$a.jwk
+    jws=$tmpdir/$a.jws
+
+    jose jwk gen -i "{\"alg\":\"$a\"}" -o $jwk
+    jose jwk pub -i $jwk -o $jwk.pub
+
+    old=$prv
+    prv=$jwk
+done
+
+for a in $ALGS; do
+    jwk=$tmpdir/$a.jwk
+    jws=$tmpdir/$a.jws
+
+    printf "hi" | jose jws sig -I- -k $jwk    | jose jws ver -i- -k $jwk
+    printf "hi" | jose jws sig -I- -k $jwk -c | jose jws ver -i- -k $jwk
+
+    jose jws sig -o $jws -k $jwk -I $msg
+    jose jws ver -i $jws -k $jwk
+    rm -f $jws
+
+    jose jws sig -o $jws -k $jwk -I $msg -c
+    jose jws ver -i $jws -k $jwk
+    rm -f $jws
+
+    det=`jose jws sig -I $msg -k $jwk -o /dev/null -O-`
+    [ "$det" = "hi" ]
+
+    jws=`jose jws sig -I $msg -k $jwk -O /dev/null`
+    ! jose jws ver -i "$jws" -k $jwk
+    det=`jose jws ver -i "$jws" -k $jwk -I $msg -O-`
+    [ "$det" = "hi" ]
+
+    jws=`jose jws sig -I $msg -k $jwk`
+    det=`jose jws ver -i "$jws" -k $jwk`
+    [ "$det" = "" ]
+    det=`jose jws ver -i "$jws" -k $jwk -O-`
+    [ "$det" = "hi" ]
+
+    jws=`jose jws sig -I $msg -k $jwk -c`
+    det=`jose jws ver -i "$jws" -k $jwk`
+    [ "$det" = "" ]
+    det=`jose jws ver -i "$jws" -k $jwk -O-`
+    [ "$det" = "hi" ]
+
+    jws=`jose jws sig -k $jwk -I $msg -s "{\"protected\":{\"alg\":\"$a\"}}"`
+    jose jws ver -i "$jws" -k $jwk
+
+    jws=`jose jws sig -k $jwk -i "{\"payload\":\"aGkK\"}"`
+    jose jws ver -i "$jws" -k $jwk
+
+    for b in $ALGS; do
+        [ $a = $b ] && continue
+
+        ! jose jws sig -I $msg -k $jwk -s "{\"protected\":{\"alg\":\"$b\"}}"
+
+        jws=`jose jws sig -I $msg -k $jwk`
+        ! jose jws ver -i "$jws" -k $tmpdir/$b.jwk
+    done
+
+    jws=`jose jws sig -I $msg -k $jwk -k $prv`
+    jose jws ver -i "$jws" -k $jwk
+    jose jws ver -i "$jws" -k $prv
+    ! jose jws ver -i "$jws" -k $old
+    jose jws ver -i "$jws" -k $jwk -k $prv -a
+    ! jose jws ver -i "$jws" -k $jwk -k $prv -k $old -a
+
+    old=$prv
+    prv=$jwk
+done
+
+for tmpl in '{"kty":"oct","bytes":32}' '{"kty":"RSA","bits":2048}' '{"kty":"EC","crv":"P-256"}'; do
+    jose jwk gen -i "$tmpl" -o $tmpdir/jwk
+
+    printf '%s' "$msg" | jose jws sig -I- -k $tmpdir/jwk -o $tmpdir/jws
+    [ "`jose jws ver -i $tmpdir/jws -k $tmpdir/jwk -O-`" = "$msg" ]
+done

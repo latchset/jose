@@ -1,0 +1,45 @@
+#!/bin/sh -ex
+
+ALGS=`jose alg -k sign -k wrap -k encr | grep -v '^dir$'`
+
+##
+### Generate a key for every supported algorithm
+##
+
+for a in $ALGS; do
+    jose jwk gen -i "{\"alg\": \"$a\"}"
+done
+
+##
+### Generate a key for each parameter
+##
+
+jose jwk gen -i '{ "kty": "EC", "crv": "P-256" }'
+jose jwk gen -i '{ "kty": "EC", "crv": "P-384" }'
+jose jwk gen -i '{ "kty": "EC", "crv": "P-521" }'
+
+jose jwk gen -i '{ "kty": "RSA", "bits": 3072 }'
+! jose jwk gen -i '{ "kty": "RSA", "bits": 3072, "e": 257 }'
+! jose jwk gen -i '{ "kty": "RSA", "bits": 3072, "e": 65536 }'
+! jose jwk gen -i '{ "kty": "RSA", "bits": 3072, "e": 65537 }'
+! jose jwk gen -i '{ "kty": "RSA", "bits": 3072, "e": "AQE" }'   # 257.
+jose jwk gen -i '{ "kty": "RSA", "bits": 3072, "e": "AQAB"}'     # 65537.
+
+jose jwk gen -i '{ "kty": "oct", "bytes": 32 }'
+
+##
+### Test the key types we can't generate
+##
+
+! jose jwk gen -i '{"alg": "dir"}'
+
+##
+### Test the set output option
+##
+
+jose jwk gen -s -i '{ "kty": "EC", "crv": "P-256" }' \
+    | jose fmt -j- -Og keys -A \
+               -l -j 1 -EUU \
+               -g 0 -O \
+               -g kty -q EC -EUU \
+               -g crv -q P-256 -EUU

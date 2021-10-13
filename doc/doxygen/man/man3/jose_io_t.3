@@ -1,0 +1,97 @@
+.TH "jose_io_t" 3 "Tue May 30 2017" "José" \" -*- nroff -*-
+.ad l
+.nh
+.SH NAME
+jose_io_t \- The interface for chained IO\&.  
+
+.SH SYNOPSIS
+.br
+.PP
+.SS "Data Fields"
+
+.in +1c
+.ti -1c
+.RI "bool(* \fBfeed\fP )(\fBjose_io_t\fP *io, const void *in, size_t len)"
+.br
+.RI "Pushes data into the IO chain\&. "
+.ti -1c
+.RI "bool(* \fBdone\fP )(\fBjose_io_t\fP *io)"
+.br
+.RI "Completes the IO chain\&. "
+.in -1c
+.SH "Detailed Description"
+.PP 
+The interface for chained IO\&. 
+
+
+.PP
+\fBSee also:\fP
+.RS 4
+\fBjose_io_malloc()\fP 
+.PP
+\fBjose_io_buffer()\fP 
+.PP
+\fBjose_io_file()\fP 
+.PP
+\fBjose_io_multiplex()\fP 
+.PP
+\fBjose_b64_enc_io()\fP 
+.PP
+\fBjose_b64_dec_io()\fP 
+.PP
+\fBjose_jws_sig_io()\fP 
+.PP
+\fBjose_jws_ver_io()\fP 
+.PP
+\fBjose_jwe_dec_io()\fP 
+.PP
+\fBjose_jwe_dec_cek_io()\fP 
+.PP
+\fBjose_jwe_enc_io()\fP 
+.PP
+\fBjose_jwe_enc_cek_io()\fP 
+.RE
+.PP
+
+.SH "Field Documentation"
+.PP 
+.SS "bool(* jose_io_t::feed) (\fBjose_io_t\fP *io, const void *in, size_t len)"
+
+.PP
+Pushes data into the IO chain\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fIio\fP The \fBjose_io_t\fP entity you are using\&. 
+.br
+\fIin\fP The input buffer\&. 
+.br
+\fIlen\fP The length of the data in the input buffer\&. 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+Returns true if all data was consumed, otherwise false\&. 
+.RE
+.PP
+
+.SS "bool(* jose_io_t::done) (\fBjose_io_t\fP *io)"
+
+.PP
+Completes the IO chain\&. Any data stored in internal buffers will be flushed\&.
+.PP
+\fBParameters:\fP
+.RS 4
+\fIio\fP The \fBjose_io_t\fP entity you are using\&. 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+Returns true if flushing was successful, otherwise false\&. 
+.RE
+.PP
+
+
+.SH "Author"
+.PP 
+Generated automatically by Doxygen for José from the source code\&.

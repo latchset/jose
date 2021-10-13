@@ -1,0 +1,77 @@
+#!/bin/sh -ex
+
+WRAP=`jose alg -k wrap`
+ENCR=`jose alg -k encr`
+
+tmpdir=`mktemp -d 2>/dev/null || mktemp -d -t jose`
+
+onexit() {
+    rm -rf $tmpdir
+}
+
+trap onexit EXIT
+
+jwk=$tmpdir/jwk
+jwe=$tmpdir/jwe
+
+jqopt() {
+    if ! which jq >/dev/null 2>&1; then
+        echo "$3"
+    else
+        jq -r "if $2 | type | . = \"string\" then $2 else error(\"\") end" < $1
+    fi
+}
+
+jqbopt() {
+    if ! which jq >/dev/null 2>&1; then
+        echo "$4"
+    else
+        jq -r "if $2 | type | . = \"string\" then $2 else error(\"\") end" < $1 \
+            | jose b64 dec -i- \
+            | jq -r "if $3 | type | . = \"string\" then $3 else error(\"\") end"
+    fi
+}
+
+for msg in "hi" "this is a longer message that is more than one block"; do
+    for w in $WRAP; do
+        [ $w = "dir" ] && continue
+
+        jose jwk gen -i "{\"alg\":\"$w\"}" -o $jwk
+
+        printf '%s' "$msg" | jose jwe enc -I- -k $jwk -o $jwe
+        [ "`jqopt $jwe .header.alg $w`" = "$w" ]
+        [ "`jose jwe dec -i $jwe -k $jwk -O-`" = "$msg" ]
+
+        for e in $ENCR; do
+            printf '%s' "$msg" | jose jwe enc \
+                -i "{\"protected\":{\"enc\":\"$e\"}}" -I- \
+                -k $jwk -o $jwe
+            [ "`jqopt $jwe .header.alg $w`" = "$w" ]
+            [ "`jqbopt $jwe .protected .enc $e`" = "$e" ]
+            [ "`jose jwe dec -i $jwe -k $jwk -O-`" = "$msg" ]
+        done
+    done
+
+    for e in $ENCR; do
+        jose jwk gen -i "{\"alg\":\"$e\"}" -o $jwk
+
+        printf '%s' "$msg" | jose jwe enc \
+            -i "{\"protected\":{\"alg\":\"dir\"}}" -I- \
+            -k $jwk -o $jwe
+        [ "`jqbopt $jwe .protected .alg dir`" = "dir" ]
+        [ "`jqbopt $jwe .protected .enc $e`" = "$e" ]
+        [ "`jose jwe dec -i $jwe -k $jwk -O-`" = "$msg" ]
+
+        printf '%s' "$msg" | jose jwe enc -I- -k $jwk -o $jwe
+        [ "`jqopt $jwe .header.alg dir`" = "dir" ]
+        [ "`jqbopt $jwe .protected .enc $e`" = "$e" ]
+        [ "`jose jwe dec -i $jwe -k $jwk -O-`" = "$msg" ]
+    done
+
+    for tmpl in '{"kty":"oct","bytes":32}' '{"kty":"RSA","bits":2048}' '{"kty":"EC","crv":"P-256"}'; do
+        jose jwk gen -i "$tmpl" -o $jwk
+
+        printf '%s' "$msg" | jose jwe enc -I- -k $jwk -o $jwe
+        [ "`jose jwe dec -i $jwe -k $jwk -O-`" = "$msg" ]
+    done
+done

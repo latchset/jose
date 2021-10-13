@@ -16,7 +16,8 @@
  */
 
 #include "misc.h"
-#include <jose/hooks.h>
+#include <jose/b64.h>
+#include "../hooks.h"
 
 #include <openssl/rand.h>
 #include <openssl/sha.h>
@@ -25,174 +26,297 @@
 
 #define NAMES "HS256", "HS384", "HS512"
 
-declare_cleanup(HMAC_CTX)
+typedef struct {
+    jose_io_t io;
 
-static bool
-hmac(const EVP_MD *md, const jose_buf_t *key, uint8_t hsh[], ...)
+    HMAC_CTX *hctx;
+    json_t *obj;
+    json_t *sig;
+} io_t;
+
+static void
+io_free(jose_io_t *io)
 {
-    openssl_auto(HMAC_CTX) *ctx = NULL;
-    unsigned int ign = 0;
-    va_list ap;
-
-    ctx = HMAC_CTX_new();
-    if (!ctx)
-        return false;
-
-    if (HMAC_Init_ex(ctx, key->data, key->size, md, NULL) <= 0)
-        return false;
-
-    va_start(ap, hsh);
-
-    for (const char *data = NULL; (data = va_arg(ap, const char *)); ) {
-        if (HMAC_Update(ctx, (uint8_t *) data, strlen(data)) <= 0) {
-            va_end(ap);
-            return false;
-        }
-    }
-
-    va_end(ap);
-    return HMAC_Final(ctx, hsh, &ign) > 0;
+    io_t *i = containerof(io, io_t, io);
+    HMAC_CTX_free(i->hctx);
+    json_decref(i->obj);
+    json_decref(i->sig);
+    free(i);
 }
 
 static bool
-resolve(json_t *jwk)
+io_feed(jose_io_t *io, const void *in, size_t len)
 {
-    json_auto_t *upd = NULL;
-    const char *kty = NULL;
-    const char *alg = NULL;
-    json_t *bytes = NULL;
-    json_int_t len = 0;
+    io_t *i = containerof(io, io_t, io);
+    return HMAC_Update(i->hctx, in, len) > 0;
+}
 
-    if (json_unpack(jwk, "{s?s,s?s,s?o}",
-                    "kty", &kty, "alg", &alg, "bytes", &bytes) == -1)
+static bool
+sig_done(jose_io_t *io)
+{
+    io_t *i = containerof(io, io_t, io);
+    uint8_t hash[HMAC_size(i->hctx)];
+    unsigned int len = 0;
+
+    if (HMAC_Final(i->hctx, hash, &len) <= 0 || len != sizeof(hash))
         return false;
 
-    switch (str2enum(alg, NAMES, NULL)) {
-    case 0: len = 32; break;
-    case 1: len = 48; break;
-    case 2: len = 64; break;
-    default: return true;
+    if (json_object_set_new(i->sig, "signature",
+                            jose_b64_enc(hash, sizeof(hash))) < 0)
+        return false;
+
+    return add_entity(i->obj, i->sig,
+                      "signatures", "signature", "protected", "header", NULL);
+}
+
+static bool
+ver_done(jose_io_t *io)
+{
+    io_t *i = containerof(io, io_t, io);
+    uint8_t hash[HMAC_size(i->hctx)];
+    uint8_t test[HMAC_size(i->hctx)];
+    const json_t *sig = NULL;
+    unsigned int len = 0;
+
+    sig = json_object_get(i->sig, "signature");
+    if (!sig)
+        return false;
+
+    if (jose_b64_dec(sig, NULL, 0) != sizeof(test))
+        return false;
+
+    if (jose_b64_dec(sig, test, sizeof(test)) != sizeof(test))
+        return false;
+
+    if (HMAC_Final(i->hctx, hash, &len) <= 0 || len != sizeof(hash))
+        return false;
+
+    return CRYPTO_memcmp(hash, test, sizeof(hash)) == 0;
+}
+
+static HMAC_CTX *
+hmac(const jose_hook_alg_t *alg, jose_cfg_t *cfg,
+     const json_t *sig, const json_t *jwk)
+{
+    uint8_t key[KEYMAX] = {};
+    const EVP_MD *md = NULL;
+    HMAC_CTX *hctx = NULL;
+    size_t keyl = 0;
+
+    switch (str2enum(alg->name, NAMES, NULL)) {
+    case 0: md = EVP_sha256(); break;
+    case 1: md = EVP_sha384(); break;
+    case 2: md = EVP_sha512(); break;
+    default: return NULL;
     }
 
-    if (!kty && json_object_set_new(jwk, "kty", json_string("oct")) == -1)
+    keyl = jose_b64_dec(json_object_get(jwk, "k"), NULL, 0);
+    if (keyl == SIZE_MAX) {
+        jose_cfg_err(cfg, JOSE_CFG_ERR_JWK_INVALID, "Error decoding JWK");
+        return NULL;
+    }
+
+    /* Per RFC 7518 Section 3.2 */
+    if (keyl < (size_t) EVP_MD_size(md)) {
+        jose_cfg_err(cfg, JOSE_CFG_ERR_JWK_INVALID,
+                     "Key is too small (cf. RFC 7518 Section 3.2)");
+        return NULL;
+    }
+
+    if (keyl > KEYMAX) {
+        jose_cfg_err(cfg, JOSE_CFG_ERR_JWK_INVALID, "Key is too large");
+        return NULL;
+    }
+
+    if (jose_b64_dec(json_object_get(jwk, "k"), key, sizeof(key)) != keyl) {
+        jose_cfg_err(cfg, JOSE_CFG_ERR_JWK_INVALID,
+                     "JWK 'k' parameter contains invalid Base64");
+        goto error;
+    }
+
+    hctx = HMAC_CTX_new();
+    if (!hctx)
+        goto error;
+
+    if (HMAC_Init_ex(hctx, key, keyl, md, NULL) <= 0)
+        goto error;
+
+    OPENSSL_cleanse(key, sizeof(key));
+    return hctx;
+
+error:
+    OPENSSL_cleanse(key, sizeof(key));
+    HMAC_CTX_free(hctx);
+    return NULL;
+}
+
+static json_int_t
+alg2len(const char *alg)
+{
+    switch (str2enum(alg, NAMES, NULL)) {
+    case 0: return 32;
+    case 1: return 48;
+    case 2: return 64;
+    default: return 0;
+    }
+}
+
+static bool
+jwk_prep_handles(jose_cfg_t *cfg, const json_t *jwk)
+{
+    const char *alg = NULL;
+
+    if (json_unpack((json_t *) jwk, "{s:s}", "alg", &alg) == -1)
         return false;
+
+    return alg2len(alg) != 0;
+}
+
+static bool
+jwk_prep_execute(jose_cfg_t *cfg, json_t *jwk)
+{
+    const char *alg = NULL;
+    const char *kty = NULL;
+    json_int_t byt = 0;
+    json_int_t len = 0;
+
+    if (json_unpack(jwk, "{s:s,s?s,s?I}",
+                    "alg", &alg, "kty", &kty, "bytes", &byt) < 0)
+        return false;
+
+    len = alg2len(alg);
+    if (len == 0)
+        return false;
+
+    if (byt != 0 && byt != len)
+        return false;
+
     if (kty && strcmp(kty, "oct") != 0)
         return false;
 
-    if (!bytes && json_object_set_new(jwk, "bytes", json_integer(len)) == -1)
-        return false;
-    if (bytes && (!json_is_integer(bytes) || json_integer_value(bytes) < len))
+    if (json_object_set_new(jwk, "kty", json_string("oct")) < 0)
         return false;
 
-    upd = json_pack("{s:s,s:[s,s]}", "use", "sig", "key_ops",
-                    "sign", "verify");
-    if (!upd)
+    if (json_object_set_new(jwk, "bytes", json_integer(len)) < 0)
         return false;
 
-    return json_object_update_missing(jwk, upd) == 0;
+    return true;
 }
 
 static const char *
-suggest(const json_t *jwk)
+alg_sign_sug(const jose_hook_alg_t *alg, jose_cfg_t *cfg, const json_t *jwk)
 {
-    const char *kty = NULL;
-    const char *k = NULL;
+    const char *name = NULL;
+    const char *type = NULL;
     size_t len = 0;
 
-    if (json_unpack((json_t *) jwk, "{s:s,s:s}", "kty", &kty, "k", &k) == -1)
+    if (json_unpack((json_t *) jwk, "{s?s,s?s}", "alg", &name, "kty", &type) < 0)
         return NULL;
 
-    if (strcmp(kty, "oct") != 0)
+    if (name)
+        return str2enum(name, NAMES, NULL) != SIZE_MAX ? name : NULL;
+
+    if (!type || strcmp(type, "oct") != 0)
         return NULL;
 
-    len = jose_b64_dlen(strlen(k));
+    len = jose_b64_dec(json_object_get(jwk, "k"), NULL, 0);
+    if (len == SIZE_MAX)
+        return NULL;
 
-    /* Round down to the nearest hash length. */
-    len = len < SHA512_DIGEST_LENGTH ? len : SHA512_DIGEST_LENGTH;
-    len &= SHA384_DIGEST_LENGTH | SHA256_DIGEST_LENGTH;
+    if (len >= SHA512_DIGEST_LENGTH)
+        return "HS512";
+    else if (len >= SHA384_DIGEST_LENGTH)
+        return "HS384";
+    else if (len >= SHA256_DIGEST_LENGTH)
+        return "HS256";
 
-    switch (len) {
-    case SHA512_DIGEST_LENGTH: return "HS512";
-    case SHA384_DIGEST_LENGTH: return "HS384";
-    case SHA256_DIGEST_LENGTH: return "HS256";
-    default: return NULL;
-    }
+    return NULL;
 }
 
-static bool
-sign(json_t *sig, const json_t *jwk,
-     const char *alg, const char *prot, const char *payl)
+static jose_io_t *
+alg_sign_sig(const jose_hook_alg_t *alg, jose_cfg_t *cfg, json_t *jws,
+             json_t *sig, const json_t *jwk)
 {
-    jose_buf_auto_t *key = NULL;
-    const EVP_MD *md = NULL;
+    jose_io_auto_t *io = NULL;
+    io_t *i = NULL;
 
-    switch (str2enum(alg, NAMES, NULL)) {
-    case 0: md = EVP_sha256(); break;
-    case 1: md = EVP_sha384(); break;
-    case 2: md = EVP_sha512(); break;
-    default: return false;
-    }
-
-    uint8_t hsh[EVP_MD_size(md)];
-
-    key = jose_b64_decode_json(json_object_get(jwk, "k"));
-    if (!key || key->size < sizeof(hsh))
+    i = calloc(1, sizeof(*i));
+    if (!i)
         return false;
 
-    if (!hmac(md, key, hsh, prot ? prot : "", ".", payl ? payl : ".", NULL))
-        return false;
+    io = jose_io_incref(&i->io);
+    io->feed = io_feed;
+    io->done = sig_done;
+    io->free = io_free;
 
-    return json_object_set_new(sig, "signature",
-                               jose_b64_encode_json(hsh, sizeof(hsh))) == 0;
+    i->obj = json_incref(jws);
+    i->sig = json_incref(sig);
+    i->hctx = hmac(alg, cfg, sig, jwk);
+    if (!i->obj || !i->sig || !i->hctx)
+        return NULL;
+
+    return jose_io_incref(io);
 }
 
-static bool
-verify(const json_t *sig, const json_t *jwk,
-       const char *alg, const char *prot, const char *payl)
+static jose_io_t *
+alg_sign_ver(const jose_hook_alg_t *alg, jose_cfg_t *cfg, const json_t *jws,
+             const json_t *sig, const json_t *jwk)
 {
-    jose_buf_auto_t *key = NULL;
-    jose_buf_auto_t *sgn = NULL;
-    const EVP_MD *md = NULL;
+    jose_io_auto_t *io = NULL;
+    io_t *i = NULL;
 
-    switch (str2enum(alg, NAMES, NULL)) {
-    case 0: md = EVP_sha256(); break;
-    case 1: md = EVP_sha384(); break;
-    case 2: md = EVP_sha512(); break;
-    default: return false;
-    }
-
-    uint8_t hsh[EVP_MD_size(md)];
-
-    sgn = jose_b64_decode_json(json_object_get(sig, "signature"));
-    if (!sgn || sgn->size != sizeof(hsh))
+    i = calloc(1, sizeof(*i));
+    if (!i)
         return false;
 
-    key = jose_b64_decode_json(json_object_get(jwk, "k"));
-    if (!key || key->size < sizeof(hsh))
-        return false;
+    io = jose_io_incref(&i->io);
+    io->feed = io_feed;
+    io->done = ver_done;
+    io->free = io_free;
 
-    if (!hmac(md, key, hsh, prot ? prot : "", ".", payl ? payl : ".", NULL))
-        return false;
+    i->sig = json_incref((json_t *) sig);
+    i->hctx = hmac(alg, cfg, sig, jwk);
+    if (!i->sig || !i->hctx)
+        return NULL;
 
-    return CRYPTO_memcmp(hsh, sgn->data, sizeof(hsh)) == 0;
+    return jose_io_incref(io);
 }
 
 static void __attribute__((constructor))
 constructor(void)
 {
-    static jose_jwk_resolver_t resolver = {
-        .resolve = resolve
+    static jose_hook_jwk_t jwk = {
+        .kind = JOSE_HOOK_JWK_KIND_PREP,
+        .prep.handles = jwk_prep_handles,
+        .prep.execute = jwk_prep_execute,
     };
 
-    static jose_jws_signer_t signers[] = {
-        { NULL, "HS256", suggest, sign, verify },
-        { NULL, "HS384", suggest, sign, verify },
-        { NULL, "HS512", suggest, sign, verify },
+    static jose_hook_alg_t algs[] = {
+        { .kind = JOSE_HOOK_ALG_KIND_SIGN,
+          .name = "HS256",
+          .sign.sprm = "sign",
+          .sign.vprm = "verify",
+          .sign.sug = alg_sign_sug,
+          .sign.sig = alg_sign_sig,
+          .sign.ver = alg_sign_ver },
+        { .kind = JOSE_HOOK_ALG_KIND_SIGN,
+          .name = "HS384",
+          .sign.sprm = "sign",
+          .sign.vprm = "verify",
+          .sign.sug = alg_sign_sug,
+          .sign.sig = alg_sign_sig,
+          .sign.ver = alg_sign_ver },
+        { .kind = JOSE_HOOK_ALG_KIND_SIGN,
+          .name = "HS512",
+          .sign.sprm = "sign",
+          .sign.vprm = "verify",
+          .sign.sug = alg_sign_sug,
+          .sign.sig = alg_sign_sig,
+          .sign.ver = alg_sign_ver },
         {}
     };
 
-    jose_jwk_register_resolver(&resolver);
-
-    for (size_t i = 0; signers[i].alg; i++)
-        jose_jws_register_signer(&signers[i]);
+    jose_hook_jwk_push(&jwk);
+    for (size_t i = 0; algs[i].name; i++)
+        jose_hook_alg_push(&algs[i]);
 }

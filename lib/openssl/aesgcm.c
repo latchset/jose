@@ -16,72 +16,262 @@
  */
 
 #include "misc.h"
-#include <jose/hooks.h>
+#include <jose/b64.h>
+#include "../hooks.h"
 
 #include <openssl/rand.h>
 
 #include <string.h>
 
-#define CRYPT_NAMES "A128GCM", "A192GCM", "A256GCM"
-#define WRAP_NAMES "A128GCMKW", "A192GCMKW", "A256GCMKW"
+#define NAMES "A128GCM", "A192GCM", "A256GCM"
 
-declare_cleanup(EVP_CIPHER_CTX)
+typedef struct {
+    jose_io_t io;
 
-static bool
-resolve(json_t *jwk)
+    EVP_CIPHER_CTX *cctx;
+    jose_io_t *next;
+    json_t *json;
+} io_t;
+
+static EVP_CIPHER_CTX *
+setup(const EVP_CIPHER *cph, jose_cfg_t *cfg, const json_t *jwe,
+      const json_t *cek, const uint8_t iv[],
+      typeof(EVP_EncryptInit_ex) *init, typeof(EVP_EncryptUpdate) *push)
 {
-    json_auto_t *upd = NULL;
-    const char *kty = NULL;
-    const char *alg = NULL;
-    const char *opa = NULL;
-    const char *opb = NULL;
-    json_t *bytes = NULL;
-    json_int_t len = 0;
+    uint8_t key[EVP_CIPHER_key_length(cph)];
+    EVP_CIPHER_CTX *ecc = NULL;
+    const char *aad = NULL;
+    const char *prt = NULL;
+    size_t aadl = 0;
+    size_t prtl = 0;
+    int tmp;
 
-    if (json_unpack(jwk, "{s?s,s?s,s?o}",
-                    "kty", &kty, "alg", &alg, "bytes", &bytes) == -1)
-        return false;
+    if (json_unpack((json_t *) jwe, "{s?s%,s?s%}",
+                    "aad", &aad, &aadl, "protected", &prt, &prtl) < 0)
+        goto error;
 
-    switch (str2enum(alg, CRYPT_NAMES, WRAP_NAMES, NULL)) {
-    case 0: len = 16; opa = "encrypt"; opb = "decrypt"; break;
-    case 1: len = 24; opa = "encrypt"; opb = "decrypt"; break;
-    case 2: len = 32; opa = "encrypt"; opb = "decrypt"; break;
-    case 3: len = 16; opa = "wrapKey"; opb = "unwrapKey"; break;
-    case 4: len = 24; opa = "wrapKey"; opb = "unwrapKey"; break;
-    case 5: len = 32; opa = "wrapKey"; opb = "unwrapKey"; break;
-    default: return true;
+    ecc = EVP_CIPHER_CTX_new();
+    if (!ecc)
+        return NULL;
+
+    if (init(ecc, cph, NULL, NULL, NULL) <= 0)
+        goto error;
+
+    if (jose_b64_dec(json_object_get(cek, "k"), NULL, 0) != sizeof(key))
+        goto error;
+
+    if (jose_b64_dec(json_object_get(cek, "k"), key,
+                     sizeof(key)) != sizeof(key)) {
+        OPENSSL_cleanse(key, sizeof(key));
+        goto error;
     }
 
-    if (!kty && json_object_set_new(jwk, "kty", json_string("oct")) == -1)
+    tmp = init(ecc, NULL, NULL, key, iv);
+    OPENSSL_cleanse(key, sizeof(key));
+    if (tmp <= 0)
+        goto error;
+
+    if (prt && push(ecc, NULL, &tmp, (uint8_t *) prt, prtl) <= 0)
+        goto error;
+
+    if (aad) {
+        if (push(ecc, NULL, &tmp, (uint8_t *) ".", 1) <= 0)
+            goto error;
+
+        if (push(ecc, NULL, &tmp, (uint8_t *) aad, prtl) <= 0)
+            goto error;
+    }
+
+    return ecc;
+
+error:
+    EVP_CIPHER_CTX_free(ecc);
+    return NULL;
+}
+
+static void
+io_free(jose_io_t *io)
+{
+    io_t *i = containerof(io, io_t, io);
+    EVP_CIPHER_CTX_free(i->cctx);
+    jose_io_decref(i->next);
+    json_decref(i->json);
+    free(i);
+}
+
+static bool
+enc_feed(jose_io_t *io, const void *in, size_t len)
+{
+    io_t *i = containerof(io, io_t, io);
+    const uint8_t *pt = in;
+    int l = 0;
+
+    for (size_t j = 0; j < len; j++) {
+        uint8_t ct[EVP_CIPHER_CTX_block_size(i->cctx) + 1];
+
+        if (EVP_EncryptUpdate(i->cctx, ct, &l, &pt[j], 1) <= 0)
+            return false;
+
+        if (!i->next->feed(i->next, ct, l))
+            return false;
+    }
+
+    return true;
+}
+
+static bool
+enc_done(jose_io_t *io)
+{
+    io_t *i = containerof(io, io_t, io);
+    uint8_t ct[EVP_CIPHER_CTX_block_size(i->cctx) + 1];
+    uint8_t tg[EVP_GCM_TLS_TAG_LEN] = {};
+    int l = 0;
+
+    if (EVP_EncryptFinal(i->cctx, ct, &l) <= 0)
         return false;
+
+    if (!i->next->feed(i->next, ct, l) || !i->next->done(i->next))
+        return false;
+
+    if (EVP_CIPHER_CTX_ctrl(i->cctx, EVP_CTRL_GCM_GET_TAG, sizeof(tg), tg) <= 0)
+        return false;
+
+    if (json_object_set_new(i->json, "tag",
+                            jose_b64_enc(tg, sizeof(tg))) < 0)
+        return false;
+
+    return true;
+}
+
+static bool
+dec_feed(jose_io_t *io, const void *in, size_t len)
+{
+    io_t *i = containerof(io, io_t, io);
+    uint8_t pt[EVP_CIPHER_CTX_block_size(i->cctx) + 1];
+    const uint8_t *ct = in;
+    bool ret = false;
+    int l = 0;
+
+    for (size_t j = 0; j < len; j++) {
+        if (EVP_DecryptUpdate(i->cctx, pt, &l, &ct[j], 1) <= 0)
+            goto egress;
+
+        if (i->next->feed(i->next, pt, l) != (size_t) l)
+            goto egress;
+    }
+
+    ret = true;
+
+egress:
+    OPENSSL_cleanse(pt, sizeof(pt));
+    return ret;
+}
+
+static bool
+dec_done(jose_io_t *io)
+{
+    io_t *i = containerof(io, io_t, io);
+    uint8_t pt[EVP_CIPHER_CTX_block_size(i->cctx) + 1];
+    uint8_t tg[EVP_GCM_TLS_TAG_LEN] = {};
+    json_t *tag = NULL;
+    int l = 0;
+
+    tag = json_object_get(i->json, "tag");
+    if (!tag)
+        return false;
+
+    if (jose_b64_dec(tag, NULL, 0) != sizeof(tg))
+        return false;
+
+    if (jose_b64_dec(tag, tg, sizeof(tg)) != sizeof(tg))
+        return false;
+
+    if (EVP_CIPHER_CTX_ctrl(i->cctx, EVP_CTRL_GCM_SET_TAG,
+                            sizeof(tg), tg) <= 0)
+        return false;
+
+    if (EVP_DecryptFinal(i->cctx, pt, &l) <= 0)
+        return false;
+
+    if (!i->next->feed(i->next, pt, l) || !i->next->done(i->next)) {
+        OPENSSL_cleanse(pt, sizeof(pt));
+        return false;
+    }
+
+    OPENSSL_cleanse(pt, sizeof(pt));
+    return true;
+}
+
+static json_int_t
+alg2len(const char *alg)
+{
+    switch (str2enum(alg, NAMES, NULL)) {
+    case 0: return 16;
+    case 1: return 24;
+    case 2: return 32;
+    default: return 0;
+    }
+}
+
+static bool
+jwk_prep_handles(jose_cfg_t *cfg, const json_t *jwk)
+{
+    const char *alg = NULL;
+
+    if (json_unpack((json_t *) jwk, "{s:s}", "alg", &alg) == -1)
+        return false;
+
+    return alg2len(alg) != 0;
+}
+
+static bool
+jwk_prep_execute(jose_cfg_t *cfg, json_t *jwk)
+{
+    const char *alg = NULL;
+    const char *kty = NULL;
+    json_int_t byt = 0;
+    json_int_t len = 0;
+
+    if (json_unpack(jwk, "{s:s,s?s,s?I}",
+                    "alg", &alg, "kty", &kty, "bytes", &byt) == -1)
+        return false;
+
+    len = alg2len(alg);
+    if (len == 0)
+        return false;
+
+    if (byt != 0 && len != byt)
+        return false;
+
     if (kty && strcmp(kty, "oct") != 0)
         return false;
 
-    if (!bytes && json_object_set_new(jwk, "bytes", json_integer(len)) == -1)
-        return false;
-    if (bytes && (!json_is_integer(bytes) || json_integer_value(bytes) != len))
+    if (json_object_set_new(jwk, "kty", json_string("oct")) < 0)
         return false;
 
-    upd = json_pack("{s:s,s:[s,s]}", "use", "enc", "key_ops", opa, opb);
-    if (!upd)
+    if (json_object_set_new(jwk, "bytes", json_integer(len)) < 0)
         return false;
 
-    return json_object_update_missing(jwk, upd) == 0;
+    return true;
 }
 
 static const char *
-suggest_crypt(const json_t *jwk)
+alg_encr_sug(const jose_hook_alg_t *alg, jose_cfg_t *cfg, const json_t *cek)
 {
-    const char *kty = NULL;
-    const char *k = NULL;
+    const char *name = NULL;
+    const char *type = NULL;
 
-    if (json_unpack((json_t *) jwk, "{s:s,s:s}", "kty", &kty, "k", &k) == -1)
+    if (json_unpack((json_t *) cek, "{s?s,s?s}",
+                    "alg", &name, "kty", &type) < 0)
         return NULL;
 
-    if (strcmp(kty, "oct") != 0)
+    if (name)
+        return str2enum(name, NAMES, NULL) != SIZE_MAX ? name : NULL;
+
+    if (!type || strcmp(type, "oct") != 0)
         return NULL;
 
-    switch (jose_b64_dlen(strlen(k))) {
+    switch (jose_b64_dec(json_object_get(cek, "k"), NULL, 0)) {
     case 16: return "A128GCM";
     case 24: return "A192GCM";
     case 32: return "A256GCM";
@@ -89,306 +279,125 @@ suggest_crypt(const json_t *jwk)
     }
 }
 
-static const char *
-suggest_wrap(const json_t *jwk)
+static jose_io_t *
+alg_encr_enc(const jose_hook_alg_t *alg, jose_cfg_t *cfg, json_t *jwe,
+             const json_t *cek, jose_io_t *next)
 {
-    const char *kty = NULL;
-    const char *k = NULL;
-
-    if (json_unpack((json_t *) jwk, "{s:s,s:s}", "kty", &kty, "k", &k) == -1)
-        return NULL;
-
-    if (strcmp(kty, "oct") != 0)
-        return NULL;
-
-    switch (jose_b64_dlen(strlen(k))) {
-    case 16: return "A128GCMKW";
-    case 24: return "A192GCMKW";
-    case 32: return "A256GCMKW";
-    default: return NULL;
-    }
-}
-
-static bool
-do_encrypt(const json_t *cek, const uint8_t pt[], size_t ptl,
-           const char *enc, const char *prot, const char *aad,
-           json_t *ivtgobj, json_t *ctobj, const char *ctn)
-{
-    openssl_auto(EVP_CIPHER_CTX) *ctx = NULL;
     const EVP_CIPHER *cph = NULL;
-    jose_buf_auto_t *ky = NULL;
-    jose_buf_auto_t *ct = NULL;
-    int len;
+    jose_io_auto_t *io = NULL;
+    io_t *i = NULL;
 
-    switch (str2enum(enc, CRYPT_NAMES, NULL)) {
+    switch (str2enum(alg->name, NAMES, NULL)) {
     case 0: cph = EVP_aes_128_gcm(); break;
     case 1: cph = EVP_aes_192_gcm(); break;
     case 2: cph = EVP_aes_256_gcm(); break;
-    default: return false;
+    default: return NULL;
     }
 
     uint8_t iv[EVP_CIPHER_iv_length(cph)];
-    uint8_t tg[16];
-
-    ct = jose_buf(ptl + EVP_CIPHER_block_size(cph) - 1, JOSE_BUF_FLAG_NONE);
-    if (!ct)
-        return false;
-
-    ky = jose_b64_decode_json(json_object_get(cek, "k"));
-    if (!ky)
-        return false;
-
-    if ((int) ky->size != EVP_CIPHER_key_length(cph))
-        return false;
 
     if (RAND_bytes(iv, sizeof(iv)) <= 0)
-        return false;
+        return NULL;
 
-    ctx = EVP_CIPHER_CTX_new();
-    if (!ctx)
-        return false;
+    i = calloc(1, sizeof(*i));
+    if (!i)
+        return NULL;
 
-    if (EVP_EncryptInit_ex(ctx, cph, NULL, NULL, NULL) <= 0)
-        return false;
+    io = jose_io_incref(&i->io);
+    io->feed = enc_feed;
+    io->done = enc_done;
+    io->free = io_free;
 
-    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN,
-                            sizeof(iv), NULL) <= 0)
-        return false;
+    i->json = json_incref(jwe);
+    i->next = jose_io_incref(next);
+    i->cctx = setup(cph, cfg, jwe, cek, iv,
+                      EVP_EncryptInit_ex, EVP_EncryptUpdate);
+    if (!i->json || !i->next || !i->cctx)
+        return NULL;
 
-    if (EVP_EncryptInit_ex(ctx, NULL, NULL, ky->data, iv) <= 0)
-        return false;
+    if (json_object_set_new(jwe, "iv", jose_b64_enc(iv, sizeof(iv))) < 0)
+        return NULL;
 
-    if (prot) {
-        if (EVP_EncryptUpdate(ctx, NULL, &len, (uint8_t *) prot,
-                              strlen(prot)) <= 0)
-            return false;
-    }
-
-    if (aad) {
-        if (EVP_EncryptUpdate(ctx, NULL, &len, (uint8_t *) ".", 1) <= 0)
-            return false;
-
-        if (EVP_EncryptUpdate(ctx, NULL, &len, (uint8_t *) aad,
-                              strlen(aad)) <= 0)
-            return false;
-    }
-
-    if (EVP_EncryptUpdate(ctx, ct->data, &len, pt, ptl) <= 0)
-        return false;
-    ct->size = len;
-
-    if (EVP_EncryptFinal(ctx, &ct->data[len], &len) <= 0)
-        return false;
-    ct->size += len;
-
-    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG, sizeof(tg), tg) <= 0)
-        return false;
-
-    if (json_object_set_new(ivtgobj, "iv",
-                            jose_b64_encode_json(iv, sizeof(iv))) == -1)
-        return false;
-
-    if (json_object_set_new(ctobj, ctn,
-                            jose_b64_encode_json(ct->data, ct->size)) == -1)
-        return false;
-
-    if (json_object_set_new(ivtgobj, "tag",
-                            jose_b64_encode_json(tg, sizeof(tg))) == -1)
-        return false;
-
-    return true;
+    return jose_io_incref(io);
 }
 
-static bool
-encrypt(json_t *jwe, const json_t *cek, const uint8_t pt[], size_t ptl,
-        const char *enc, const char *prot, const char *aad)
+static jose_io_t *
+alg_encr_dec(const jose_hook_alg_t *alg, jose_cfg_t *cfg, const json_t *jwe,
+             const json_t *cek, jose_io_t *next)
 {
-    return do_encrypt(cek, pt, ptl, enc, prot, aad, jwe, jwe, "ciphertext");
-}
-
-static jose_buf_t *
-decrypt(const json_t *jwe, const json_t *cek, const char *enc,
-        const char *prot, const char *aad)
-{
-    openssl_auto(EVP_CIPHER_CTX) *ctx = NULL;
     const EVP_CIPHER *cph = NULL;
-    jose_buf_auto_t *ky = NULL;
-    jose_buf_auto_t *iv = NULL;
-    jose_buf_auto_t *ct = NULL;
-    jose_buf_auto_t *tg = NULL;
-    jose_buf_auto_t *pt = NULL;
-    int len = 0;
+    jose_io_auto_t *io = NULL;
+    io_t *i = NULL;
 
-    switch (str2enum(enc, CRYPT_NAMES, NULL)) {
+    switch (str2enum(alg->name, NAMES, NULL)) {
     case 0: cph = EVP_aes_128_gcm(); break;
     case 1: cph = EVP_aes_192_gcm(); break;
     case 2: cph = EVP_aes_256_gcm(); break;
     default: return NULL;
     }
 
-    len = EVP_CIPHER_iv_length(cph);
-    ky = jose_b64_decode_json(json_object_get(cek, "k"));
-    iv = jose_b64_decode_json(json_object_get(jwe, "iv"));
-    ct = jose_b64_decode_json(json_object_get(jwe, "ciphertext"));
-    tg = jose_b64_decode_json(json_object_get(jwe, "tag"));
-    if (!ky || ky->size != (size_t) EVP_CIPHER_key_length(cph) ||
-        !iv || iv->size != (size_t) EVP_CIPHER_iv_length(cph) ||
-        !tg || tg->size != 16 || !ct)
+    uint8_t iv[EVP_CIPHER_iv_length(cph)];
+
+    if (jose_b64_dec(json_object_get(jwe, "iv"), NULL, 0) != sizeof(iv))
         return NULL;
 
-    pt = jose_buf(ct->size, JOSE_BUF_FLAG_WIPE);
-    if (!pt)
+    if (jose_b64_dec(json_object_get(jwe, "iv"), iv, sizeof(iv)) != sizeof(iv))
         return NULL;
 
-    ctx = EVP_CIPHER_CTX_new();
-    if (!ctx)
+    i = calloc(1, sizeof(*i));
+    if (!i)
         return NULL;
 
-    if (EVP_DecryptInit(ctx, cph, ky->data, iv->data) <= 0)
+    io = jose_io_incref(&i->io);
+    io->feed = dec_feed;
+    io->done = dec_done;
+    io->free = io_free;
+
+    i->json = json_incref((json_t *) jwe);
+    i->next = jose_io_incref(next);
+    i->cctx = setup(cph, cfg, jwe, cek, iv,
+                      EVP_DecryptInit_ex, EVP_DecryptUpdate);
+    if (!i->json || !i->next || !i->cctx)
         return NULL;
 
-    if (prot) {
-        if (EVP_DecryptUpdate(ctx, NULL, &len,
-                              (uint8_t *) prot, strlen(prot)) <= 0)
-            return NULL;
-    }
-
-    if (aad) {
-        if (EVP_DecryptUpdate(ctx, NULL, &len, (uint8_t *) ".", 1) <= 0)
-            return NULL;
-
-        if (EVP_DecryptUpdate(ctx, NULL, &len,
-                              (uint8_t *) aad, strlen(aad)) <= 0)
-            return NULL;
-    }
-
-    if (EVP_DecryptUpdate(ctx, pt->data, &len, ct->data, ct->size) <= 0)
-        return NULL;
-    pt->size = len;
-
-    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG,
-                            tg->size, tg->data) <= 0)
-        return NULL;
-
-    if (EVP_DecryptFinal(ctx, &pt->data[len], &len) <= 0)
-        return NULL;
-
-    pt->size += len;
-    return jose_buf_incref(pt);
-}
-
-static bool
-wrap(json_t *jwe, json_t *cek, const json_t *jwk, json_t *rcp,
-     const char *alg)
-{
-    jose_buf_auto_t *pt = NULL;
-    json_t *h = NULL;
-
-    if (!json_object_get(cek, "k") && !jose_jwk_generate(cek))
-        return false;
-
-    switch (str2enum(alg, WRAP_NAMES, NULL)) {
-    case 0: alg = "A128GCM"; break;
-    case 1: alg = "A192GCM"; break;
-    case 2: alg = "A256GCM"; break;
-    default: return false;
-    }
-
-    pt = jose_b64_decode_json(json_object_get(cek, "k"));
-    if (!pt)
-        return false;
-
-    h = json_object_get(rcp, "header");
-    if (!h) {
-        if (json_object_set_new(rcp, "header", h = json_object()) == -1)
-            return false;
-    }
-    if (!json_is_object(h))
-        return false;
-
-    return do_encrypt(jwk, pt->data, pt->size, alg,
-                      "", NULL, h, rcp, "encrypted_key");
-}
-
-static bool
-unwrap(const json_t *jwe, const json_t *jwk, const json_t *rcp,
-       const char *alg, json_t *cek)
-{
-    jose_buf_auto_t *pt = NULL;
-    json_auto_t *obj = NULL;
-    json_auto_t *p = NULL;
-    json_t *iv = NULL;
-    json_t *ct = NULL;
-    json_t *tg = NULL;
-
-    switch (str2enum(alg, WRAP_NAMES, NULL)) {
-    case 0: alg = "A128GCM"; break;
-    case 1: alg = "A192GCM"; break;
-    case 2: alg = "A256GCM"; break;
-    default: return false;
-    }
-
-    p = json_object_get(jwe, "protected");
-    if (p) {
-        p = jose_b64_decode_json_load(p);
-        if (!p)
-            return false;
-    }
-
-    if (json_unpack(p, "{s:o}", "iv", &iv) == -1 &&
-        json_unpack((json_t *) jwe, "{s:{s:o}}", "unprotected", "iv", &iv) == -1 &&
-        json_unpack((json_t *) rcp, "{s:{s:o}}", "header", "iv", &iv) == -1)
-        return false;
-
-    if (json_unpack(p, "{s:o}", "tag", &tg) == -1 &&
-        json_unpack((json_t *) jwe, "{s:{s:o}}", "unprotected", "tag", &tg) == -1 &&
-        json_unpack((json_t *) rcp, "{s:{s:o}}", "header", "tag", &tg) == -1)
-        return false;
-
-    if (json_unpack((json_t *) rcp, "{s:o}", "encrypted_key", &ct) == -1)
-        return false;
-
-    obj = json_pack("{s:O,s:O,s:O}", "iv", iv, "ciphertext", ct, "tag", tg);
-    if (!obj)
-        return false;
-
-    pt = decrypt(obj, jwk, alg, "", NULL);
-    if (!pt)
-        return false;
-
-    if (json_object_set_new(cek, "k",
-                            jose_b64_encode_json(pt->data, pt->size)) == -1)
-        return false;
-
-    return true;
+    return jose_io_incref(io);
 }
 
 static void __attribute__((constructor))
 constructor(void)
 {
-    static jose_jwk_resolver_t resolver = {
-        .resolve = resolve
+    static jose_hook_jwk_t jwk = {
+        .kind = JOSE_HOOK_JWK_KIND_PREP,
+        .prep.handles = jwk_prep_handles,
+        .prep.execute = jwk_prep_execute,
     };
 
-    static jose_jwe_crypter_t crypters[] = {
-        { NULL, "A128GCM", suggest_crypt, encrypt, decrypt },
-        { NULL, "A192GCM", suggest_crypt, encrypt, decrypt },
-        { NULL, "A256GCM", suggest_crypt, encrypt, decrypt },
+    static jose_hook_alg_t algs[] = {
+        { .kind = JOSE_HOOK_ALG_KIND_ENCR,
+          .name = "A128GCM",
+          .encr.eprm = "encrypt",
+          .encr.dprm = "decrypt",
+          .encr.sug = alg_encr_sug,
+          .encr.enc = alg_encr_enc,
+          .encr.dec = alg_encr_dec },
+        { .kind = JOSE_HOOK_ALG_KIND_ENCR,
+          .name = "A192GCM",
+          .encr.eprm = "encrypt",
+          .encr.dprm = "decrypt",
+          .encr.sug = alg_encr_sug,
+          .encr.enc = alg_encr_enc,
+          .encr.dec = alg_encr_dec },
+        { .kind = JOSE_HOOK_ALG_KIND_ENCR,
+          .name = "A256GCM",
+          .encr.eprm = "encrypt",
+          .encr.dprm = "decrypt",
+          .encr.sug = alg_encr_sug,
+          .encr.enc = alg_encr_enc,
+          .encr.dec = alg_encr_dec },
         {}
     };
 
-    static jose_jwe_wrapper_t wrappers[] = {
-        { NULL, "A128GCMKW", suggest_wrap, wrap, unwrap },
-        { NULL, "A192GCMKW", suggest_wrap, wrap, unwrap },
-        { NULL, "A256GCMKW", suggest_wrap, wrap, unwrap },
-        {}
-    };
-
-    jose_jwk_register_resolver(&resolver);
-
-    for (size_t i = 0; crypters[i].enc; i++)
-        jose_jwe_register_crypter(&crypters[i]);
-
-    for (size_t i = 0; wrappers[i].alg; i++)
-        jose_jwe_register_wrapper(&wrappers[i]);
+    jose_hook_jwk_push(&jwk);
+    for (size_t i = 0; algs[i].name; i++)
+        jose_hook_alg_push(&algs[i]);
 }

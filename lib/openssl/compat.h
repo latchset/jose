@@ -17,6 +17,13 @@
 
 #pragma once
 
+/* Don't warn about deprecated functions. */
+#ifndef OPENSSL_API_COMPAT
+  /* 0x10101000L == 1.1.1. */
+  #define OPENSSL_API_COMPAT 0x10101000L
+#endif
+
+#include <openssl/bn.h>
 #include <openssl/hmac.h>
 #include <openssl/ec.h>
 #include <openssl/ecdsa.h>
@@ -66,6 +73,9 @@ ECDSA_SIG_set0(ECDSA_SIG *sig, BIGNUM *r, BIGNUM *s);
 
 HMAC_CTX *
 HMAC_CTX_new(void);
+
+const EVP_MD *
+HMAC_CTX_get_md(const HMAC_CTX *ctx);
 
 void
 HMAC_CTX_free(HMAC_CTX *ctx);

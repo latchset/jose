@@ -16,8 +16,39 @@
  */
 
 #include "misc.h"
-#include <jose/hooks.h>
+#include "../hooks.h"
 #include <jose/openssl.h>
+
+#include <string.h>
+
+/* The following functions are from OpenSSL 3 code base:
+ * - bn_is_three()
+ * - check_public_exponent() is ossl_rsa_check_public_exponent(), with
+ *   a minor change -- no FIPS check for allowing RSA_3. */
+static int bn_is_three(const BIGNUM *bn)
+{
+    BIGNUM *num = BN_dup(bn);
+    int ret = (num != NULL && BN_sub_word(num, 3) && BN_is_zero(num));
+
+    BN_free(num);
+    return ret;
+}
+
+/* Check exponent is odd, and has a bitlen ranging from [17..256]
+ * In practice, it allows odd integers greater than or equal to 65537. 3 is
+ * also allowed, for legacy purposes. */
+static int check_public_exponent(const BIGNUM* e)
+{
+    int bitlen;
+
+    /* In OpenSSL 3, RSA_3 is allowed in non-FIPS mode only, for
+     * legacy purposes. */
+    if (bn_is_three(e)) {
+        return 1;
+    }
+    bitlen = BN_num_bits(e);
+    return (BN_is_odd(e) && bitlen > 16 && bitlen < 257);
+}
 
 static RSA *
 mkrsa(const json_t *jwk)
@@ -57,6 +88,10 @@ mkrsa(const json_t *jwk)
         break;
     }
 
+    if (!check_public_exponent(bn)) {
+        return NULL;
+    }
+
     key = RSA_new();
     if (!key)
         return NULL;
@@ -71,36 +106,54 @@ mkrsa(const json_t *jwk)
 }
 
 static bool
-generate(json_t *jwk)
+jwk_make_handles(jose_cfg_t *cfg, const json_t *jwk)
 {
-    json_auto_t *tmp = NULL;
+    const char *kty = NULL;
+
+    if (json_unpack((json_t *) jwk, "{s:s}", "kty", &kty) == -1)
+        return false;
+
+    return strcmp(kty, "RSA") == 0;
+}
+
+static bool
+jwk_make_execute(jose_cfg_t *cfg, json_t *jwk)
+{
+    json_auto_t *key = NULL;
     RSA *rsa = NULL;
+
+    if (!jwk_make_handles(cfg, jwk))
+        return false;
 
     rsa = mkrsa(jwk);
     if (!rsa)
         return false;
 
-    tmp = jose_openssl_jwk_from_RSA(rsa);
+    key = jose_openssl_jwk_from_RSA(cfg, rsa);
     RSA_free(rsa);
-    if (!tmp)
+    if (!key)
         return false;
 
-    if (json_object_get(jwk, "bits") && json_object_del(jwk, "bits") == -1)
+    if (json_object_get(jwk, "bits") && json_object_del(jwk, "bits") < 0)
         return false;
 
-    if (json_object_get(jwk, "e") && json_object_del(jwk, "e") == -1)
+    if (json_object_get(jwk, "e") && json_object_del(jwk, "e") < 0)
         return false;
 
-    return json_object_update_missing(jwk, tmp) == 0;
+    /* The "oth" parameter is optional. */
+    copy_val(key, jwk, "oth");
+
+    return copy_val(key, jwk, "n", "e", "p", "d", "q", "dp", "dq", "qi", NULL);
 }
 
 static void __attribute__((constructor))
 constructor(void)
 {
-    static jose_jwk_generator_t generator = {
-        .kty = "RSA",
-        .generate = generate
+    static jose_hook_jwk_t jwk = {
+        .kind = JOSE_HOOK_JWK_KIND_MAKE,
+        .make.handles = jwk_make_handles,
+        .make.execute = jwk_make_execute
     };
 
-    jose_jwk_register_generator(&generator);
+    jose_hook_jwk_push(&jwk);
 }

@@ -27,7 +27,7 @@ depcomp
 install-sh
 libtool
 ltmain.sh
-luksmeta.pc
+Makecache
 Makefile.in
 Makefile
 missing
@@ -45,3 +45,12 @@ tests/rsa_oaep
 
 /docs/build
 !/docs/Makefile
+jose/jose.h
+
+tests/alg_*
+tests/api_*
+!tests/alg_*.c
+!tests/api_*.c
+
+doc/doxygen/man/man3/*
+!doc/doxygen/man/man3/jose_*.3

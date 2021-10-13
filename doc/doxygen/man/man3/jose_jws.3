@@ -1,0 +1,233 @@
+.TH "jose_jws" 3 "Tue May 30 2017" "José" \" -*- nroff -*-
+.ad l
+.nh
+.SH NAME
+jose_jws \- JSON Web Signature (RFC 7515)  
+
+.SH SYNOPSIS
+.br
+.PP
+.SS "Functions"
+
+.in +1c
+.ti -1c
+.RI "json_t * \fBjose_jws_hdr\fP (const json_t *sig)"
+.br
+.RI "Merges the JOSE headers of a JWS signature object\&. "
+.ti -1c
+.RI "bool \fBjose_jws_sig\fP (jose_cfg_t *cfg, json_t *jws, json_t *sig, const json_t *jwk)"
+.br
+.RI "Creates one or more signatures in a JWS object\&. "
+.ti -1c
+.RI "\fBjose_io_t\fP * \fBjose_jws_sig_io\fP (jose_cfg_t *cfg, json_t *jws, json_t *sig, const json_t *jwk)"
+.br
+.RI "Creates one or more signatures in a JWS object using streaming\&. "
+.ti -1c
+.RI "bool \fBjose_jws_ver\fP (jose_cfg_t *cfg, const json_t *jws, const json_t *sig, const json_t *jwk, bool all)"
+.br
+.RI "Verifies signatures of one or more JWKs in a JWS object\&. "
+.ti -1c
+.RI "\fBjose_io_t\fP * \fBjose_jws_ver_io\fP (jose_cfg_t *cfg, const json_t *jws, const json_t *sig, const json_t *jwk, bool all)"
+.br
+.RI "Verifies signatures of one or more JWKs in a JWS object using streaming\&. "
+.in -1c
+.SH "Detailed Description"
+.PP 
+JSON Web Signature (RFC 7515) 
+
+JSON Web Token (RFC 7519)
+.PP
+A JSON Web Signature (JWS) is a standard data format for expresing cryptographic signatures in JSON\&. The signatures are produced using a JSON Web Key (JWK)\&.
+.PP
+For example, to create a simple signature of a string using a JWK (error handling omitted): 
+.PP
+.nf
+json_t *sig(const char *str, const json_t *jwk) {
+    json_auto_t *jws = json_pack("{s:o}", "payload",
+                                 jose_b64_enc(str, strlen(str)));
+    jose_jws_sig(NULL, jws, NULL, jwk);
+    return json_incref(jws);
+}
+
+.fi
+.PP
+.PP
+Likewise, to verify this signature (again, error handling omitted): 
+.PP
+.nf
+char *ver(const json_t *jwe, const json_t *jwk) {
+    char *str = NULL;
+    size_t len = 0;
+
+    if (!jose_jws_ver(NULL, jws, NULL, jwk))
+        return NULL;
+
+    len = jose_b64_dec(json_object_get(jwe, "payload"), NULL, 0);
+    str = calloc(1, len + 1);
+    jose_b64_dec(json_object_get(jwe, "payload"), str, len);
+    return str;
+}
+
+.fi
+.PP
+.PP
+\fBSee also:\fP
+.RS 4
+https://tools.ietf.org/html/rfc7515
+.RE
+.PP
+A JSON Web Token (JWT) is a standard data format for expresing claims transferred between to parties in JSON\&. The JWT is wrapped in any number of Signatures (JWS) or Encryptions (JWE)\&.
+.PP
+\fBSee also:\fP
+.RS 4
+https://tools.ietf.org/html/rfc7515 
+.RE
+.PP
+
+.SH "Function Documentation"
+.PP 
+.SS "json_t* jose_jws_hdr (const json_t * sig)"
+
+.PP
+Merges the JOSE headers of a JWS signature object\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fIsig\fP A JWS signature object\&. 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+The newly allocated JOSE header\&. 
+.RE
+.PP
+
+.SS "bool jose_jws_sig (jose_cfg_t * cfg, json_t * jws, json_t * sig, const json_t * jwk)"
+
+.PP
+Creates one or more signatures in a JWS object\&. The JWS object (\fCjws\fP) must contain the 'payload' property\&.
+.PP
+All signatures created will be appended to the JWS specified by \fCjws\fP\&. If the resulting JWS (\fCjws\fP) would contain only a single signature, the JWS will be represented in Flattened JWS JSON Serialization Syntax\&. Otherwise, it will be represented in General JWS JSON Serialization Syntax\&.
+.PP
+If \fCjwk\fP contains a JWK, a single signature is created\&. In this case, \fCjws\fP must contain either a JWS signature object template or NULL\&. You may specify algorithms or other signature behaviors simply by specifying them in the JOSE headers of the JWS signature object template as defined by RFC 7515\&. If a required property is missing, sensible defaults will be used and inserted into the JOSE headers; inferring them from the JWK (\fCjwk\fP) where possible\&.
+.PP
+If \fCjwk\fP contains an array of JWKs or a JWKSet, multiple signatures are created\&. In this case, the \fCsig\fP parameter must contain one of the following values:
+.PP
+.IP "1." 4
+A JWS signature object template that will be used for all signatures\&. In this case, a copy will be made for each signature and \fCsig\fP will not be modified in any way\&.
+.IP "2." 4
+An array of JWS signature object templates\&. Each template will be used with its corresponding JWK from \fCjwk\fP\&. If the arrays in \fCsig\fP and \fCjwk\fP are a different size, an error will occur\&.
+.IP "3." 4
+NULL\&. This has the same effect as passing NULL for each separate key\&.
+.PP
+.PP
+\fBParameters:\fP
+.RS 4
+\fIcfg\fP The configuration context (optional)\&. 
+.br
+\fIjws\fP The JWS object\&. 
+.br
+\fIsig\fP The JWS signature object template(s) or NULL\&. 
+.br
+\fIjwk\fP The JWK(s) or JWKSet used for creating signatures\&. 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+On success, true\&. Otherwise, false\&. 
+.RE
+.PP
+
+.SS "\fBjose_io_t\fP* jose_jws_sig_io (jose_cfg_t * cfg, json_t * jws, json_t * sig, const json_t * jwk)"
+
+.PP
+Creates one or more signatures in a JWS object using streaming\&. This function behaves substantially like \fBjose_jws_sig()\fP except:
+.PP
+The payload is not specified in the JWS (\fCjws\fP)\&. Rather, the payload is provided using the returned IO object\&. The input to the returned IO object will not be internally Base64 encoded\&. So you may need to prepend the IO chain with the result of \fBjose_b64_enc_io()\fP (depending on your situation)\&.
+.PP
+Likewise, the payload is not stored in the JWS object (\fCjws\fP)\&. This allows for detached payloads and decreases memory use for signatures over large payloads\&. If you would like to attach the payload, it is your responsibility to do so manually\&.
+.PP
+\fBParameters:\fP
+.RS 4
+\fIcfg\fP The configuration context (optional)\&. 
+.br
+\fIjws\fP The JWS object\&. 
+.br
+\fIsig\fP The JWS signature object template(s) or NULL\&. 
+.br
+\fIjwk\fP The JWK(s) or JWKSet used for creating signatures\&. 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+The new IO object or NULL on error\&. 
+.RE
+.PP
+
+.SS "bool jose_jws_ver (jose_cfg_t * cfg, const json_t * jws, const json_t * sig, const json_t * jwk, bool all)"
+
+.PP
+Verifies signatures of one or more JWKs in a JWS object\&. The JWS object (\fCjws\fP) must contain the 'payload' property\&.
+.PP
+If a single JWK (\fCjwk\fP) is specified, the \fCall\fP parameter is ignored\&. In this case, if you would like to verify a particular JWS signature object, you may specify it using the \fCsig\fP parameter\&. Otherwise, you may simply pass NULL to verify any of the JWS signature objects in the JWS object\&.
+.PP
+If \fCjwk\fP contains an array of JWKs or a JWKSet, the \fCall\fP parameter determines whether a valid signature is required for every JWK in order to successfully validate the JWS\&. For example, if you set \fCall\fP to false this function will succeed if a valid signature is found for any of the provided JWKs\&. When using this multiple JWK signature mode, the \fCsig\fP parameter must contain one of the following values:
+.PP
+.IP "1." 4
+A single JWS signature object to validate against all/any of the provided JWKs\&.
+.IP "2." 4
+An array of JWS signature objects\&. In this case, each JWS signature object will be mapped to its corresponding JWK from \fCjwk\fP\&. If the arrays in \fCsig\fP and \fCjwk\fP are a different size, an error will occur\&.
+.IP "3." 4
+NULL\&. This has the same effect as passing NULL for each separate key\&.
+.PP
+.PP
+\fBParameters:\fP
+.RS 4
+\fIcfg\fP The configuration context (optional)\&. 
+.br
+\fIjws\fP The JWS object\&. 
+.br
+\fIsig\fP The JWS signature object(s) to verify or NULL\&. 
+.br
+\fIjwk\fP The JWK(s) or JWKSet used for verifying signatures\&. 
+.br
+\fIall\fP Whether or not to require validation of all JWKs\&. 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+On success, true\&. Otherwise, false\&. 
+.RE
+.PP
+
+.SS "\fBjose_io_t\fP* jose_jws_ver_io (jose_cfg_t * cfg, const json_t * jws, const json_t * sig, const json_t * jwk, bool all)"
+
+.PP
+Verifies signatures of one or more JWKs in a JWS object using streaming\&. This function behaves substantially like \fBjose_jws_ver()\fP except:
+.PP
+The payload is not specified in the JWS (\fCjws\fP)\&. Rather, the payload is provided using the returned IO object\&. The input to the returned IO object will not be internally Base64 encoded\&. So you may need to prepend the IO chain with the result of \fBjose_b64_enc_io()\fP (depending on your situation)\&.
+.PP
+Final signature verification is delayed until \fBjose_io_t::done()\fP returns\&.
+.PP
+\fBParameters:\fP
+.RS 4
+\fIcfg\fP The configuration context (optional)\&. 
+.br
+\fIjws\fP The JWS object\&. 
+.br
+\fIsig\fP The JWS signature object(s) to verify or NULL\&. 
+.br
+\fIjwk\fP The JWK(s) or JWKSet used for verifying signatures\&. 
+.br
+\fIall\fP Whether or not to require validation of all JWKs\&. 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+The new IO object or NULL on error\&. 
+.RE
+.PP
+
+.SH "Author"
+.PP 
+Generated automatically by Doxygen for José from the source code\&.

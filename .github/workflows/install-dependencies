@@ -1,0 +1,43 @@
+#!/bin/sh -ex
+
+COMMON="meson curl git file bzip2 ${CC}"
+
+case "${DISTRO}" in
+osx:*)
+    brew update
+    for pkg in pkg-config jansson openssl zlib meson; do
+        brew ls --versions "${pkg}" || brew install "${pkg}"
+        brew outdated "${pkg}" || brew upgrade "${pkg}" || true
+    done
+    ;;
+
+debian:*|ubuntu:*)
+    export DEBIAN_FRONTEND=noninteractive
+    apt clean
+    apt update
+    # We get some errors once in a while, so let's try a few times.
+    for i in 1 2 3; do
+        apt -y install build-essential pkg-config libssl-dev zlib1g-dev \
+                       libjansson-dev ${COMMON} && break
+        sleep 5
+    done
+    ;;
+
+fedora:*)
+    echo 'max_parallel_downloads=10' >> /etc/dnf/dnf.conf
+    dnf -y clean all
+    dnf -y --setopt=deltarpm=0 update
+    dnf -y install ${COMMON} pkgconfig openssl-devel zlib-devel jansson-devel
+    ;;
+
+centos:*)
+    yum -y clean all
+    yum -y --setopt=deltarpm=0 update
+    yum install -y yum-utils epel-release
+    yum config-manager -y --set-enabled PowerTools \
+        || yum config-manager -y --set-enabled powertools || :
+    yum -y install ${COMMON}
+    yum-builddep -y jose
+    ;;
+esac
+# vim: set ts=8 shiftwidth=4 softtabstop=4 expandtab smarttab colorcolumn=80:

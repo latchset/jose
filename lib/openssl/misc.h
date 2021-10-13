@@ -23,15 +23,14 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#ifdef __APPLE__
-#include <libkern/OSByteOrder.h>
-#define htobe32(x) OSSwapHostToBigInt32(x)
-#define htobe64(x) OSSwapHostToBigInt64(x)
-#endif
+#define KEYMAX 1024
+
+#define containerof(ptr, type, member) \
+    ((type *)((char *) ptr - offsetof(type, member)))
 
 #define declare_cleanup_full(type, prfx) \
     static inline void \
-    type ## _autoclean(type **p) { \
+    type ## _auto(type **p) { \
         if (!p) return; \
         prfx ## _free(*p); \
         *p = NULL; \
@@ -39,7 +38,7 @@
 
 #define declare_cleanup(type) declare_cleanup_full(type, type)
 
-#define openssl_auto(type) type __attribute__((cleanup(type ## _autoclean)))
+#define openssl_auto(type) type __attribute__((cleanup(type ## _auto)))
 
 declare_cleanup_full(BIGNUM, BN_clear)
 
@@ -57,3 +56,9 @@ bn_encode(const BIGNUM *bn, uint8_t buf[], size_t len);
 
 json_t *
 bn_encode_json(const BIGNUM *bn, size_t len);
+
+bool
+add_entity(json_t *root, json_t *obj, const char *plural, ...);
+
+bool
+copy_val(const json_t *from, json_t *into, ...);

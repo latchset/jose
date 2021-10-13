@@ -16,7 +16,9 @@
  */
 
 #include "misc.h"
-#include <jose/hooks.h>
+#include <jose/b64.h>
+#include <jose/jwk.h>
+#include "../hooks.h"
 
 #include <openssl/rand.h>
 
@@ -24,59 +26,76 @@
 
 #define NAMES "A128KW", "A192KW", "A256KW"
 
-declare_cleanup(EVP_CIPHER_CTX)
+static json_int_t
+alg2len(const char *alg)
+{
+    switch (str2enum(alg, NAMES, NULL)) {
+    case 0: return 16;
+    case 1: return 24;
+    case 2: return 32;
+    default: return 0;
+    }
+}
 
 static bool
-resolve(json_t *jwk)
+jwk_prep_handles(jose_cfg_t *cfg, const json_t *jwk)
 {
-    json_auto_t *upd = NULL;
-    const char *kty = NULL;
     const char *alg = NULL;
-    json_t *bytes = NULL;
+
+    if (json_unpack((json_t *) jwk, "{s:s}", "alg", &alg) == -1)
+        return false;
+
+    return alg2len(alg) != 0;
+}
+
+static bool
+jwk_prep_execute(jose_cfg_t *cfg, json_t *jwk)
+{
+    const char *alg = NULL;
+    const char *kty = NULL;
+    json_int_t byt = 0;
     json_int_t len = 0;
 
-    if (json_unpack(jwk, "{s?s,s?s,s?o}",
-                    "kty", &kty, "alg", &alg, "bytes", &bytes) == -1)
+    if (json_unpack(jwk, "{s:s,s?s,s?I}",
+                    "alg", &alg, "kty", &kty, "bytes", &byt) == -1)
         return false;
 
-    switch (str2enum(alg, NAMES, NULL)) {
-    case 0: len = 16; break;
-    case 1: len = 24; break;
-    case 2: len = 32; break;
-    default: return true;
-    }
-
-    if (!kty && json_object_set_new(jwk, "kty", json_string("oct")) == -1)
+    len = alg2len(alg);
+    if (len == 0)
         return false;
+
+    if (byt != 0 && len != byt)
+        return false;
+
     if (kty && strcmp(kty, "oct") != 0)
         return false;
 
-    if (!bytes && json_object_set_new(jwk, "bytes", json_integer(len)) == -1)
-        return false;
-    if (bytes && (!json_is_integer(bytes) || json_integer_value(bytes) != len))
+    if (json_object_set_new(jwk, "kty", json_string("oct")) < 0)
         return false;
 
-    upd = json_pack("{s:s,s:[s,s]}", "use", "enc", "key_ops",
-                    "wrapKey", "unwrapKey");
-    if (!upd)
+    if (json_object_set_new(jwk, "bytes", json_integer(len)) < 0)
         return false;
 
-    return json_object_update_missing(jwk, upd) == 0;
+    return true;
 }
 
 static const char *
-suggest(const json_t *jwk)
+alg_wrap_alg(const jose_hook_alg_t *alg, jose_cfg_t *cfg, const json_t *jwk)
 {
-    const char *kty = NULL;
-    const char *k = NULL;
+    const char *name = NULL;
+    const char *type = NULL;
 
-    if (json_unpack((json_t *) jwk, "{s:s,s:s}", "kty", &kty, "k", &k) == -1)
+    if (json_unpack((json_t *) jwk, "{s?s,s?s}",
+                    "alg", &name, "kty", &type) < 0)
         return NULL;
 
-    if (strcmp(kty, "oct") != 0)
+    if (name)
+        return str2enum(name, NAMES, NULL) != SIZE_MAX ? name : NULL;
+
+    if (!type || strcmp(type, "oct") != 0)
         return NULL;
 
-    switch (jose_b64_dlen(strlen(k))) {
+    switch (jose_b64_dec(json_object_get(jwk, "k"), NULL, 0)) {
     case 16: return "A128KW";
     case 24: return "A192KW";
     case 32: return "A256KW";
@@ -84,140 +103,189 @@ suggest(const json_t *jwk)
     }
 }
 
-static bool
-wrap(json_t *jwe, json_t *cek, const json_t *jwk, json_t *rcp,
-     const char *alg)
+static const char *
+alg_wrap_enc(const jose_hook_alg_t *alg, jose_cfg_t *cfg, const json_t *jwk)
 {
-    openssl_auto(EVP_CIPHER_CTX) *ctx = NULL;
-    const EVP_CIPHER *cph = NULL;
-    jose_buf_auto_t *ky = NULL;
-    jose_buf_auto_t *pt = NULL;
-    jose_buf_auto_t *ct = NULL;
-    int tmp;
+    switch (str2enum(alg->name, NAMES, NULL)) {
+    case 0: return "A128CBC-HS256";
+    case 1: return "A192CBC-HS384";
+    case 2: return "A256CBC-HS512";
+    default: return NULL;
+    }
+}
 
-    if (!json_object_get(cek, "k") && !jose_jwk_generate(cek))
+static bool
+alg_wrap_wrp(const jose_hook_alg_t *alg, jose_cfg_t *cfg, json_t *jwe,
+             json_t *rcp, const json_t *jwk, json_t *cek)
+{
+    const EVP_CIPHER *cph = NULL;
+    EVP_CIPHER_CTX *ecc = NULL;
+    bool ret = false;
+    size_t ptl = 0;
+    size_t ctl = 0;
+    int len = 0;
+
+    if (!json_object_get(cek, "k") && !jose_jwk_gen(cfg, cek))
         return false;
 
-    switch (str2enum(alg, NAMES, NULL)) {
+    switch (str2enum(alg->name, NAMES, NULL)) {
     case 0: cph = EVP_aes_128_wrap(); break;
     case 1: cph = EVP_aes_192_wrap(); break;
     case 2: cph = EVP_aes_256_wrap(); break;
     default: return false;
     }
 
+    uint8_t ky[EVP_CIPHER_key_length(cph)];
     uint8_t iv[EVP_CIPHER_iv_length(cph)];
+    uint8_t pt[KEYMAX];
+    uint8_t ct[sizeof(pt) + EVP_CIPHER_block_size(cph) * 2];
+
     memset(iv, 0xA6, EVP_CIPHER_iv_length(cph));
 
-    ky = jose_b64_decode_json(json_object_get(jwk, "k"));
-    if (!ky)
-        return false;
+    if (jose_b64_dec(json_object_get(jwk, "k"), NULL, 0) != sizeof(ky))
+        goto egress;
 
-    if ((int) ky->size != EVP_CIPHER_key_length(cph))
-        return false;
+    if (jose_b64_dec(json_object_get(jwk, "k"), ky, sizeof(ky)) != sizeof(ky))
+        goto egress;
 
-    pt = jose_b64_decode_json(json_object_get(cek, "k"));
-    if (!pt)
-        return false;
+    ptl = jose_b64_dec(json_object_get(cek, "k"), NULL, 0);
+    if (ptl > sizeof(pt))
+        goto egress;
 
-    ct = jose_buf(pt->size + EVP_CIPHER_block_size(cph) * 2 - 1,
-                  JOSE_BUF_FLAG_NONE);
-    if (!ct)
-        return false;
+    if (jose_b64_dec(json_object_get(cek, "k"), pt, ptl) != ptl)
+        goto egress;
 
-    ctx = EVP_CIPHER_CTX_new();
-    if (!ctx)
-        return false;
+    ecc = EVP_CIPHER_CTX_new();
+    if (!ecc)
+        goto egress;
 
-    EVP_CIPHER_CTX_set_flags(ctx, EVP_CIPHER_CTX_FLAG_WRAP_ALLOW);
+    EVP_CIPHER_CTX_set_flags(ecc, EVP_CIPHER_CTX_FLAG_WRAP_ALLOW);
 
-    if (EVP_EncryptInit_ex(ctx, cph, NULL, ky->data, iv) <= 0)
-        return false;
+    if (EVP_EncryptInit_ex(ecc, cph, NULL, ky, iv) <= 0)
+        goto egress;
 
-    if (EVP_EncryptUpdate(ctx, ct->data, &tmp, pt->data, pt->size) <= 0)
-        return false;
-    ct->size = tmp;
+    if (EVP_EncryptUpdate(ecc, ct, &len, pt, ptl) <= 0)
+        goto egress;
+    ctl = len;
 
-    if (EVP_EncryptFinal(ctx, &ct->data[tmp], &tmp) <= 0)
-        return false;
-    ct->size += tmp;
+    if (EVP_EncryptFinal(ecc, &ct[len], &len) <= 0)
+        goto egress;
+    ctl += len;
 
-    return json_object_set_new(rcp, "encrypted_key",
-                               jose_b64_encode_json(ct->data, ct->size)) == 0;
+    if (json_object_set_new(rcp, "encrypted_key", jose_b64_enc(ct, ctl)) < 0)
+        goto egress;
+
+    ret = add_entity(jwe, rcp, "recipients", "header", "encrypted_key", NULL);
+
+egress:
+    OPENSSL_cleanse(ky, sizeof(ky));
+    OPENSSL_cleanse(pt, sizeof(pt));
+    EVP_CIPHER_CTX_free(ecc);
+    return ret;
 }
 
 static bool
-unwrap(const json_t *jwe, const json_t *jwk, const json_t *rcp,
-       const char *alg, json_t *cek)
+alg_wrap_unw(const jose_hook_alg_t *alg, jose_cfg_t *cfg, const json_t *jwe,
+             const json_t *rcp, const json_t *jwk, json_t *cek)
 {
-    openssl_auto(EVP_CIPHER_CTX) *ctx = NULL;
     const EVP_CIPHER *cph = NULL;
-    jose_buf_auto_t *ky = NULL;
-    jose_buf_auto_t *pt = NULL;
-    jose_buf_auto_t *ct = NULL;
-    int tmp = 0;
+    EVP_CIPHER_CTX *ecc = NULL;
+    bool ret = false;
+    size_t ctl = 0;
+    size_t ptl = 0;
+    int len = 0;
 
-    switch (str2enum(alg, NAMES, NULL)) {
+    switch (str2enum(alg->name, NAMES, NULL)) {
     case 0: cph = EVP_aes_128_wrap(); break;
     case 1: cph = EVP_aes_192_wrap(); break;
     case 2: cph = EVP_aes_256_wrap(); break;
     default: return NULL;
     }
 
+    uint8_t ky[EVP_CIPHER_key_length(cph)];
     uint8_t iv[EVP_CIPHER_iv_length(cph)];
-    memset(iv, 0xA6, EVP_CIPHER_iv_length(cph));
+    uint8_t ct[KEYMAX + EVP_CIPHER_block_size(cph) * 2];
+    uint8_t pt[sizeof(ct)];
 
-    ky = jose_b64_decode_json(json_object_get(jwk, "k"));
-    if (!ky)
-        return false;
+    memset(iv, 0xA6, sizeof(iv));
 
-    if ((int) ky->size != EVP_CIPHER_key_length(cph))
-        return false;
+    if (jose_b64_dec(json_object_get(jwk, "k"), NULL, 0) != sizeof(ky))
+        goto egress;
 
-    ct = jose_b64_decode_json(json_object_get(rcp, "encrypted_key"));
-    if (!ct)
-        return false;
+    if (jose_b64_dec(json_object_get(jwk, "k"), ky, sizeof(ky)) != sizeof(ky))
+        goto egress;
 
-    pt = jose_buf(ct->size, JOSE_BUF_FLAG_WIPE);
-    if (!pt)
-        return false;
+    ctl = jose_b64_dec(json_object_get(rcp, "encrypted_key"), NULL, 0);
+    if (ctl > sizeof(ct))
+        goto egress;
 
-    ctx = EVP_CIPHER_CTX_new();
-    if (!ctx)
-        return false;
+    if (jose_b64_dec(json_object_get(rcp, "encrypted_key"), ct, ctl) != ctl)
+        goto egress;
 
-    EVP_CIPHER_CTX_set_flags(ctx, EVP_CIPHER_CTX_FLAG_WRAP_ALLOW);
+    ecc = EVP_CIPHER_CTX_new();
+    if (!ecc)
+        goto egress;
 
-    if (EVP_DecryptInit_ex(ctx, cph, NULL, ky->data, iv) <= 0)
-        return false;
+    EVP_CIPHER_CTX_set_flags(ecc, EVP_CIPHER_CTX_FLAG_WRAP_ALLOW);
 
-    if (EVP_DecryptUpdate(ctx, pt->data, &tmp, ct->data, ct->size) <= 0)
-        return false;
-    pt->size = tmp;
+    if (EVP_DecryptInit_ex(ecc, cph, NULL, ky, iv) <= 0)
+        goto egress;
 
-    if (EVP_DecryptFinal(ctx, &pt->data[tmp], &tmp) <= 0)
-        return false;
-    pt->size += tmp;
+    if (EVP_DecryptUpdate(ecc, pt, &len, ct, ctl) <= 0)
+        goto egress;
+    ptl = len;
 
-    return json_object_set_new(cek, "k",
-                               jose_b64_encode_json(pt->data, pt->size)) == 0;
+    if (EVP_DecryptFinal(ecc, &pt[len], &len) <= 0)
+        goto egress;
+    ptl += len;
+
+    ret = json_object_set_new(cek, "k", jose_b64_enc(pt, ptl)) == 0;
+
+egress:
+    OPENSSL_cleanse(ky, sizeof(ky));
+    OPENSSL_cleanse(pt, sizeof(pt));
+    EVP_CIPHER_CTX_free(ecc);
+    return ret;
 }
 
 static void __attribute__((constructor))
 constructor(void)
 {
-    static jose_jwk_resolver_t resolver = {
-        .resolve = resolve
+    static jose_hook_jwk_t jwk = {
+        .kind = JOSE_HOOK_JWK_KIND_PREP,
+        .prep.handles = jwk_prep_handles,
+        .prep.execute = jwk_prep_execute,
     };
 
-    static jose_jwe_wrapper_t wrappers[] = {
-        { NULL, "A128KW", suggest, wrap, unwrap },
-        { NULL, "A192KW", suggest, wrap, unwrap },
-        { NULL, "A256KW", suggest, wrap, unwrap },
+    static jose_hook_alg_t algs[] = {
+        { .kind = JOSE_HOOK_ALG_KIND_WRAP,
+          .name = "A128KW",
+          .wrap.eprm = "wrapKey",
+          .wrap.dprm = "unwrapKey",
+          .wrap.alg = alg_wrap_alg,
+          .wrap.enc = alg_wrap_enc,
+          .wrap.wrp = alg_wrap_wrp,
+          .wrap.unw = alg_wrap_unw },
+        { .kind = JOSE_HOOK_ALG_KIND_WRAP,
+          .name = "A192KW",
+          .wrap.eprm = "wrapKey",
+          .wrap.dprm = "unwrapKey",
+          .wrap.alg = alg_wrap_alg,
+          .wrap.enc = alg_wrap_enc,
+          .wrap.wrp = alg_wrap_wrp,
+          .wrap.unw = alg_wrap_unw },
+        { .kind = JOSE_HOOK_ALG_KIND_WRAP,
+          .name = "A256KW",
+          .wrap.eprm = "wrapKey",
+          .wrap.dprm = "unwrapKey",
+          .wrap.alg = alg_wrap_alg,
+          .wrap.enc = alg_wrap_enc,
+          .wrap.wrp = alg_wrap_wrp,
+          .wrap.unw = alg_wrap_unw },
         {}
     };
 
-    jose_jwk_register_resolver(&resolver);
-
-    for (size_t i = 0; wrappers[i].alg; i++)
-        jose_jwe_register_wrapper(&wrappers[i]);
+    jose_hook_jwk_push(&jwk);
+    for (size_t i = 0; algs[i].name; i++)
+        jose_hook_alg_push(&algs[i]);
 }

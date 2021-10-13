@@ -1,0 +1,22 @@
+#!/bin/sh -ex
+
+a=`jose jwk thp -i $VECTORS/rfc7638_3.1.jwk -a S256`
+b=`cat $VECTORS/rfc7638_3.1.thp`
+[ $a = $b ]
+
+jwk=`jose jwk thp -i $VECTORS/rfc7520_4.8.jwkset -a S1 -f HYRNOxxOOHap0amTONoy1bHnS5M`
+[ "`echo ${jwk} | jose jwk thp -i- -a S1`" = "HYRNOxxOOHap0amTONoy1bHnS5M" ]
+jose fmt -j "$jwk" -O \
+    -g kty -q EC    -EUU \
+    -g crv -q P-521 -EUU \
+    -g kid -q bilbo.baggins@hobbiton.example -EUU
+
+! jose jwk thp -i $VECTORS/rfc7520_4.8.jwkset -a S1 -f VHriznG7vJAFpXMXRmGgAkA5sEE
+
+# Check default thumbprint algorithm (SHA-256).
+RFC_7638_3_1="${VECTORS}/rfc7638_3.1"
+jwk="${RFC_7638_3_1}.jwk"
+thp256="${RFC_7638_3_1}.thp"
+[ "$(jose jwk thp -i ${jwk})" = "$(jose jwk thp -i ${jwk} -a S256)" ]
+[ "$(jose jwk thp -i ${jwk})" = "$(cat ${thp256})" ]
+

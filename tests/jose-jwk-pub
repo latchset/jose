@@ -1,0 +1,15 @@
+#!/bin/sh -ex
+
+ioct='{"kty":"oct","k":"","a":"foo","key_ops":["encrypt","decrypt"]}'
+irsa='{"kty":"RSA","p":"","d":"","q":"","dp":"","dq":"","qi":"","oth":"","a":"bar","key_ops":["encrypt","decrypt"]}'
+iec='{"kty":"EC","d":"","a":"baz","key_ops":["encrypt","decrypt"]}'
+ijwkset="{\"keys\":[$ioct,$irsa,$iec]}"
+ooct='{"a":"foo","key_ops":[],"kty":"oct"}'
+orsa='{"a":"bar","key_ops":["encrypt"],"kty":"RSA"}'
+oec='{"a":"baz","key_ops":["encrypt"],"kty":"EC"}'
+ojwkset="{\"keys\":[$ooct,$orsa,$oec]}"
+test "`echo $ioct    | jose jwk pub -i-`" = "$ooct"
+test "`echo $irsa    | jose jwk pub -i-`" = "$orsa"
+test "`echo $iec     | jose jwk pub -i-`" = "$oec"
+test "`echo $ijwkset | jose jwk pub -i-`" = "$ojwkset"
+test "`echo $iec     | jose jwk pub -i- -s`" = "{\"keys\":[$oec]}"

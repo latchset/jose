@@ -29,12 +29,14 @@ str2enum(const char *str, ...)
     va_start(ap, str);
 
     for (const char *v = NULL; (v = va_arg(ap, const char *)); i++) {
-        if (str && strcmp(str, v) == 0)
-            break;
+        if (str && strcmp(str, v) == 0) {
+            va_end(ap);
+            return i;
+        }
     }
 
     va_end(ap);
-    return i;
+    return SIZE_MAX;
 }
 
 BIGNUM *
@@ -46,13 +48,27 @@ bn_decode(const uint8_t buf[], size_t len)
 BIGNUM *
 bn_decode_json(const json_t *json)
 {
-    jose_buf_auto_t *buf = NULL;
+    uint8_t *tmp = NULL;
+    BIGNUM *bn = NULL;
+    size_t len = 0;
 
-    buf = jose_b64_decode_json(json);
-    if (!buf)
+    len = jose_b64_dec(json, NULL, 0);
+    if (len == SIZE_MAX)
         return NULL;
 
-    return bn_decode(buf->data, buf->size);
+    tmp = calloc(1, len);
+    if (!tmp)
+        return NULL;
+
+    if (jose_b64_dec(json, tmp, len) != len) {
+        free(tmp);
+        return NULL;
+    }
+
+    bn = bn_decode(tmp, len);
+    OPENSSL_cleanse(tmp, len);
+    free(tmp);
+    return bn;
 }
 
 bool
@@ -77,29 +93,135 @@ bn_encode(const BIGNUM *bn, uint8_t buf[], size_t len)
 json_t *
 bn_encode_json(const BIGNUM *bn, size_t len)
 {
-    jose_buf_auto_t *buf = NULL;
+    uint8_t *buf = NULL;
+    json_t *out = NULL;
 
     if (!bn)
-        return false;
+        return NULL;
 
     if (len == 0)
         len = BN_num_bytes(bn);
 
     if ((int) len < BN_num_bytes(bn))
-        return false;
+        return NULL;
 
-    buf = jose_buf(len, JOSE_BUF_FLAG_WIPE);
-    if (buf) {
-        if (bn_encode(bn, buf->data, len))
-            return jose_b64_encode_json(buf->data, len);
+    buf = calloc(1, len);
+    if (!buf)
+        return NULL;
+
+    if (bn_encode(bn, buf, len)) {
+        out = jose_b64_enc(buf, len);
+        OPENSSL_cleanse(buf, len);
     }
 
-    return NULL;
+    free(buf);
+    return out;
+}
+
+bool
+add_entity(json_t *root, json_t *obj, const char *plural, ...)
+{
+    bool found = false;
+    json_t *pl = NULL;
+    va_list ap;
+
+    pl = json_object_get(root, plural);
+    if (pl) {
+        if (!json_is_array(pl))
+            return false;
+
+        if (json_array_size(pl) == 0) {
+            if (json_object_del(root, plural) == -1)
+                return false;
+
+            pl = NULL;
+        }
+    }
+
+    va_start(ap, plural);
+    for (const char *key; (key = va_arg(ap, const char *)); ) {
+        if (json_object_get(root, key))
+            found = true;
+    }
+    va_end(ap);
+
+    /* If we have flattened format, migrate to general format. */
+    if (found) {
+        json_t *o = NULL;
+
+        if (!pl) {
+            pl = json_array();
+            if (json_object_set_new(root, plural, pl) == -1)
+                return false;
+        }
+
+        o = json_object();
+        if (json_array_append_new(pl, o) == -1)
+            return false;
+
+        va_start(ap, plural);
+        for (const char *key; (key = va_arg(ap, const char *)); ) {
+            json_t *tmp = NULL;
+
+            tmp = json_object_get(root, key);
+            if (tmp) {
+                if (json_object_set(o, key, tmp) == -1 ||
+                    json_object_del(root, key) == -1) {
+                    va_end(ap);
+                    return false;
+                }
+            }
+        }
+        va_end(ap);
+    }
+
+    /* If we have some signatures already, append to the array. */
+    if (pl)
+        return json_array_append(pl, obj) == 0;
+
+    return json_object_update(root, obj) == 0;
+}
+
+bool
+copy_val(const json_t *from, json_t *into, ...)
+{
+    va_list ap;
+
+    va_start(ap, into);
+    for (const char *n = va_arg(ap, char *); n; n = va_arg(ap, char *)) {
+        json_t *f = NULL;
+        json_t *i = NULL;
+
+        f = json_object_get(from, n);
+        if (!f) {
+            va_end(ap);
+            return false;
+        }
+
+        i = json_object_get(into, n);
+        if (i) {
+            if (json_equal(i, f))
+                continue;
+
+            va_end(ap);
+            return false;
+        }
+
+        if (json_object_set_new(into, n, json_deep_copy(f)) < 0) {
+            va_end(ap);
+            return false;
+        }
+    }
+
+    va_end(ap);
+    return true;
 }
 
 static void __attribute__((constructor))
 constructor(void)
 {
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
     OpenSSL_add_all_algorithms();
+#endif
     RAND_poll();
 }

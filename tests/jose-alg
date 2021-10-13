@@ -1,0 +1,22 @@
+#!/bin/sh -ex
+
+jose alg | grep -q "^A128GCM$"
+
+jose alg -k sign | grep -q "^ES256$"
+jose alg -k wrap | grep -q "^A128GCMKW$"
+jose alg -k encr | grep -q "^A128GCM$"
+jose alg -k exch | grep -q "^ECDH$"
+
+! jose alg -k sign | grep -q "^A128GCMKW$"
+! jose alg -k wrap | grep -q "^A128GCM$"
+! jose alg -k encr | grep -q "^ES256$"
+! jose alg -k exch | grep -q "^HS256$"
+
+jose alg -k encr -k sign | grep -q "^A128GCM$"
+jose alg -k encr -k sign | grep -q "^ES256$"
+jose alg -k sign -k wrap | grep -q "^ES256$"
+jose alg -k sign -k wrap | grep -q "^A128GCMKW$"
+jose alg -k wrap -k exch | grep -q "^A128GCMKW$"
+jose alg -k wrap -k exch | grep -q "^ECDH$"
+jose alg -k exch -k encr | grep -q "^ECDH$"
+jose alg -k exch -k encr | grep -q "^A128GCM$"

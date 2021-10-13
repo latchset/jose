@@ -15,145 +15,48 @@
  * limitations under the License.
  */
 
-#include <jose/hooks.h>
+#include "hooks.h"
+#include <string.h>
 
-static jose_jwk_type_t *types;
-static jose_jwk_op_t *ops;
-static jose_jwk_resolver_t *resolvers;
-static jose_jwk_generator_t *generators;
-static jose_jwk_hasher_t *hashers;
-static jose_jwk_exchanger_t *exchangers;
-static jose_jws_signer_t *signers;
-static jose_jwe_crypter_t *crypters;
-static jose_jwe_wrapper_t *wrappers;
-static jose_jwe_zipper_t *zippers;
+static const jose_hook_jwk_t *jwks;
+static const jose_hook_alg_t *algs;
 
 void
-jose_jwk_register_type(jose_jwk_type_t *type)
+jose_hook_jwk_push(jose_hook_jwk_t *jwk)
 {
-    type->next = types;
-    types = type;
+    jwk->next = jwks;
+    jwks = jwk;
 }
 
-jose_jwk_type_t *
-jose_jwk_types(void)
+const jose_hook_jwk_t *
+jose_hook_jwk_list(void)
 {
-    return types;
+    return jwks;
 }
 
 void
-jose_jwk_register_op(jose_jwk_op_t *op)
+jose_hook_alg_push(jose_hook_alg_t *alg)
 {
-    op->next = ops;
-    ops = op;
+    alg->next = algs;
+    algs = alg;
 }
 
-jose_jwk_op_t *
-jose_jwk_ops(void)
+const jose_hook_alg_t *
+jose_hook_alg_list(void)
 {
-    return ops;
+    return algs;
 }
 
-void
-jose_jwk_register_resolver(jose_jwk_resolver_t *resolver)
+const jose_hook_alg_t *
+jose_hook_alg_find(jose_hook_alg_kind_t kind, const char *name)
 {
-    resolver->next = resolvers;
-    resolvers = resolver;
-}
+    for (const jose_hook_alg_t *a = algs; a; a = a->next) {
+        if (a->kind != kind)
+            continue;
 
-jose_jwk_resolver_t *
-jose_jwk_resolvers(void)
-{
-    return resolvers;
-}
+        if (!name || strcmp(a->name, name) == 0)
+            return a;
+    }
 
-void
-jose_jwk_register_generator(jose_jwk_generator_t *generator)
-{
-    generator->next = generators;
-    generators = generator;
-}
-
-jose_jwk_generator_t *
-jose_jwk_generators(void)
-{
-    return generators;
-}
-
-void
-jose_jwk_register_hasher(jose_jwk_hasher_t *hasher)
-{
-    hasher->next = hashers;
-    hashers = hasher;
-}
-
-jose_jwk_hasher_t *
-jose_jwk_hashers(void)
-{
-    return hashers;
-}
-
-void
-jose_jwk_register_exchanger(jose_jwk_exchanger_t *exchanger)
-{
-    exchanger->next = exchangers;
-    exchangers = exchanger;
-}
-
-jose_jwk_exchanger_t *
-jose_jwk_exchangers(void)
-{
-    return exchangers;
-}
-
-void
-jose_jws_register_signer(jose_jws_signer_t *signer)
-{
-    signer->next = signers;
-    signers = signer;
-}
-
-jose_jws_signer_t *
-jose_jws_signers(void)
-{
-    return signers;
-}
-
-void
-jose_jwe_register_crypter(jose_jwe_crypter_t *crypter)
-{
-    crypter->next = crypters;
-    crypters = crypter;
-}
-
-jose_jwe_crypter_t *
-jose_jwe_crypters(void)
-{
-    return crypters;
-}
-
-void
-jose_jwe_register_wrapper(jose_jwe_wrapper_t *wrapper)
-{
-    wrapper->next = wrappers;
-    wrappers = wrapper;
-}
-
-jose_jwe_wrapper_t *
-jose_jwe_wrappers(void)
-{
-    return wrappers;
-}
-
-void
-jose_jwe_register_zipper(jose_jwe_zipper_t *zipper)
-{
-    zipper->next = zippers;
-    zippers = zipper;
-}
-
-jose_jwe_zipper_t *
-jose_jwe_zippers(void)
-{
-    return zippers;
+    return NULL;
 }

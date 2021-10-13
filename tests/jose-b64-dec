@@ -1,0 +1,9 @@
+#!/bin/sh -ex
+
+test "`printf "" | jose b64 dec -i-`" = ""
+test `printf "Zg" | jose b64 dec -i-` = "f"
+test `printf "Zm8" | jose b64 dec -i-` = "fo"
+test `printf "Zm9v" | jose b64 dec -i-` = "foo"
+test `printf "Zm9vYg" | jose b64 dec -i-` = "foob"
+test `printf "Zm9vYmE" | jose b64 dec -i-` = "fooba"
+test `printf "Zm9vYmFy" | jose b64 dec -i-` = "foobar"

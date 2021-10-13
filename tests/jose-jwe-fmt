@@ -1,0 +1,20 @@
+#!/bin/sh -ex
+
+for f in $VECTORS/*.jwec; do
+    cmpct=`cat $f`
+    flat=`echo $f | sed 's|jwec|jwef|'`
+    gen=`echo $f | sed 's|jwec|jweg|'`
+
+    if [ -f $flat ]; then
+        [ `jose jwe fmt -i $flat -c` = $cmpct ]
+        [ `jose jwe fmt -i $flat | jose jwe fmt -i- -c` = $cmpct ]
+    fi
+
+    if [ -f $gen ]; then
+        [ `jose jwe fmt -i $gen -c` = $cmpct ]
+        [ `jose jwe fmt -i $gen | jose jwe fmt -i- -c` = $cmpct ]
+    fi
+
+    [ `jose jwe fmt -i $f -c` = $cmpct ]
+    [ `jose jwe fmt -i $f | jose jwe fmt -i- -c` = $cmpct ]
+done

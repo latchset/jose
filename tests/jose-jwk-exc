@@ -1,0 +1,53 @@
+#!/bin/sh -ex
+
+tmpdir=`mktemp -d 2>/dev/null || mktemp -d -t jose`
+
+onexit() {
+    rm -rf $tmpdir
+}
+
+trap onexit EXIT
+
+for T in '{"alg":"ECDH"}' '{"alg":"ECDH","crv":"P-256"}' '{"kty":"EC","crv":"P-256"}'; do
+    jose jwk gen -i "$T" -o $tmpdir/exc_a.jwk
+    jose jwk gen -i "$T" -o $tmpdir/exc_b.jwk
+
+    jose jwk pub -i $tmpdir/exc_a.jwk -o $tmpdir/exc_a.pub.jwk
+    jose jwk pub -i $tmpdir/exc_b.jwk -o $tmpdir/exc_b.pub.jwk
+
+    a=`jose jwk exc -l $tmpdir/exc_a.jwk -r $tmpdir/exc_b.pub.jwk`
+    b=`jose jwk exc -l $tmpdir/exc_b.jwk -r $tmpdir/exc_a.pub.jwk`
+    c=`jose jwk exc -l $tmpdir/exc_a.jwk -r $tmpdir/exc_b.jwk`
+    d=`jose jwk exc -l $tmpdir/exc_b.jwk -r $tmpdir/exc_a.jwk`
+    test "$a" = "$b"
+    test "$c" = "$d"
+    test "$a" = "$c"
+
+    ! jose jwk exc -l $tmpdir/exc_a.pub.jwk -r $tmpdir/exc_b.jwk
+    ! jose jwk exc -l $tmpdir/exc_b.pub.jwk -r $tmpdir/exc_a.jwk
+    ! jose jwk exc -l $tmpdir/exc_a.pub.jwk -r $tmpdir/exc_b.pub.jwk
+    ! jose jwk exc -l $tmpdir/exc_b.pub.jwk -r $tmpdir/exc_a.pub.jwk
+done
+
+jose jwk gen -i '{"alg":"ECDH","crv":"P-384"}' -o $tmpdir/exc_c.jwk
+! jose jwk exc -l $tmpdir/exc_c.jwk -r $tmpdir/exc_a.pub.jwk
+
+jose jwk gen -i '{"kty":"EC","crv":"P-384"}' -o $tmpdir/exc_c.jwk
+! jose jwk exc -l $tmpdir/exc_c.jwk -r $tmpdir/exc_a.pub.jwk
+
+jose jwk gen -i '{ "alg": "ES256" }' -o $tmpdir/exc_c.jwk
+! jose jwk exc -l $tmpdir/exc_c.jwk -r $tmpdir/exc_a.pub.jwk
+
+srv=`jose jwk gen -i '{"alg":"ECMR"}'`
+clt=`jose jwk gen -i '{"alg":"ECMR"}'`
+eph=`jose jwk gen -i '{"alg":"ECMR"}'`
+
+spb=`echo "$srv" | jose jwk pub -i-`
+cpb=`echo "$clt" | jose jwk pub -i-`
+
+key=`echo "$clt$spb" | jose jwk exc -l- -r-`
+sub=`echo "$eph$spb" | jose jwk exc -l- -r- -i '{"alg":"ECMR"}'`
+req=`echo "$cpb$eph" | jose jwk exc -l- -r- -i '{"alg":"ECMR"}'`
+rep=`echo "$srv$req" | jose jwk exc -l- -r- -i '{"alg":"ECMR"}'`
+rec=`echo "$rep$sub" | jose jwk exc -l- -r-`
+echo "$key$rec" | jose fmt -j- -Oj- -OE

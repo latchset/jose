@@ -1,0 +1,40 @@
+#!/bin/sh -ex
+
+echo '{}' | jose jwk use -i- -u encrypt
+! echo '{}' | jose jwk use -i- -r -u encrypt
+
+! echo '{"use": true}' | jose jwk use -i- -u encrypt
+! echo '{"key_ops": []}' | jose jwk use -i- -u encrypt
+! echo '{"key_ops": [true]}' | jose jwk use -i- -u encrypt
+
+echo '{"use": "enc"}' | jose jwk use -i- -u encrypt
+! echo '{"use": "sig"}' | jose jwk use -i- -u encrypt
+
+tmp='{"key_ops": ["encrypt", "decrypt"]}'
+echo "$tmp" | jose jwk use -i- -u encrypt
+echo "$tmp" | jose jwk use -i- -u encrypt -u decrypt
+echo "$tmp" | jose jwk use -i- -a -u encrypt -u decrypt
+echo "$tmp" | jose jwk use -i- -u encrypt -u sign
+! echo "$tmp" | jose jwk use -i- -u sign
+! echo "$tmp" | jose jwk use -i- -a -u encrypt -u sign
+
+tmp='{"use": "sig", "key_ops": ["encrypt", "decrypt"]}'
+echo "$tmp" | jose jwk use -i- -u encrypt -u sign
+echo "$tmp" | jose jwk use -i- -a -u encrypt -u sign
+
+! echo '{"use": "enc"}' | jose jwk use -i- -u deriveKey
+! echo '{"use": "enc"}' | jose jwk use -i- -u deriveBits
+! echo '{"use": "sig"}' | jose jwk use -i- -u deriveKey
+! echo '{"use": "sig"}' | jose jwk use -i- -u deriveBits
+
+jwkset=`jose jwk gen -i '{"keys":[{"alg":"A128KW"},{"alg":"ES256"}]}'`
+
+[ "`echo "$jwkset" | jose jwk use -i- -u wrapKey -s -o-`" \
+    = "`jose fmt -j "$jwkset" -g keys -d 1 -Uo-`" ]
+[ "`echo "$jwkset" | jose jwk use -i- -u verify -s -o-`" \
+    = "`jose fmt -j "$jwkset" -g keys -d 0 -Uo-`" ]
+[ "`echo "$jwkset" | jose jwk use -i- -u wrapKey -o-`" \
+    = "`jose fmt -j "$jwkset" -g keys -g 0 -o-`" ]
+[ "`echo "$jwkset" | jose jwk use -i- -u verify -o-`" \
+    = "`jose fmt -j "$jwkset" -g keys -g 1 -o-`" ]
+echo "$jwkset" | jose jwk use -i- -u verify -o-
