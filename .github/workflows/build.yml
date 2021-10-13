@@ -117,4 +117,41 @@ jobs:
       DISTRO: osx:macos-latest
       CC: ${{ matrix.compiler }}
 
+  freebsd:
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        compiler:
+          - gcc
+          - clang
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install build dependencies, build jose and run tests
+        uses: vmactions/freebsd-vm@v0.1.5
+        with:
+          usesh: true
+          run: |
+            cat /etc/os-release 2>/dev/null || echo /etc/os-release not available
+            bash .github/workflows/install-dependencies
+            mkdir -p build && cd build
+            export ninja=$(command -v ninja)
+            [ -z "${ninja}" ] && export ninja=$(command -v ninja-build)
+            CFLAGS=-I$(brew --prefix openssl)/include LDFLAGS=-L$(brew --prefix openssl)/lib PKG_CONFIG_PATH=$(brew --prefix openssl)/lib/pkgconfig meson .. || cat meson-logs/meson-log.txt >&2
+            ${ninja}
+            cd build
+            if ! meson test; then
+              cat meson-logs/testlog.txt >&2
+              exit -1
+            fi
+            if [ -r build/meson-logs/testlog.txt ]; then
+              cat build/meson-logs/testlog.txt >&2
+            else
+              echo "No test log available" >&2
+            fi
+
+    env:
+      DISTRO: freebsd
+      CC: ${{ matrix.compiler }}
+
 # vim:set ts=2 sw=2 et:

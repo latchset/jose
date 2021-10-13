@@ -39,5 +39,11 @@ centos:*)
     yum -y install ${COMMON}
     yum-builddep -y jose
     ;;
+
+freebsd:*)
+    pkg-install -y install build-essential pkg-config libssl-dev zlib1g-dev \
+        libjansson-dev ${COMMON} && break
+    ;;
+
 esac
 # vim: set ts=8 shiftwidth=4 softtabstop=4 expandtab smarttab colorcolumn=80:
