@@ -37,7 +37,6 @@ zlib = dependency('zlib')
 threads = dependency('threads')
 jansson = dependency('jansson', version: '>=2.10')
 libcrypto = dependency('libcrypto', version: '>=1.0.2')
-a2x = find_program('a2x', required: false)
 
 mans = []
 
@@ -63,14 +62,17 @@ pkg.generate(
   requires: 'jansson',
 )
 
-if a2x.found()
-  foreach m : mans
-    custom_target(m.split('/')[-1], input: m + '.adoc', output: m.split('/')[-1],
-      command: [a2x, '-f', 'manpage', '-D', meson.current_build_dir(), '@INPUT@'],
-      install_dir: join_paths(get_option('mandir'), 'man' + m.split('.')[-1]),
-      install: true
-    )
-  endforeach
-else
-  warning('Will not build man pages due to missing dependencies!')
+if not get_option('skip_manpages')
+  a2x = find_program('a2x', required: false)
+  if a2x.found()
+    foreach m : mans
+      custom_target(m.split('/')[-1], input: m + '.adoc', output: m.split('/')[-1],
+        command: [a2x, '-f', 'manpage', '-D', meson.current_build_dir(), '@INPUT@'],
+        install_dir: join_paths(get_option('mandir'), 'man' + m.split('.')[-1]),
+        install: true
+      )
+    endforeach
+  else
+    warning('Will not build man pages due to missing dependencies!')
+  endif
 endif
