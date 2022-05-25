@@ -30,13 +30,13 @@ fedora:*)
     dnf -y install ${COMMON} pkgconfig openssl-devel zlib-devel jansson-devel
     ;;
 
-centos:*)
+*centos:*)
     yum -y clean all
     yum -y --setopt=deltarpm=0 update
     yum install -y yum-utils epel-release
-    yum config-manager -y --set-enabled PowerTools \
+    yum config-manager -y --set-enabled crb \
         || yum config-manager -y --set-enabled powertools || :
-    yum -y install ${COMMON}
+    yum -y --allowerasing install ${COMMON}
     yum-builddep -y jose
     ;;
 esac
