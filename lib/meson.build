@@ -6,7 +6,7 @@ if not cc.links(code, args: flags, name: '-Wl,--version-script=...')
   flags = [ '-export-symbols-regex=^jose_.*' ]
 endif
 
-libjose_lib = library('jose',
+libjose_lib = shared_library('jose',
   'misc.c',           'misc.h',
   'cfg.c',
   'io.c',
