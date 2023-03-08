@@ -38,6 +38,7 @@ threads = dependency('threads')
 jansson = dependency('jansson', version: '>=2.10')
 libcrypto = dependency('libcrypto', version: '>=1.0.2')
 a2x = find_program('a2x', required: false)
+jq = find_program('jq', required: false)
 
 mans = []
 
@@ -73,4 +74,8 @@ if a2x.found()
   endforeach
 else
   warning('Will not build man pages due to missing dependencies!')
+endif
+
+if not jq.found()
+  message('jq not found (unrequired but recommended)')
 endif
