@@ -37,7 +37,7 @@ zlib = dependency('zlib')
 threads = dependency('threads')
 jansson = dependency('jansson', version: '>=2.10')
 if host_machine.system() == 'freebsd'
-  libcrypto = meson.get_compiler('c').find_library('crypto', dirs: [ '/usr/lib/' ])
+  libcrypto = meson.get_compiler('c').find_library('crypto', dirs: [ '/usr/local/lib/','/usr/lib/' ])
 else
   libcrypto = dependency('libcrypto', version: '>=1.0.2')
 endif
