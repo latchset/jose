@@ -5,7 +5,7 @@ on: [push, pull_request]
 
 jobs:
   linux:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-22.04
     continue-on-error: ${{ ! matrix.stable }}
     strategy:
       matrix:
@@ -15,12 +15,19 @@ jobs:
         os:
           - fedora:latest
           - quay.io/centos/centos:stream8
-          - quay.io/centos/centos:stream9
           - debian:testing
           - debian:latest
           - ubuntu:rolling
+          - ubuntu:jammy
+          - ubuntu:focal
         stable:: [true]
         include:
+          - compiler: gcc
+            os: quay.io/centos/centos:stream9
+            stable: true
+          - compiler: gcc
+            os: centos:7
+            stable: true
           - compiler: gcc
             os: fedora:rawhide
             stable: false
@@ -34,8 +41,8 @@ jobs:
             os: ubuntu:devel
             stable: false
     steps:
-      - uses: actions/checkout@v2
-
+      - uses: actions/checkout@v3
+      
       - name: Show OS information
         run: |
           cat /etc/os-release 2>/dev/null || echo /etc/os-release not available
