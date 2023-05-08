@@ -34,6 +34,12 @@ jose jwk gen -i '{ "kty": "oct", "bytes": 32 }'
 ! jose jwk gen -i '{"alg": "dir"}'
 
 ##
+### Test invalid keys
+##
+
+! jose jwk gen -i '{"not_valid": "RS256"}'
+
+##
 ### Test the set output option
 ##
 
