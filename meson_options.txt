@@ -1,0 +1,1 @@
+option('docs', type: 'feature', description: 'Whether to build asciidoc manpages')

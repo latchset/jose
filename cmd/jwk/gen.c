@@ -16,7 +16,9 @@
  */
 
 #include "jwk.h"
+#include "../../lib/hooks.h"
 #include <unistd.h>
+#include <string.h>
 
 #define SUMMARY "Creates a random JWK for each input JWK template"
 
@@ -59,6 +61,42 @@ static const jcmd_cfg_t cfgs[] = {
     {}
 };
 
+static int jcmd_jwk_invalid_key(const char* key, const char* msg) {
+    int invalid_key = strcmp(key, "kty") && strcmp(key, "alg");
+    if (invalid_key)
+        fprintf(stderr, "%s, unknown json key:%s\n", msg, key);
+    return invalid_key;
+}
+
+static int jcmd_jwk_invalid_algo(const json_t* value, const char* msg) {
+    if (json_is_string(value)) {
+        const char* algo = json_string_value(value);
+        if (!jose_hook_alg_find_any(algo)) {
+            fprintf(stderr, "%s, unknown algorithm:%s\n", msg, algo);
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static int
+jcmd_jwk_dump_error(json_t* elem)
+{
+    if (!json_is_object(elem))
+        return -1;
+
+    for (void* iter = json_object_iter(elem); iter;
+         iter = json_object_iter_next(elem, iter)) {
+        const char* msg = "JWK generation failed";
+        const char* key = json_object_iter_key(iter);
+        if (jcmd_jwk_invalid_key(key, msg) ||
+            jcmd_jwk_invalid_algo(json_object_iter_value(iter), msg)) {
+            break;
+        }
+    }
+    return 0;
+}
+
 static void
 jcmd_opt_cleanup(jcmd_opt_t *opt)
 {
@@ -81,7 +119,8 @@ jcmd_jwk_gen(int argc, char *argv[])
 
     for (size_t i = 0; i < json_array_size(opt.keys); i++) {
         if (!jose_jwk_gen(NULL, json_array_get(opt.keys, i))) {
-            fprintf(stderr, "JWK generation failed!\n");
+            if (jcmd_jwk_dump_error(json_array_get(opt.keys, i)) < 0)
+                fprintf(stderr, "JWK generation failed! (unknown issue)\n");
             return EXIT_FAILURE;
         }
     }

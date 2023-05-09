@@ -5,7 +5,7 @@ on: [push, pull_request]
 
 jobs:
   linux:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     continue-on-error: ${{ ! matrix.stable }}
     strategy:
       matrix:
