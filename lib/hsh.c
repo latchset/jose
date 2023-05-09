@@ -25,7 +25,7 @@
 json_t *
 hsh(jose_cfg_t *cfg, const char *alg, const void *data, size_t dlen)
 {
-    jose_io_auto_t *hsh = NULL;
+    jose_io_auto_t *_hsh = NULL;
     jose_io_auto_t *enc = NULL;
     jose_io_auto_t *buf = NULL;
     char b[1024] = {};
@@ -33,8 +33,8 @@ hsh(jose_cfg_t *cfg, const char *alg, const void *data, size_t dlen)
 
     buf = jose_io_buffer(cfg, b, &l);
     enc = jose_b64_enc_io(buf);
-    hsh = hsh_io(cfg, alg, enc);
-    if (!buf || !enc || !hsh || !hsh->feed(hsh, data, dlen) || !hsh->done(hsh))
+    _hsh = hsh_io(cfg, alg, enc);
+    if (!buf || !enc || !_hsh || !_hsh->feed(_hsh, data, dlen) || !_hsh->done(_hsh))
         return NULL;
 
     return json_stringn(b, l);
@@ -57,7 +57,7 @@ hsh_buf(jose_cfg_t *cfg, const char *alg,
         const void *data, size_t dlen, void *hash, size_t hlen)
 {
     const jose_hook_alg_t *a = NULL;
-    jose_io_auto_t *hsh = NULL;
+    jose_io_auto_t *_hsh = NULL;
     jose_io_auto_t *buf = NULL;
 
     a = jose_hook_alg_find(JOSE_HOOK_ALG_KIND_HASH, alg);
@@ -71,8 +71,8 @@ hsh_buf(jose_cfg_t *cfg, const char *alg,
         return SIZE_MAX;
 
     buf = jose_io_buffer(cfg, hash, &hlen);
-    hsh = a->hash.hsh(a, cfg, buf);
-    if (!buf || !hsh || !hsh->feed(hsh, data, dlen) || !hsh->done(hsh))
+    _hsh = a->hash.hsh(a, cfg, buf);
+    if (!buf || !_hsh || !_hsh->feed(_hsh, data, dlen) || !_hsh->done(_hsh))
         return SIZE_MAX;
 
     return hlen;

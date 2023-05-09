@@ -5,7 +5,8 @@ project('jose', 'c', license: 'APL2',
     'prefix=/usr',
     'warning_level=2',
     'werror=true'
-  ]
+  ],
+  meson_version: '>=0.47.0',
 )
 
 licensedir = join_paths(get_option('prefix'), 'share', 'licenses', meson.project_name())
@@ -36,8 +37,9 @@ add_project_arguments(
 zlib = dependency('zlib')
 threads = dependency('threads')
 jansson = dependency('jansson', version: '>=2.10')
-libcrypto = dependency('libcrypto')
-a2x = find_program('a2x', required: false)
+libcrypto = dependency('libcrypto', version: '>=1.0.2')
+a2x = find_program('a2x', required: get_option('docs'))
+jq = find_program('jq', required: false)
 
 mans = []
 
@@ -82,6 +84,10 @@ if a2x.found()
       install: true
     )
   endforeach
-else
+elif get_option('docs').auto()
   warning('Will not build man pages due to missing dependencies!')
+endif
+
+if not jq.found()
+  message('jq not found (unrequired but recommended)')
 endif

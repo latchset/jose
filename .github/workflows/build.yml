@@ -5,7 +5,7 @@ on: [push, pull_request]
 
 jobs:
   linux:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     continue-on-error: ${{ ! matrix.stable }}
     strategy:
       matrix:
@@ -14,7 +14,8 @@ jobs:
           - clang
         os:
           - fedora:latest
-          - centos:8
+          - quay.io/centos/centos:stream8
+          - quay.io/centos/centos:stream9
           - debian:testing
           - debian:latest
           - ubuntu:rolling
