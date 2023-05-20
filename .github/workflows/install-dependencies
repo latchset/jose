@@ -30,25 +30,22 @@ fedora:*)
     dnf -y install ${COMMON} pkgconfig openssl-devel zlib-devel jansson-devel
     ;;
 
-*centos:*)
+centos:7)
     yum -y clean all
     yum -y --setopt=deltarpm=0 update
-    yum install -y yum-utils epel-release
-    yum-config-manager -y --enable crb \
-        || yum-config-manager -y --enable powertools || :
+    yum install -y yum-utils epel-release centos-release-scl llvm-toolset-7
     yum -y install ${COMMON}
     yum-builddep -y jose
     ;;
 
 *centos:stream*)
     dnf -y clean all
-    dnf -y --setopt=deltarpm=0 update
-    dnf install -y dnf-plugins-core epel-release
-    dnf config-manager -y --set-enabled powertools \
-        || dnf config-manager -y --set-enabled crb || :
-    dnf -y install --allowerasing ${COMMON}
+    dnf -y --allowerasing --setopt=deltarpm=0 update
+    dnf install -y yum-utils epel-release
+    dnf config-manager -y --set-enabled crb \
+        || dnf config-manager -y --set-enabled powertools || :
+    dnf -y --allowerasing install ${COMMON}
     dnf builddep -y jose
     ;;
-
 esac
 # vim: set ts=8 shiftwidth=4 softtabstop=4 expandtab smarttab colorcolumn=80:

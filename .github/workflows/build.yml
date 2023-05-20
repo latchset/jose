@@ -14,6 +14,7 @@ jobs:
           - clang
         os:
           - fedora:latest
+          - quay.io/centos/centos:stream9
           - quay.io/centos/centos:stream8
           - debian:testing
           - debian:latest
@@ -23,23 +24,20 @@ jobs:
         stable:: [true]
         include:
           - compiler: gcc
-            os: quay.io/centos/centos:stream9
-            stable: true
+            os: fedora:rawhide
+            stable: false
+          - compiler: clang
+            os: fedora:rawhide
+            stable: false
+          - compiler: gcc
+            os: ubuntu:devel
+            stable: false
+          - compiler: clang
+            os: ubuntu:devel
+            stable: false
           - compiler: gcc
             os: centos:7
             stable: true
-          - compiler: gcc
-            os: fedora:rawhide
-            stable: false
-          - compiler: clang
-            os: fedora:rawhide
-            stable: false
-          - compiler: gcc
-            os: ubuntu:devel
-            stable: false
-          - compiler: clang
-            os: ubuntu:devel
-            stable: false
     steps:
       - uses: actions/checkout@v3
 
