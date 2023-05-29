@@ -123,7 +123,7 @@ You can even run the tests if you'd like:
 To build a FreeBSD, HardenedBSD or OPNsense package
 use:
 
-    (as root) # pkg install meson pkgconf jansson asciidoc
+    (as root) # pkg install meson pkgconf jansson asciidoc jq
     $ mkdir build && cd build
     $ meson .. --prefix=/usr/local
     $ ninja

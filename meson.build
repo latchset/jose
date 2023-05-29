@@ -54,27 +54,15 @@ subdir('tests')
 install_data(licenses, install_dir: licensedir)
 
 pkg = import('pkgconfig')
-if host_machine.system() == 'freebsd'
-  pkg.generate(
-    description: 'Library for managing JOSE objects',
-    version: meson.project_version(),
-    filebase: meson.project_name(),
-    name: 'José Library',
-    requires_private: 'zlib',
-    libraries: libjose_lib,
-    requires: 'jansson',
-  )
-else
-  pkg.generate(
-    description: 'Library for managing JOSE objects',
-    version: meson.project_version(),
-    filebase: meson.project_name(),
-    name: 'José Library',
-    requires_private: [ 'zlib', 'libcrypto' ],
-    libraries: libjose_lib,
-    requires: 'jansson',
-  )
-endif
+pkg.generate(
+  description: 'Library for managing JOSE objects',
+  version: meson.project_version(),
+  filebase: meson.project_name(),
+  name: 'José Library',
+  libraries_private: [ zlib, libcrypto ],
+  libraries: libjose_lib,
+  requires: 'jansson',
+)
 
 if a2x.found()
   foreach m : mans
