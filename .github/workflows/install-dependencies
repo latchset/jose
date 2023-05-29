@@ -1,6 +1,6 @@
 #!/bin/sh -ex
 
-COMMON="meson curl git file bzip2 ${CC}"
+COMMON="meson curl git file bzip2 asciidoc jq ${CC}"
 
 case "${DISTRO}" in
 osx:*)
