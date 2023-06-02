@@ -48,7 +48,7 @@ jobs:
           mkdir -p build && cd build
           export ninja=$(command -v ninja)
           [ -z "${ninja}" ] && export ninja=$(command -v ninja-build)
-          meson .. || cat meson-logs/meson-log.txt >&2
+          meson setup .. || cat meson-logs/meson-log.txt >&2
           ${ninja}
 
       - name: Run tests
@@ -95,7 +95,7 @@ jobs:
           mkdir -p build && cd build
           export ninja=$(command -v ninja)
           [ -z "${ninja}" ] && export ninja=$(command -v ninja-build)
-          CFLAGS=-I$(brew --prefix openssl)/include LDFLAGS=-L$(brew --prefix openssl)/lib PKG_CONFIG_PATH=$(brew --prefix openssl)/lib/pkgconfig meson .. || cat meson-logs/meson-log.txt >&2
+          CFLAGS=-I$(brew --prefix openssl)/include LDFLAGS=-L$(brew --prefix openssl)/lib PKG_CONFIG_PATH=$(brew --prefix openssl)/lib/pkgconfig meson setup .. || cat meson-logs/meson-log.txt >&2
           ${ninja}
 
       - name: Run tests
