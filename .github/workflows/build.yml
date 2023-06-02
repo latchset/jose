@@ -66,6 +66,7 @@ jobs:
           else
             echo "No test log available" >&2
           fi
+          cat meson-private/jose.pc
 
     container:
       image: ${{matrix.os}}
@@ -113,6 +114,7 @@ jobs:
           else
             echo "No test log available" >&2
           fi
+          cat meson-private/jose.pc
 
     env:
       DISTRO: osx:macos-latest
