@@ -41,22 +41,23 @@ const struct {
     {}
 };
 
-typedef typeof(((jose_hook_alg_t *) NULL)->comp.inf) comp_func_t;
-
 static void
-test(const jose_hook_alg_t *a, comp_func_t func, bool iter,
-     const uint8_t *i, size_t il,
-     const uint8_t *o, size_t ol)
+test(const jose_hook_alg_t *a, bool iter,
+     const uint8_t *i, size_t il)
 {
     jose_io_auto_t *b = NULL;
+    jose_io_auto_t *c = NULL;
     jose_io_auto_t *z = NULL;
-    void *buf = NULL;
-    size_t len = 0;
+    void *buf1 = NULL;
+    void *buf2 = NULL;
+    size_t blen = 0;
+    size_t clen = 0;
 
-    b = jose_io_malloc(NULL, &buf, &len);
+    /* Test compression first. */
+    b = jose_io_malloc(NULL, &buf1, &blen);
     assert(b);
 
-    z = func(a, NULL, b);
+    z = a->comp.def(a, NULL, b);
     assert(z);
 
     if (iter) {
@@ -68,8 +69,26 @@ test(const jose_hook_alg_t *a, comp_func_t func, bool iter,
 
     assert(z->done(z));
 
-    assert(len == ol);
-    assert(memcmp(buf, o, ol) == 0);
+    /* Test decompression now. */
+    c = jose_io_malloc(NULL, &buf2, &clen);
+    assert(b);
+
+    z = a->comp.inf(a, NULL, c);
+    assert(z);
+
+    if (iter) {
+        uint8_t *m = buf1;
+        for (size_t j = 0; j < blen; j++)
+            assert(z->feed(z, &m[j], 1));
+    } else {
+        assert(z->feed(z, buf1, blen));
+    }
+
+    assert(z->done(z));
+
+    /* Compare the final output with the original input. */
+    assert(clen == il);
+    assert(memcmp(buf2, i, il) == 0);
 }
 
 int
@@ -93,20 +112,10 @@ main(int argc, char *argv[])
         assert(jose_b64_dec_buf(tests[i].def, strlen(tests[i].def),
                                 tst_def, sizeof(tst_def)) == sizeof(tst_def));
 
-        test(a, a->comp.def, false,
-             tst_inf, sizeof(tst_inf),
-             tst_def, sizeof(tst_def));
-
-        test(a, a->comp.inf, false,
-             tst_def, sizeof(tst_def),
+        test(a, false,
              tst_inf, sizeof(tst_inf));
 
-        test(a, a->comp.def, true,
-             tst_inf, sizeof(tst_inf),
-             tst_def, sizeof(tst_def));
-
-        test(a, a->comp.inf, true,
-             tst_def, sizeof(tst_def),
+        test(a, true,
              tst_inf, sizeof(tst_inf));
     }
 

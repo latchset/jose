@@ -95,7 +95,7 @@ ver_done(jose_io_t *io)
 }
 
 static HMAC_CTX *
-hmac(const jose_hook_alg_t *alg, jose_cfg_t *cfg,
+jhmac(const jose_hook_alg_t *alg, jose_cfg_t *cfg,
      const json_t *sig, const json_t *jwk)
 {
     uint8_t key[KEYMAX] = {};
@@ -251,7 +251,7 @@ alg_sign_sig(const jose_hook_alg_t *alg, jose_cfg_t *cfg, json_t *jws,
 
     i->obj = json_incref(jws);
     i->sig = json_incref(sig);
-    i->hctx = hmac(alg, cfg, sig, jwk);
+    i->hctx = jhmac(alg, cfg, sig, jwk);
     if (!i->obj || !i->sig || !i->hctx)
         return NULL;
 
@@ -275,7 +275,7 @@ alg_sign_ver(const jose_hook_alg_t *alg, jose_cfg_t *cfg, const json_t *jws,
     io->free = io_free;
 
     i->sig = json_incref((json_t *) sig);
-    i->hctx = hmac(alg, cfg, sig, jwk);
+    i->hctx = jhmac(alg, cfg, sig, jwk);
     if (!i->sig || !i->hctx)
         return NULL;
 

@@ -24,10 +24,10 @@ jobs:
         stable:: [true]
         include:
           - compiler: gcc
-            os: fedora:rawhide
+            os: quay.io/fedora/fedora:rawhide
             stable: false
           - compiler: clang
-            os: fedora:rawhide
+            os: quay.io/fedora/fedora:rawhide
             stable: false
           - compiler: gcc
             os: ubuntu:devel
