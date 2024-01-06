@@ -22,10 +22,10 @@ jobs:
         stable:: [true]
         include:
           - compiler: gcc
-            os: fedora:rawhide
+            os: quay.io/fedora/fedora:rawhide
             stable: false
           - compiler: clang
-            os: fedora:rawhide
+            os: quay.io/fedora/fedora:rawhide
             stable: false
           - compiler: gcc
             os: ubuntu:devel
@@ -34,7 +34,7 @@ jobs:
             os: ubuntu:devel
             stable: false
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Show OS information
         run: |
@@ -81,7 +81,7 @@ jobs:
           - gcc
           - clang
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Show OS information
         run: |
