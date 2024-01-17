@@ -112,7 +112,7 @@ Decryption failed!
 Building Jose is fairly straightforward:
 
     $ mkdir build && cd build
-    $ meson .. --prefix=/usr
+    $ meson setup .. --prefix=/usr
     $ ninja
     $ sudo ninja install
 
@@ -123,9 +123,9 @@ You can even run the tests if you'd like:
 To build a FreeBSD, HardenedBSD or OPNsense package
 use:
 
-    (as root) # pkg install meson pkgconf jansson openssl
+    (as root) # pkg install meson pkgconf jansson openssl jq
     $ mkdir build && cd build
-    $ meson .. --prefix=/usr/local
+    $ meson setup .. --prefix=/usr/local
     $ ninja
     $ meson test
     (as root) # ninja install
