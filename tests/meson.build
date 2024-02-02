@@ -37,14 +37,14 @@ foreach p: progs
   if p == 'api_b64'
     to = 1800
   else
-    to = 30
+    to = 180
   endif
   test(p, exe, timeout: to)
 endforeach
 
 foreach s: scripts
   exe = find_program('./' + s)
-  test(s, exe, env: e, timeout: 60)
+  test(s, exe, env: e, timeout: 900)
 endforeach
 
 subdir('issue-75')

@@ -61,7 +61,7 @@ pkg.generate(
   name: 'José Library',
   libraries_private: [ zlib, libcrypto ],
   libraries: libjose_lib,
-  requires: 'jansson',
+  requires: jansson,
 )
 
 if a2x.found()
