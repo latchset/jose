@@ -22,7 +22,7 @@
 
 #include <string.h>
 
-#define NAMES "ES256", "ES384", "ES512"
+#define NAMES "ES256", "ES384", "ES512", "ES256K"
 
 typedef struct {
     jose_io_t io;
@@ -137,6 +137,19 @@ alg2crv(const char *alg)
     case 0: return "P-256";
     case 1: return "P-384";
     case 2: return "P-521";
+    case 3: return "secp256k1";
+    default: return NULL;
+    }
+}
+
+static const char *
+alg2hash(const char *alg)
+{
+    switch (str2enum(alg, NAMES, NULL)) {
+    case 0: return "S256";
+    case 1: return "S384";
+    case 2: return "S512";
+    case 3: return "S256";
     default: return NULL;
     }
 }
@@ -200,10 +213,11 @@ alg_sign_sug(const jose_hook_alg_t *alg, jose_cfg_t *cfg, const json_t *jwk)
     if (!type || strcmp(type, "EC") != 0)
         return NULL;
 
-    switch (str2enum(curv, "P-256", "P-384", "P-521", NULL)) {
+    switch (str2enum(curv, "P-256", "P-384", "P-521", "secp256k1", NULL)) {
     case 0: return "ES256";
     case 1: return "ES384";
     case 2: return "ES512";
+    case 3: return "ES256K";
     default: return NULL;
     }
 }
@@ -216,7 +230,7 @@ alg_sign_sig(const jose_hook_alg_t *alg, jose_cfg_t *cfg, json_t *jws,
     jose_io_auto_t *io = NULL;
     io_t *i = NULL;
 
-    halg = jose_hook_alg_find(JOSE_HOOK_ALG_KIND_HASH, &alg->name[1]);
+    halg = jose_hook_alg_find(JOSE_HOOK_ALG_KIND_HASH, alg2hash(alg->name));
     if (!halg)
         return NULL;
 
@@ -248,7 +262,7 @@ alg_sign_ver(const jose_hook_alg_t *alg, jose_cfg_t *cfg, const json_t *jws,
     jose_io_auto_t *io = NULL;
     io_t *i = NULL;
 
-    halg = jose_hook_alg_find(JOSE_HOOK_ALG_KIND_HASH, &alg->name[1]);
+    halg = jose_hook_alg_find(JOSE_HOOK_ALG_KIND_HASH, alg2hash(alg->name));
     if (!halg)
         return NULL;
 
@@ -297,6 +311,13 @@ constructor(void)
           .sign.ver = alg_sign_ver },
         { .kind = JOSE_HOOK_ALG_KIND_SIGN,
           .name = "ES512",
+          .sign.sprm = "sign",
+          .sign.vprm = "verify",
+          .sign.sug = alg_sign_sug,
+          .sign.sig = alg_sign_sig,
+          .sign.ver = alg_sign_ver },
+        { .kind = JOSE_HOOK_ALG_KIND_SIGN,
+          .name = "ES256K",
           .sign.sprm = "sign",
           .sign.vprm = "verify",
           .sign.sug = alg_sign_sug,
