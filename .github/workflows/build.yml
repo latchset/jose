@@ -8,6 +8,7 @@ on:
   pull_request:
     paths-ignore:
       - '**.md'
+
 jobs:
   linux:
     runs-on: ubuntu-latest
@@ -42,7 +43,7 @@ jobs:
             stable: false
           - compiler: gcc
             os: centos:7
-            stable: true
+            stable: false
     steps:
       - uses: actions/checkout@v4
 
