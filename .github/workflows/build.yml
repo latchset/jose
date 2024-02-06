@@ -1,8 +1,13 @@
 ---
 name: build
 
-on: [push, pull_request]
-
+on:
+  push:
+    paths-ignore:
+      - '**.md'
+  pull_request:
+    paths-ignore:
+      - '**.md'
 jobs:
   linux:
     runs-on: ubuntu-latest
@@ -39,7 +44,7 @@ jobs:
             os: centos:7
             stable: true
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Show OS information
         run: |
@@ -87,7 +92,7 @@ jobs:
           - gcc
           - clang
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Show OS information
         run: |
