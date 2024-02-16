@@ -9,6 +9,10 @@ project('jose', 'c', license: 'APL2',
   meson_version: '>=0.47.0',
 )
 
+buildtype = get_option('buildtype')
+build_static = get_option('build_static')
+build_dynamic = get_option('build_dynamic')
+
 licensedir = join_paths(get_option('prefix'), 'share', 'licenses', meson.project_name())
 if host_machine.system() == 'freebsd'
   licensedir += '-'+meson.project_version()
@@ -53,6 +57,15 @@ subdir('tests')
 
 install_data(licenses, install_dir: licensedir)
 
+
+libraries = []
+if build_dynamic
+  libraries +=  libjose_lib
+endif
+if build_static
+  libraries +=  libjose_static
+endif
+
 pkg = import('pkgconfig')
 pkg.generate(
   description: 'Library for managing JOSE objects',
@@ -60,7 +73,7 @@ pkg.generate(
   filebase: meson.project_name(),
   name: 'José Library',
   libraries_private: [ zlib, libcrypto ],
-  libraries: libjose_lib,
+  libraries: libraries,
   requires: jansson,
 )
 

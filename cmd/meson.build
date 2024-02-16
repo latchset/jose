@@ -1,3 +1,7 @@
+rpath = ''
+if buildtype == 'debug' or buildtype == 'debugoptimized'
+  rpath = libjose_build_dir
+endif
 executable(meson.project_name(),
   'jose.c', 'jose.h',
   'b64/b64.h',
@@ -23,5 +27,6 @@ executable(meson.project_name(),
   'fmt.c',
 
   dependencies: libjose_dep,
-  install: true
+  install: true,
+  install_rpath: rpath
 )

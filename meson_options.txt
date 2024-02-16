@@ -1,1 +1,4 @@
 option('docs', type: 'feature', description: 'Whether to build asciidoc manpages')
+option('build_static', type: 'boolean', description: 'Build static library', value: false)
+option('build_dynamic', type: 'boolean', description: 'Build dynamic library', value: true)
+
