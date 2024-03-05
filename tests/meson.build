@@ -32,19 +32,21 @@ e = environment()
 e.prepend('PATH', meson.current_build_dir() + '/../cmd', separator: ':')
 e.set('VECTORS', meson.current_source_dir() + '/vectors')
 
-foreach p: progs
-  exe = executable(p, p + '.c', dependencies: libjose_dep)
-  if p == 'api_b64'
-    to = 1800
-  else
-    to = 180
-  endif
-  test(p, exe, timeout: to)
-endforeach
+if (build_executable == true)
+  foreach p: progs
+    exe = executable(p, p + '.c', dependencies: libjose_dep)
+    if p == 'api_b64'
+      to = 1800
+    else
+      to = 180
+    endif
+    test(p, exe, timeout: to)
+  endforeach
 
-foreach s: scripts
-  exe = find_program('./' + s)
-  test(s, exe, env: e, timeout: 900)
-endforeach
+  foreach s: scripts
+    exe = find_program('./' + s)
+    test(s, exe, env: e, timeout: 900)
+  endforeach
+endif
 
 subdir('issue-75')
