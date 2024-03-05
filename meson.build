@@ -12,6 +12,11 @@ project('jose', 'c', license: 'APL2',
 buildtype = get_option('buildtype')
 build_static = get_option('build_static')
 build_dynamic = get_option('build_dynamic')
+build_executable = get_option('build_executable')
+
+if (build_executable == true)
+  build_dynamic = true
+endif
 
 licensedir = join_paths(get_option('prefix'), 'share', 'licenses', meson.project_name())
 if host_machine.system() == 'freebsd'
