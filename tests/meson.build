@@ -31,6 +31,8 @@ progs = [
 e = environment()
 e.prepend('PATH', meson.current_build_dir() + '/../cmd', separator: ':')
 e.set('VECTORS', meson.current_source_dir() + '/vectors')
+e.set('CVE_2023_50967', meson.current_source_dir() + '/cve-2023-50967')
+
 
 foreach p: progs
   exe = executable(p, p + '.c', dependencies: libjose_dep)

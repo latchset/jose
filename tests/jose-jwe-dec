@@ -53,3 +53,8 @@ test "`jose jwe dec -i $prfx.12.jweg -k $prfx.12.jwk`"   = "`cat $prfx.12.pt`"
 test "`jose jwe dec -i $prfx.13.jweg -k $prfx.13.1.jwk`" = "`cat $prfx.13.pt`"
 test "`jose jwe dec -i $prfx.13.jweg -k $prfx.13.2.jwk`" = "`cat $prfx.13.pt`"
 test "`jose jwe dec -i $prfx.13.jweg -k $prfx.13.3.jwk`" = "`cat $prfx.13.pt`"
+
+# CVE-2023-50967 - test originally from https://github.com/P3ngu1nW/CVE_Request/blob/main/latch-jose.md
+# This test is expected to fail quickly on patched systems.
+prfx="${CVE_2023_50967}/cve-2023-50967"
+! test "$(jose jwe dec -i $prfx.jwe -k $prfx.jwk)"
