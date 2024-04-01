@@ -25,6 +25,8 @@
 #include <string.h>
 
 #define NAMES "PBES2-HS256+A128KW", "PBES2-HS384+A192KW", "PBES2-HS512+A256KW"
+#define P2C_MIN_ITERATIONS 1000
+#define P2C_MAX_ITERATIONS 32768
 
 static json_t *
 pbkdf2(const char *alg, jose_cfg_t *cfg, const json_t *jwk, int iter,
@@ -193,7 +195,7 @@ alg_wrap_wrp(const jose_hook_alg_t *alg, jose_cfg_t *cfg, json_t *jwe,
     json_auto_t *hdr = NULL;
     const char *aes = NULL;
     json_t *h = NULL;
-    int p2c = 10000;
+    int p2c = P2C_MAX_ITERATIONS;
     size_t stl = 0;
 
     if (!json_object_get(cek, "k") && !jose_jwk_gen(cfg, cek))
@@ -226,7 +228,7 @@ alg_wrap_wrp(const jose_hook_alg_t *alg, jose_cfg_t *cfg, json_t *jwe,
         json_object_set_new(h, "p2c", json_integer(p2c)) < 0)
         return false;
 
-    if (p2c < 1000)
+    if (p2c < P2C_MIN_ITERATIONS || p2c > P2C_MAX_ITERATIONS)
         return false;
 
     if (json_object_set_new(h, "p2s", jose_b64_enc(st, stl)) == -1)
@@ -266,6 +268,9 @@ alg_wrap_unw(const jose_hook_alg_t *alg, jose_cfg_t *cfg, const json_t *jwe,
         return false;
 
     if (json_unpack(hdr, "{s:I}", "p2c", &p2c) == -1)
+        return false;
+
+    if (p2c > P2C_MAX_ITERATIONS)
         return false;
 
     stl = jose_b64_dec(json_object_get(hdr, "p2s"), NULL, 0);
