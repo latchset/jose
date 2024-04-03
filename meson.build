@@ -1,5 +1,5 @@
 project('jose', 'c', license: 'APL2',
-  version: '12',
+  version: '13',
   default_options: [
     'c_std=gnu99',
     'prefix=/usr',
