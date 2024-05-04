@@ -21,7 +21,7 @@
 
 #include <openssl/rand.h>
 #include <openssl/sha.h>
-
+#include <openssl/evp.h>
 #include <string.h>
 
 #define NAMES "A128CBC-HS256", "A192CBC-HS384", "A256CBC-HS512"
@@ -35,6 +35,8 @@ typedef struct {
     json_t *json;
     uint64_t al;
 } io_t;
+
+typedef int(init_t)(EVP_CIPHER_CTX *ctx, const EVP_CIPHER*, const unsigned char*,const unsigned char*);  // EVP_EncryptInit
 
 static uint64_t
 h2be64(uint64_t x)
@@ -274,7 +276,7 @@ dec_done(jose_io_t *io)
 static bool
 setup(const EVP_CIPHER *cph, const EVP_MD *md, jose_cfg_t *cfg,
       const json_t *jwe, const json_t *cek, uint8_t *iv,
-      typeof(EVP_EncryptInit) func, io_t *i)
+      init_t func, io_t *i)
 {
     uint8_t key[EVP_CIPHER_key_length(cph) * 2];
     const char *aad = NULL;

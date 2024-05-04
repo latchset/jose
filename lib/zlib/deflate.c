@@ -31,8 +31,11 @@ typedef struct {
     z_stream strm;
 } io_t;
 
+typedef int(deflate_t)(z_streamp, int);          // EVP_EncryptUpdate
+
+
 static bool
-feed(jose_io_t *io, const void *in, size_t len, typeof(deflate) *func)
+feed(jose_io_t *io, const void *in, size_t len, deflate_t *func)
 {
     io_t *i = containerof(io, io_t, io);
 
@@ -65,7 +68,7 @@ feed(jose_io_t *io, const void *in, size_t len, typeof(deflate) *func)
 }
 
 static bool
-done(jose_io_t *io, typeof(deflate) *func)
+done(jose_io_t *io, deflate_t *func)
 {
     io_t *i = containerof(io, io_t, io);
 

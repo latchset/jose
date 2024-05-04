@@ -1,12 +1,17 @@
-flags = '-Wl,--version-script=' + meson.current_source_dir() + '/libjose.map'
-code = 'int main() { return 0; }'
-cc = meson.get_compiler('c')
+message ('Main lib')
+if (build_dynamic == true)
+  message ('Adding the linker map')
+  flags = '-Wl,--version-script=' + meson.current_source_dir() + '/libjose.map'
 
-if not cc.links(code, args: flags, name: '-Wl,--version-script=...')
-  flags = [ '-export-symbols-regex=^jose_.*' ]
+  code = 'int main() { return 0; }'
+  cc = meson.get_compiler('c')
+  if not cc.links(code, args: flags, name: '-Wl,--version-script=...')
+    flags = [ '-export-symbols-regex=^jose_.*' ]
+  endif
 endif
 
-libjose_lib = shared_library('jose',
+libjose_build_dir = meson.current_build_dir()
+libjose_src = [
   'misc.c',           'misc.h',
   'cfg.c',
   'io.c',
@@ -37,17 +42,41 @@ libjose_lib = shared_library('jose',
   'openssl/pbes2.c',
   'openssl/rsa.c',
   'openssl/rsaes.c',
-  'openssl/rsassa.c',
+  'openssl/rsassa.c' 
+]
 
-  include_directories: incdir,
-  dependencies: [zlib, jansson, libcrypto, threads],
-  version: '0.0.0',
-  link_args: flags,
-  install: true
-)
+if build_dynamic
+  libjose_lib = shared_library('jose',
+    libjose_src,
 
-libjose_dep = declare_dependency(
-  include_directories: incdir,
-  dependencies: jansson,
-  link_with: libjose_lib
-)
+    include_directories: incdir,
+    dependencies: [zlib, jansson, libcrypto, threads],
+    version: '0.0.0',
+    link_args: flags,
+    install: true
+  )
+
+
+  libjose_dep = declare_dependency(
+    include_directories: incdir,
+    dependencies: jansson,
+    link_with: libjose_lib
+  )
+endif
+
+# Define the static library using same sources and dependencies as libjose_lib
+if build_static
+  libjose_static = static_library('jose_static',
+    libjose_src,
+
+    include_directories: incdir,
+    dependencies: [zlib, jansson, libcrypto, threads],
+  )
+
+  # Declare the dependency for the static library
+  libjose_static_dep = declare_dependency(
+      include_directories: incdir,
+      dependencies: jansson,
+      link_with: libjose_static
+  )
+endif

@@ -34,19 +34,21 @@ e.set('VECTORS', meson.current_source_dir() + '/vectors')
 e.set('CVE_2023_50967', meson.current_source_dir() + '/cve-2023-50967')
 
 
-foreach p: progs
-  exe = executable(p, p + '.c', dependencies: libjose_dep)
-  if p == 'api_b64'
-    to = 1800
-  else
-    to = 180
-  endif
-  test(p, exe, timeout: to)
-endforeach
+if (build_executable == true)
+  foreach p: progs
+    exe = executable(p, p + '.c', dependencies: libjose_dep)
+    if p == 'api_b64'
+      to = 1800
+    else
+      to = 180
+    endif
+    test(p, exe, timeout: to)
+  endforeach
 
-foreach s: scripts
-  exe = find_program('./' + s)
-  test(s, exe, env: e, timeout: 900)
-endforeach
+  foreach s: scripts
+    exe = find_program('./' + s)
+    test(s, exe, env: e, timeout: 900)
+  endforeach
+endif
 
 subdir('issue-75')
