@@ -20,7 +20,7 @@
 #include "../hooks.h"
 
 #include <openssl/rand.h>
-
+#include <openssl/evp.h>
 #include <string.h>
 
 #define NAMES "A128GCM", "A192GCM", "A256GCM"
@@ -33,10 +33,12 @@ typedef struct {
     json_t *json;
 } io_t;
 
+typedef int(init_t)(EVP_CIPHER_CTX *ctx, const EVP_CIPHER*, ENGINE*, const unsigned char*,const unsigned char*);  // EVP_EncryptInit_ex
+typedef int(push_t)(EVP_CIPHER_CTX *ctx, unsigned char*, int*, const unsigned char*, int);                        // EVP_EncryptUpdate
+
 static EVP_CIPHER_CTX *
 setup(const EVP_CIPHER *cph, jose_cfg_t *cfg, const json_t *jwe,
-      const json_t *cek, const uint8_t iv[],
-      typeof(EVP_EncryptInit_ex) *init, typeof(EVP_EncryptUpdate) *push)
+      const json_t *cek, const uint8_t iv[], init_t *init, push_t *push)
 {
     uint8_t key[EVP_CIPHER_key_length(cph)];
     EVP_CIPHER_CTX *ecc = NULL;

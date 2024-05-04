@@ -21,12 +21,12 @@
 #include <jose/openssl.h>
 
 #include <openssl/sha.h>
-
+#include <openssl/evp.h>
 #include <string.h>
 
 #define NAMES "RS256", "RS384", "RS512", "PS256", "PS384", "PS512"
 
-typedef typeof(EVP_DigestSignInit) init_t;
+typedef int (init_t)(EVP_MD_CTX*, EVP_PKEY_CTX**,const EVP_MD*, ENGINE*, EVP_PKEY*);  // EVP_DigestSignInit
 
 declare_cleanup(EVP_PKEY)
 

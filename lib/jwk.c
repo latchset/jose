@@ -24,6 +24,7 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 
 static bool
 jwk_hook(jose_cfg_t *cfg, json_t *jwk, jose_hook_jwk_kind_t kind)

@@ -1,9 +1,13 @@
-flags = '-Wl,--version-script=' + meson.current_source_dir() + '/libjose.map'
-code = 'int main() { return 0; }'
-cc = meson.get_compiler('c')
+message ('Main lib')
+if (build_dynamic == true)
+  message ('Adding the linker map')
+  flags = '-Wl,--version-script=' + meson.current_source_dir() + '/libjose.map'
 
-if not cc.links(code, args: flags, name: '-Wl,--version-script=...')
-  flags = [ '-export-symbols-regex=^jose_.*' ]
+  code = 'int main() { return 0; }'
+  cc = meson.get_compiler('c')
+  if not cc.links(code, args: flags, name: '-Wl,--version-script=...')
+    flags = [ '-export-symbols-regex=^jose_.*' ]
+  endif
 endif
 
 libjose_build_dir = meson.current_build_dir()
