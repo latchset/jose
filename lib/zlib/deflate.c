@@ -113,6 +113,9 @@ def_free(jose_io_t *io)
 static bool
 inf_feed(jose_io_t *io, const void *in, size_t len)
 {
+    if (len > MAX_COMPRESSED_SIZE) {
+        return false;
+    }
     return feed(io, in, len, inflate);
 }
 

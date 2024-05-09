@@ -19,6 +19,10 @@
 #include <jose/jose.h>
 #include <assert.h>
 #include <string.h>
+#include <stdlib.h>
+
+static int g_high_compression_tested = 0;
+static int g_low_compression_tested = 0;
 
 const struct {
     const char *alg;
@@ -40,6 +44,62 @@ const struct {
     },
     {}
 };
+
+const uint32_t long_string_tests[] = {
+    2000, 200000, 10000000, 0
+};
+
+static uint8_t* get_random_string(uint32_t length)
+{
+    assert(length);
+    uint8_t* c = (uint8_t*)malloc(length*sizeof(uint8_t));
+    for (uint32_t i=0; i<length; i++) {
+        c[i] = 'A' + (random() % 26);
+    }
+    return c;
+}
+
+static void
+test_long_string(size_t inputlen) {
+    jose_io_auto_t *b = NULL;
+    jose_io_auto_t *c = NULL;
+    jose_io_auto_t *z = NULL;
+    void *buf1 = NULL;
+    void *buf2 = NULL;
+    size_t blen = 0;
+    size_t clen = 0;
+    const jose_hook_alg_t *a = jose_hook_alg_find(JOSE_HOOK_ALG_KIND_COMP, "DEF");
+    uint8_t* str = get_random_string(inputlen);
+
+    /* Test compression first. */
+    b = jose_io_malloc(NULL, &buf1, &blen);
+    assert(b);
+    z = a->comp.def(a, NULL, b);
+    assert(z);
+
+    assert(z->feed(z, str, inputlen));
+    assert(z->done(z));
+
+    /* Test decompression now */
+    c = jose_io_malloc(NULL, &buf2, &clen);
+    assert(b);
+    z = a->comp.inf(a, NULL, c);
+    assert(z);
+
+    /* If length>MAX_COMPRESSED_SIZE, it must fail due to high decompression size */
+    if(blen > MAX_COMPRESSED_SIZE) {
+        assert(!z->feed(z, buf1, blen));
+        g_high_compression_tested = 1;
+    } else {
+        assert(z->feed(z, buf1, blen));
+	g_low_compression_tested = 1;
+        /* Compare the final output with the original input. */
+        assert(clen == inputlen);
+        assert(memcmp(buf2, str, inputlen) == 0);
+    }
+    assert(z->done(z));
+    free(str);
+}
 
 static void
 test(const jose_hook_alg_t *a, bool iter,
@@ -118,6 +178,13 @@ main(int argc, char *argv[])
         test(a, true,
              tst_inf, sizeof(tst_inf));
     }
+
+    for (size_t i = 0; long_string_tests[i]; i++) {
+        test_long_string(long_string_tests[i]);
+    }
+
+    assert(1 == g_high_compression_tested);
+    assert(1 == g_low_compression_tested);
 
     return EXIT_SUCCESS;
 }
