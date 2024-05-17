@@ -20,6 +20,8 @@
 #include <jose/jws.h>
 #include <jose/jwe.h>
 
+#define MAX_COMPRESSED_SIZE (256*1024)
+
 typedef enum {
     JOSE_HOOK_JWK_KIND_NONE = 0,
     JOSE_HOOK_JWK_KIND_TYPE,
