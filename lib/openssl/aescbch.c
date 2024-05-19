@@ -18,6 +18,7 @@
 #include "misc.h"
 #include <jose/b64.h>
 #include "../hooks.h"
+#include "../misc.h"
 
 #include <openssl/rand.h>
 #include <openssl/sha.h>
@@ -155,9 +156,13 @@ enc_feed(jose_io_t *io, const void *in, size_t len)
     io_t *i = containerof(io, io_t, io);
 
     uint8_t ct[EVP_CIPHER_CTX_block_size(i->cctx) + 1];
-    const uint8_t *pt = in;
+    uint8_t *pt = NULL;
+    size_t ptlen = 0;
 
-    for (size_t j = 0; j < len; j++) {
+    if (!handle_zip_enc(i->json, in, len, (void**)&pt, &ptlen))
+        return false;
+
+    for (size_t j = 0; j < ptlen; j++) {
         int l = 0;
 
         if (EVP_EncryptUpdate(i->cctx, ct, &l, &pt[j], 1) <= 0)

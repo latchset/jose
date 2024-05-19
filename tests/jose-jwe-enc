@@ -74,4 +74,13 @@ for msg in "hi" "this is a longer message that is more than one block"; do
         printf '%s' "$msg" | jose jwe enc -I- -k $jwk -o $jwe
         [ "`jose jwe dec -i $jwe -k $jwk -O-`" = "$msg" ]
     done
+
+    # "zip": "DEF"
+    tmpl='{"kty":"oct","bytes":32}'
+    for enc in A128CBC-HS256 A192CBC-HS384 A256CBC-HS512 A128GCM A192GCM A256GCM; do
+        jose jwk gen -i "${tmpl}" -o "${jwk}"
+        zip="$(printf '{"alg":"A128KW","enc":"%s","zip":"DEF"}' "${enc}")"
+        printf '%s' "${msg}" | jose jwe enc -i "${zip}" -I- -k "${jwk}" -o "${jwe}"
+        [ "$(jose jwe dec -i "${jwe}" -k "${jwk}" -O-)" = "${msg}" ]
+    done
 done
