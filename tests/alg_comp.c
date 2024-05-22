@@ -53,6 +53,7 @@ static uint8_t* get_random_string(uint32_t length)
 {
     assert(length);
     uint8_t* c = (uint8_t*)malloc(length*sizeof(uint8_t));
+    assert(c);
     for (uint32_t i=0; i<length; i++) {
         c[i] = 'A' + (random() % 26);
     }
