@@ -1,15 +1,17 @@
-flags = '-Wl,--version-script=' + meson.current_source_dir() + '/libjose.map'
+flags_name = '-Wl,--version-script='
+flags = flags_name + meson.current_source_dir() + '/libjose.map'
 code = 'int main() { return 0; }'
 cc = meson.get_compiler('c')
 
 if host_machine.system() == 'freebsd'
-  if not cc.links(code, args: flags + ',--undefined-version' , name: '-Wl,--version-script=...')
-     flags = [ '-export-symbols-regex=^jose_.*' ]
-  endif
-else
-  if not cc.links(code, args: flags, name: '-Wl,--version-script=...')
-     flags = [ '-export-symbols-regex=^jose_.*' ]
-  endif
+  flags += ',--undefined-version'
+elif host_machine.system() == 'darwin'
+  flags_name = '-Wl,-exported_symbol,'
+  flags = flags_name + '_jose_*'
+endif
+
+if not cc.links(code, args: flags, name: flags_name + '...')
+  flags = [ '-export-symbols-regex=^jose_.*' ]
 endif
 
 libjose_lib = shared_library('jose',
