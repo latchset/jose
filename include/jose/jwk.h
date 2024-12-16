@@ -18,7 +18,7 @@
 /**
  * JSON Web Keys (RFC 7517)
  *
- * A JSON Web Key (JWS) is a standard data format for expresing cryptographic
+ * A JSON Web Key (JWK) is a standard data format for expressing cryptographic
  * keys in JSON.
  *
  * \defgroup jose_jwk JWK
