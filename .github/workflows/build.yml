@@ -21,7 +21,7 @@ jobs:
         os:
           - fedora:latest
           - quay.io/centos/centos:stream9
-          - quay.io/centos/centos:stream8
+          - quay.io/centos/centos:stream10-development
           - debian:testing
           - debian:latest
           - ubuntu:rolling
