@@ -357,8 +357,8 @@ alg_wrap_wrp(const jose_hook_alg_t *alg, jose_cfg_t *cfg, json_t *jwe,
     if (!hdr)
         return false;
 
-    h = json_object_get(rcp, "header");
-    if (!h && json_object_set_new(rcp, "header", h = json_object()) == -1)
+    h = json_object_get(rcp, "protected");
+    if (!h && json_object_set_new(rcp, "protected", h = json_object()) == -1)
         return false;
 
     epk = json_pack("{s:s,s:O}", "kty", "EC", "crv",
@@ -401,7 +401,7 @@ alg_wrap_wrp(const jose_hook_alg_t *alg, jose_cfg_t *cfg, json_t *jwe,
     if (json_object_update(cek, der) < 0)
         return false;
 
-    return add_entity(jwe, rcp, "recipients", "header", "encrypted_key", NULL);
+    return add_entity(jwe, rcp, "recipients", "protected", "header", "encrypted_key", NULL);
 }
 
 static bool
