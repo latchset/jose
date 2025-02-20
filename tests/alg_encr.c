@@ -64,9 +64,12 @@ test(const jose_hook_alg_t *a, const char *pt, json_t *cek, bool iter)
     assert(d);
 
     if (iter) {
-        uint8_t *xxx = ebuf;
-        for (size_t i = 0; i < elen; i++)
-            assert(d->feed(d, &xxx[i], 1));
+	if (elen) {
+	    uint8_t *xxx = ebuf;
+	    for (size_t i = 0; i < elen; i++) {
+		assert(d->feed(d, &xxx[i], 1));
+	    }
+	}
     } else {
         assert(d->feed(d, ebuf, elen));
     }

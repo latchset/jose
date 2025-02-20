@@ -25,7 +25,7 @@
 
 #include <string.h>
 
-#ifdef EVP_PKEY_CTX_set_rsa_oaep_md
+#if defined (EVP_PKEY_CTX_set_rsa_oaep_md) || (OPENSSL_VERSION_NUMBER >= 0x30000000L)
 #define NAMES "RSA1_5", "RSA-OAEP", "RSA-OAEP-224", "RSA-OAEP-256", "RSA-OAEP-384", "RSA-OAEP-512"
 #define HAVE_OAEP
 #else

@@ -62,6 +62,7 @@ main(int argc, char *argv[])
     for (uint16_t i = 0; i <= UINT8_MAX; i++) {
         union encoding enc = { i };
         uint8_t dec[3] = {};
+        assert(dec != NULL);
         assert(jose_b64_dec_buf(enc.enc, 1, dec, sizeof(dec)) == SIZE_MAX);
     }
 
@@ -74,6 +75,7 @@ main(int argc, char *argv[])
     for (uint16_t i = 0; i <= UINT8_MAX; i++) {
         uint8_t dec[3] = { i };
         union encoding enc = {};
+        assert(dec != NULL);
         assert(jose_b64_enc_buf(dec, 1, enc.enc, sizeof(enc.enc)) == 2);
         set(val, enc.idx);
     }
@@ -106,6 +108,7 @@ main(int argc, char *argv[])
         for (uint16_t j = 0; j <= UINT8_MAX; j++) {
             uint8_t dec[3] = { i, j };
             union encoding enc = {};
+            assert(dec != NULL);
             assert(jose_b64_enc_buf(dec, 2, enc.enc, sizeof(enc.enc)) == 3);
             set(val, enc.idx);
         }

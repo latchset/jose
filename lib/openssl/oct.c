@@ -45,7 +45,7 @@ jwk_make_execute(jose_cfg_t *cfg, json_t *jwk)
     if (json_unpack(jwk, "{s:I}", "bytes", &len) < 0)
         return false;
 
-    if (len > KEYMAX)
+    if (len <= 0 || len > KEYMAX)
         return false;
 
     if (RAND_bytes(key, len) <= 0)

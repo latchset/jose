@@ -87,6 +87,9 @@ main(int argc, char *argv[])
     for (size_t i = 0; v[i].alg; i++) {
         const jose_hook_alg_t *alg = NULL;
 
+        alg = jose_hook_alg_find_any(v[i].alg);
+        assert(alg);
+
         alg = jose_hook_alg_find(JOSE_HOOK_ALG_KIND_HASH, v[i].alg);
         assert(alg);
 

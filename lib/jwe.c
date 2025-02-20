@@ -275,14 +275,8 @@ jose_jwe_enc_cek_io(jose_cfg_t *cfg, json_t *jwe, const json_t *cek,
                     jose_io_t *next)
 {
     const jose_hook_alg_t *alg = NULL;
-    jose_io_auto_t *zip = NULL;
-    json_auto_t *prt = NULL;
     const char *h = NULL;
     const char *k = NULL;
-    const char *z = NULL;
-
-    prt = jose_b64_dec_load(json_object_get(jwe, "protected"));
-    (void) json_unpack(prt, "{s:s}", "zip", &z);
 
     if (json_unpack(jwe, "{s?{s?s}}", "unprotected", "enc", &h) < 0)
         return NULL;
@@ -336,19 +330,7 @@ jose_jwe_enc_cek_io(jose_cfg_t *cfg, json_t *jwe, const json_t *cek,
     if (!encode_protected(jwe))
         return NULL;
 
-    if (z) {
-        const jose_hook_alg_t *a = NULL;
-
-        a = jose_hook_alg_find(JOSE_HOOK_ALG_KIND_COMP, z);
-        if (!a)
-            return NULL;
-
-        zip = a->comp.def(a, cfg, next);
-        if (!zip)
-            return NULL;
-    }
-
-    return alg->encr.enc(alg, cfg, jwe, cek, zip ? zip : next);
+    return alg->encr.enc(alg, cfg, jwe, cek, next);
 }
 
 void *
@@ -463,6 +445,12 @@ jose_jwe_dec_cek(jose_cfg_t *cfg, const json_t *jwe, const json_t *cek,
     o = jose_io_malloc(cfg, &pt, ptl);
     d = jose_jwe_dec_cek_io(cfg, jwe, cek, o);
     i = jose_b64_dec_io(d);
+
+    /* Here we make sure the ciphertext is not larger than our
+     * compression limit. */
+    if (zip_in_protected_header((json_t*)jwe) && ctl > MAX_COMPRESSED_SIZE)
+        return false;
+
     if (!o || !d || !i || !i->feed(i, ct, ctl) || !i->done(i))
         return NULL;
 

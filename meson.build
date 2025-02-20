@@ -1,15 +1,16 @@
 project('jose', 'c', license: 'APL2',
-  version: '11',
+  version: '14',
   default_options: [
     'c_std=gnu99',
     'prefix=/usr',
     'warning_level=2',
     'werror=true'
-  ]
+  ],
+  meson_version: '>=0.47.0',
 )
 
 licensedir = join_paths(get_option('prefix'), 'share', 'licenses', meson.project_name())
-if build_machine.system() == 'freebsd'
+if host_machine.system() == 'freebsd'
   licensedir += '-'+meson.project_version()
 endif
 
@@ -37,7 +38,8 @@ zlib = dependency('zlib')
 threads = dependency('threads')
 jansson = dependency('jansson', version: '>=2.10')
 libcrypto = dependency('libcrypto', version: '>=1.0.2')
-a2x = find_program('a2x', required: false)
+a2x = find_program('a2x', required: get_option('docs'))
+jq = find_program('jq', required: false)
 
 mans = []
 
@@ -57,10 +59,9 @@ pkg.generate(
   version: meson.project_version(),
   filebase: meson.project_name(),
   name: 'José Library',
-
-  requires_private: [ 'zlib', 'libcrypto' ],
+  libraries_private: [ zlib, libcrypto ],
   libraries: libjose_lib,
-  requires: 'jansson',
+  requires: jansson,
 )
 
 if a2x.found()
@@ -71,6 +72,10 @@ if a2x.found()
       install: true
     )
   endforeach
-else
+elif get_option('docs').auto()
   warning('Will not build man pages due to missing dependencies!')
+endif
+
+if not jq.found()
+  message('jq not found (unrequired but recommended)')
 endif

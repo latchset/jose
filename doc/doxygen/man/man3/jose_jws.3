@@ -55,16 +55,16 @@ json_t *sig(const char *str, const json_t *jwk) {
 Likewise, to verify this signature (again, error handling omitted): 
 .PP
 .nf
-char *ver(const json_t *jwe, const json_t *jwk) {
+char *ver(const json_t *jws, const json_t *jwk) {
     char *str = NULL;
     size_t len = 0;
 
     if (!jose_jws_ver(NULL, jws, NULL, jwk))
         return NULL;
 
-    len = jose_b64_dec(json_object_get(jwe, "payload"), NULL, 0);
+    len = jose_b64_dec(json_object_get(jws, "payload"), NULL, 0);
     str = calloc(1, len + 1);
-    jose_b64_dec(json_object_get(jwe, "payload"), str, len);
+    jose_b64_dec(json_object_get(jws, "payload"), str, len);
     return str;
 }
 

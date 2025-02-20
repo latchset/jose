@@ -16,6 +16,7 @@ LIBJOSE_1.0 {
 		jose_cfg_incref;
 		jose_cfg_set_err_func;
 		jose_hook_alg_find;
+		jose_hook_alg_find_any;
 		jose_hook_alg_list;
 		jose_hook_alg_push;
 		jose_hook_jwk_list;

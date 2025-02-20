@@ -30,3 +30,9 @@ encode_protected(json_t *obj);
 
 void
 zero(void *mem, size_t len);
+
+bool
+handle_zip_enc(json_t *jwe, const void *in, size_t len, void **data, size_t *data_len);
+
+bool
+zip_in_protected_header(json_t *jwe);
