@@ -20,3 +20,14 @@ thp256="${RFC_7638_3_1}.thp"
 [ "$(jose jwk thp -i ${jwk})" = "$(jose jwk thp -i ${jwk} -a S256)" ]
 [ "$(jose jwk thp -i ${jwk})" = "$(cat ${thp256})" ]
 
+# Github issue #170.
+KEY_ISSUE170='{
+  "use": "sig",
+  "kty": "OKP",
+  "kid": "IpNACexNZWO9hVeADtTT0Nvturu6OtMV3B4u1OVr1fU",
+  "crv": "Ed25519",
+  "alg": "EdDSA",
+  "x": "etkJX1EBhliHzBaimUQb0h2JhJKQ3G0beRVR3ssiedY"
+}'
+# We expect a failure when calculating the thumbprint of KEY_ISSUE170.
+! echo "${KEY_ISSUE170}" | jose jwk thp -i -

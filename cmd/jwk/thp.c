@@ -153,7 +153,7 @@ jcmd_jwk_thp(int argc, char *argv[])
             if (!opt.find && strcmp(opt.hash, a->name) != 0)
                 continue;
 
-            if (!jose_jwk_thp_buf(NULL, jwk, opt.hash, dec, sizeof(dec))) {
+            if (jose_jwk_thp_buf(NULL, jwk, opt.hash, dec, sizeof(dec)) == SIZE_MAX) {
                 fprintf(stderr, "Error making thumbprint!\n");
                 return EXIT_FAILURE;
             }
