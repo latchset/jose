@@ -147,8 +147,8 @@ find_alg(jose_cfg_t *cfg, json_t *jwe, json_t *rcp, const json_t *hdr,
 
     alg = jose_hook_alg_find(JOSE_HOOK_ALG_KIND_WRAP, name);
     if (alg) {
-        h = json_object_get(rcp, "header");
-        if (!h && json_object_set_new(rcp, "header", h = json_object()) < 0)
+        h = json_object_get(rcp, "protected");
+        if (!h && json_object_set_new(rcp, "protected", h = json_object()) < 0)
             return NULL;
 
         if (json_object_set_new(h, "alg", json_string(alg->name)) < 0)
