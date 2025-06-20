@@ -47,7 +47,7 @@ zero(void *mem, size_t len)
 bool
 handle_zip_enc(json_t *json, const void *in, size_t len, void **data, size_t *datalen)
 {
-    json_t *prt = NULL;
+    json_auto_t *prt = NULL;
     char *z = NULL;
     const jose_hook_alg_t *a = NULL;
     jose_io_auto_t *zip = NULL;
@@ -85,7 +85,7 @@ handle_zip_enc(json_t *json, const void *in, size_t len, void **data, size_t *da
 bool
 zip_in_protected_header(json_t *json)
 {
-    json_t *prt = NULL;
+    json_auto_t *prt = NULL;
     char *z = NULL;
 
     prt = json_object_get(json, "protected");
