@@ -39,14 +39,14 @@ for msg in "hi" "this is a longer message that is more than one block"; do
         jose jwk gen -i "{\"alg\":\"$w\"}" -o $jwk
 
         printf '%s' "$msg" | jose jwe enc -I- -k $jwk -o $jwe
-        [ "`jqopt $jwe .header.alg $w`" = "$w" ]
+        [ "`jqbopt $jwe .protected .alg $w`" = "$w" ]
         [ "`jose jwe dec -i $jwe -k $jwk -O-`" = "$msg" ]
 
         for e in $ENCR; do
             printf '%s' "$msg" | jose jwe enc \
                 -i "{\"protected\":{\"enc\":\"$e\"}}" -I- \
                 -k $jwk -o $jwe
-            [ "`jqopt $jwe .header.alg $w`" = "$w" ]
+            [ "`jqbopt $jwe .protected .alg $w`" = "$w" ]
             [ "`jqbopt $jwe .protected .enc $e`" = "$e" ]
             [ "`jose jwe dec -i $jwe -k $jwk -O-`" = "$msg" ]
         done
@@ -63,7 +63,7 @@ for msg in "hi" "this is a longer message that is more than one block"; do
         [ "`jose jwe dec -i $jwe -k $jwk -O-`" = "$msg" ]
 
         printf '%s' "$msg" | jose jwe enc -I- -k $jwk -o $jwe
-        [ "`jqopt $jwe .header.alg dir`" = "dir" ]
+        [ "`jqbopt $jwe .protected .alg dir`" = "dir" ]
         [ "`jqbopt $jwe .protected .enc $e`" = "$e" ]
         [ "`jose jwe dec -i $jwe -k $jwk -O-`" = "$msg" ]
     done
