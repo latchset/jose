@@ -198,19 +198,20 @@ wrap(jcmd_opt_t *opt)
     json_t *jh = NULL;
 
     jh = jose_jwe_hdr(opt->io.obj, opt->io.obj);
+    
     if (!jh)
- return NULL;
+        return NULL;
 
     if (json_object_set_new(opt->io.obj, "protected", jh) < 0)
- return NULL;
+        return NULL;
 
     if (json_object_get(opt->io.obj, "unprotected") &&
- json_object_del(opt->io.obj, "unprotected") < 0)
- return NULL;
+        json_object_del(opt->io.obj, "unprotected") < 0)
+        return NULL;
 
     if (json_object_get(opt->io.obj, "header") &&
- json_object_del(opt->io.obj, "header") < 0)
- return NULL;
+        json_object_del(opt->io.obj, "header") < 0)
+        return NULL;
 
     return json_incref(cek);
 }
