@@ -198,7 +198,6 @@ wrap(jcmd_opt_t *opt)
     json_t *jh = NULL;
 
     jh = jose_jwe_hdr(opt->io.obj, opt->io.obj);
-    
     if (!jh)
         return NULL;
 
