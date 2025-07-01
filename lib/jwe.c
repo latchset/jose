@@ -327,6 +327,16 @@ jose_jwe_enc_cek_io(jose_cfg_t *cfg, json_t *jwe, const json_t *cek,
         return NULL;
     }
 
+    json_t *jh = jose_jwe_hdr(jwe, jwe);
+
+    if (!jh) {
+        return NULL;
+    }
+
+    if (json_object_set_new(jwe, "protected", jh) < 0) {
+        return NULL;
+    }
+
     if (!encode_protected(jwe))
         return NULL;
 
