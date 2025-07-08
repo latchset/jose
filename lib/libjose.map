@@ -52,9 +52,6 @@ LIBJOSE_1.0 {
 		jose_jws_sig_io;
 		jose_jws_ver;
 		jose_jws_ver_io;
-
-	local:
-		*;
 };
 
 LIBJOSE_OPENSSL_1.0 {
@@ -66,7 +63,4 @@ LIBJOSE_OPENSSL_1.0 {
 		jose_openssl_jwk_to_EC_KEY;
 		jose_openssl_jwk_to_EVP_PKEY;
 		jose_openssl_jwk_to_RSA;
-
-	local:
-		*;
 };
