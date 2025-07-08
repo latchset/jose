@@ -140,6 +140,9 @@ jose_openssl_jwk_from_RSA(jose_cfg_t *cfg, const RSA *key)
 json_t *
 jose_openssl_jwk_from_EC_KEY(jose_cfg_t *cfg, const EC_KEY *key)
 {
+    if (!key)
+        return NULL;
+
     return jose_openssl_jwk_from_EC_POINT(
         cfg,
         EC_KEY_get0_group(key),
