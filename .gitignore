@@ -11,7 +11,6 @@
 *.swo
 *.trs
 *_t
-.*
 aclocal.m4
 ar-lib
 autom4te.cache
