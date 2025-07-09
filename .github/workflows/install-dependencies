@@ -41,10 +41,9 @@ centos:7)
 *centos:stream*)
     dnf -y clean all
     dnf -y --allowerasing --setopt=deltarpm=0 update
-    dnf install -y yum-utils epel-release
     dnf config-manager -y --set-enabled crb \
         || dnf config-manager -y --set-enabled powertools || :
-    dnf -y --allowerasing install ${COMMON}
+    dnf install -y --allowerasing yum-utils epel-release ${COMMON}
     dnf builddep -y jose
     ;;
 esac
