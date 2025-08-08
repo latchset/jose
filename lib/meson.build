@@ -12,13 +12,14 @@ else
   endif
 endif
 
-libjose_lib = shared_library('jose',
-  'misc.c',           'misc.h',
+# Define all source files in a single list variable
+jose_sources = [
+  'misc.c',         'misc.h',
   'cfg.c',
   'io.c',
   'b64.c',
-  'hsh.c',            'hsh.h',
-  'hooks.c',          'hooks.h',
+  'hsh.c',          'hsh.h',
+  'hooks.c',        'hooks.h',
   'jwk.c',
   'jws.c',
   'jwe.c',
@@ -44,11 +45,21 @@ libjose_lib = shared_library('jose',
   'openssl/rsa.c',
   'openssl/rsaes.c',
   'openssl/rsassa.c',
+]
 
+libjose_lib = shared_library('jose',
+  jose_sources,
   include_directories: incdir,
   dependencies: [zlib, jansson, libcrypto, threads],
   version: '0.0.0',
   link_args: flags,
+  install: true
+)
+
+libjose_static = static_library('jose',
+  jose_sources,
+  include_directories: incdir,
+  dependencies: [zlib, jansson, libcrypto, threads],
   install: true
 )
 
