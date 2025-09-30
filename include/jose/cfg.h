@@ -26,6 +26,7 @@
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdint.h>
+#include <stdlib.h>
 
 enum {
     _JOSE_CFG_ERR_BASE = 0x1053000000000000ULL,
@@ -56,6 +57,23 @@ typedef jose_cfg_t jose_cfg_auto_t;
 typedef struct jose_cfg jose_cfg_t;
 typedef void (jose_cfg_err_t)(void *misc, const char *file, int line,
                               uint64_t err, const char *fmt, va_list ap);
+
+/**
+ * Custom allocator function type signatures
+ */
+typedef void* (*jose_malloc_t)(size_t size);
+typedef void* (*jose_realloc_t)(void *ptr, size_t size);
+typedef void* (*jose_calloc_t)(size_t nmemb, size_t size);
+typedef void  (*jose_free_t)(void *ptr);
+
+/**
+ * Global memory allocator function pointers
+ * These can be overridden using jose_set_alloc()
+ */
+extern jose_malloc_t jose_malloc;
+extern jose_realloc_t jose_realloc;
+extern jose_calloc_t jose_calloc;
+extern jose_free_t jose_free;
 
 /**
  * Creates a new configuration instance.
@@ -133,5 +151,43 @@ jose_cfg_err(jose_cfg_t *cfg, const char *file, int line, uint64_t err,
 #define jose_cfg_err(cfg, err, ...) \
     jose_cfg_err(cfg, __FILE__, __LINE__, err, __VA_ARGS__)
 #endif
+
+/**
+ * Set custom memory allocator functions for JOSE operations globally.
+ *
+ * This allows you to override the default malloc/realloc/free used
+ * throughout the JOSE library. All JOSE operations will use these
+ * custom allocators once set. Useful for:
+ * - Memory debugging and tracking
+ * - Custom memory pools
+ * - Secure memory allocation
+ * - Cross-DLL memory management on Windows
+ *
+ * @param pmalloc Custom malloc function
+ * @param prealloc Custom realloc function 
+ * @param pcalloc Custom calloc function
+ * @param pfree   Custom free function
+ * @return        0 on success, errno on error
+ */
+int
+jose_set_alloc(jose_malloc_t pmalloc, jose_realloc_t prealloc, jose_free_t pfree, jose_calloc_t pcalloc);
+
+/**
+ * Get current memory allocator functions.
+ *
+ * @param pmalloc Pointer to store current malloc function
+ * @param prealloc Pointer to store current realloc function
+ * @param pcalloc Pointer to store current calloc function
+ * @param pfree   Pointer to store current free function
+ */
+void
+jose_get_alloc(jose_malloc_t *pmalloc, jose_realloc_t *prealloc, jose_free_t *pfree, jose_calloc_t *pcalloc);
+
+/**
+ * Reset global allocators to system defaults.
+ * Useful for testing or when you want to stop using custom allocators.
+ */
+void
+jose_reset_alloc(void);
 
 /** @} */

@@ -257,19 +257,19 @@ jose_openssl_jwk_to_EVP_PKEY(jose_cfg_t *cfg, const json_t *jwk)
         if (len == SIZE_MAX)
             return NULL;
 
-        buf = malloc(len);
+        buf = jose_malloc(len);
         if (!buf)
             return NULL;
 
         if (jose_b64_dec(json_object_get(jwk, "k"), buf, len) != len) {
             OPENSSL_cleanse(buf, len);
-            free(buf);
+            jose_free(buf);
             return NULL;
         }
 
         key = EVP_PKEY_new_mac_key(EVP_PKEY_HMAC, NULL, buf, len);
         OPENSSL_cleanse(buf, len);
-        free(buf);
+        jose_free(buf);
         return key;
 
     default: return NULL;

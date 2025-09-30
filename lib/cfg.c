@@ -22,6 +22,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <jansson.h>
 
 struct jose_cfg {
     size_t refs;
@@ -29,6 +30,11 @@ struct jose_cfg {
     jose_cfg_err_t *err;
     void *misc;
 };
+
+jose_malloc_t jose_malloc = malloc;
+jose_realloc_t jose_realloc = realloc;
+jose_free_t jose_free = free;
+jose_calloc_t jose_calloc = calloc;
 
 static struct {
     uint64_t nmbr;
@@ -78,7 +84,7 @@ jose_cfg_t *
 jose_cfg(void)
 {
     jose_cfg_t *cfg = NULL;
-    cfg = calloc(1, sizeof(*cfg));
+    cfg = jose_calloc(1, sizeof(*cfg));
     if (cfg)
         *cfg = dflt;
     return jose_cfg_incref(cfg);
@@ -104,7 +110,7 @@ void
 jose_cfg_decref(jose_cfg_t *cfg)
 {
     if (cfg->refs-- == 1)
-        free(cfg);
+        jose_free(cfg);
 }
 
 void
@@ -130,4 +136,42 @@ jose_cfg_err(jose_cfg_t *cfg, const char *file, int line, uint64_t err,
     va_start(ap, fmt);
     c->err(c->misc, file, line, err, fmt, ap);
     va_end(ap);
+}
+
+int
+jose_set_alloc(jose_malloc_t pmalloc, jose_realloc_t prealloc, jose_free_t pfree, jose_calloc_t pcalloc)
+{
+    /* all of the allocator functions must be set */
+    if (pmalloc == NULL || prealloc == NULL || pfree == NULL || pcalloc == NULL)
+        return EINVAL;
+
+    jose_malloc = pmalloc;
+    jose_realloc = prealloc;
+    jose_free = pfree;
+    jose_calloc = pcalloc;
+
+    /* Configure Jansson to use the same allocators as JOSE */
+    json_set_alloc_funcs(jose_malloc, jose_free);
+
+    return 0;
+}
+
+void
+jose_get_alloc(jose_malloc_t *pmalloc, jose_realloc_t *prealloc, jose_free_t *pfree, jose_calloc_t *pcalloc)
+{
+    if (pmalloc) *pmalloc = jose_malloc;
+    if (prealloc) *prealloc = jose_realloc;
+    if (pfree) *pfree = jose_free;
+    if (pcalloc) *pcalloc = jose_calloc;
+}
+
+void
+jose_reset_alloc(void)
+{
+    jose_malloc = malloc;
+    jose_realloc = realloc;
+    jose_free = free;
+    jose_calloc = calloc;
+    /* Reset Jansson to use default allocators */
+    json_set_alloc_funcs(malloc, free);
 }

@@ -56,18 +56,18 @@ bn_decode_json(const json_t *json)
     if (len == SIZE_MAX)
         return NULL;
 
-    tmp = calloc(1, len);
+    tmp = jose_calloc(1, len);
     if (!tmp)
         return NULL;
 
     if (jose_b64_dec(json, tmp, len) != len) {
-        free(tmp);
+        jose_free(tmp);
         return NULL;
     }
 
     bn = bn_decode(tmp, len);
     OPENSSL_cleanse(tmp, len);
-    free(tmp);
+    jose_free(tmp);
     return bn;
 }
 
@@ -105,7 +105,7 @@ bn_encode_json(const BIGNUM *bn, size_t len)
     if ((int) len < BN_num_bytes(bn))
         return NULL;
 
-    buf = calloc(1, len);
+    buf = jose_calloc(1, len);
     if (!buf)
         return NULL;
 
@@ -114,7 +114,7 @@ bn_encode_json(const BIGNUM *bn, size_t len)
         OPENSSL_cleanse(buf, len);
     }
 
-    free(buf);
+    jose_free(buf);
     return out;
 }
 

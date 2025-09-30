@@ -167,7 +167,7 @@ alg_wrap_wrp(const jose_hook_alg_t *alg, jose_cfg_t *cfg, json_t *jwe,
             return false;
     }
 
-    pt = malloc(ptl);
+    pt = jose_malloc( ptl);
     if (!pt)
         return false;
 
@@ -177,7 +177,7 @@ alg_wrap_wrp(const jose_hook_alg_t *alg, jose_cfg_t *cfg, json_t *jwe,
     if (EVP_PKEY_encrypt(epc, NULL, &ctl, pt, ptl) <= 0)
         goto egress;
 
-    ct = malloc(ctl);
+    ct = jose_malloc( ctl);
     if (!ct)
         goto egress;
 
@@ -192,10 +192,10 @@ alg_wrap_wrp(const jose_hook_alg_t *alg, jose_cfg_t *cfg, json_t *jwe,
 egress:
     if (pt) {
         OPENSSL_cleanse(pt, ptl);
-        free(pt);
+        jose_free( pt);
     }
 
-    free(ct);
+    jose_free( ct);
     return ret;
 }
 
@@ -235,7 +235,7 @@ alg_wrap_unw(const jose_hook_alg_t *alg, jose_cfg_t *cfg, const json_t *jwe,
     if (ctl == SIZE_MAX)
         goto egress;
 
-    ct = malloc(ctl);
+    ct = jose_malloc( ctl);
     if (!ct)
         goto egress;
 
@@ -243,7 +243,7 @@ alg_wrap_unw(const jose_hook_alg_t *alg, jose_cfg_t *cfg, const json_t *jwe,
         goto egress;
 
     ptl = ctl;
-    pt = malloc(ptl);
+    pt = jose_malloc( ptl);
     if (!pt)
         goto egress;
 
@@ -270,7 +270,7 @@ alg_wrap_unw(const jose_hook_alg_t *alg, jose_cfg_t *cfg, const json_t *jwe,
      * are performed whether decrypt succeeds or not, in an attempt to
      * foil timing attacks */
     rtl = ptl;
-    rt = malloc(rtl);
+    rt = jose_malloc( rtl);
     if (!rt)
         goto egress;
     if (RAND_bytes(rt, rtl) <= 0)
@@ -287,15 +287,15 @@ alg_wrap_unw(const jose_hook_alg_t *alg, jose_cfg_t *cfg, const json_t *jwe,
 egress:
     if (pt) {
         OPENSSL_cleanse(pt, ptl);
-        free(pt);
+        jose_free( pt);
     }
 
     if (rt) {
         OPENSSL_cleanse(rt, rtl);
-        free(rt);
+        jose_free( rt);
     }
 
-    free(ct);
+    jose_free( ct);
     return ret;
 }
 

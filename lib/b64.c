@@ -64,7 +64,7 @@ io_free(jose_io_t *io)
     io_t *i = containerof(io, io_t, io);
     jose_io_decref(i->next);
     zero(i, sizeof(*i));
-    free(i);
+    jose_free(i);
 }
 
 static size_t
@@ -198,7 +198,7 @@ jose_b64_dec_io(jose_io_t *next)
     jose_io_auto_t *io = NULL;
     io_t *i = NULL;
 
-    i = calloc(1, sizeof(*i));
+    i = jose_calloc(1, sizeof(*i));
     if (!i)
         return NULL;
 
@@ -277,19 +277,19 @@ jose_b64_dec_load(const json_t *i)
     if (size == SIZE_MAX)
         return NULL;
 
-    buf = calloc(1, size);
+    buf = jose_calloc(1, size);
     if (!buf)
         return NULL;
 
     if (jose_b64_dec(i, buf, size) != size) {
         zero(buf, size);
-        free(buf);
+        jose_free(buf);
         return NULL;
     }
 
     out = json_loadb((char *) buf, size, JSON_DECODE_ANY, NULL);
     zero(buf, size);
-    free(buf);
+    jose_free(buf);
     return out;
 }
 
@@ -304,7 +304,7 @@ jose_b64_enc(const void *i, size_t il)
     if (elen == SIZE_MAX)
         return NULL;
 
-    enc = calloc(1, elen);
+    enc = jose_calloc(1, elen);
     if (!enc)
         return NULL;
 
@@ -312,7 +312,7 @@ jose_b64_enc(const void *i, size_t il)
         out = json_stringn(enc, elen);
 
     zero(enc, elen);
-    free(enc);
+    jose_free(enc);
     return out;
 }
 
@@ -322,7 +322,7 @@ jose_b64_enc_io(jose_io_t *next)
     jose_io_auto_t *io = NULL;
     io_t *i = NULL;
 
-    i = calloc(1, sizeof(*i));
+    i = jose_calloc(1, sizeof(*i));
     if (!i)
         return NULL;
 
@@ -385,6 +385,6 @@ jose_b64_enc_dump(const json_t *i)
 
     out = jose_b64_enc((const uint8_t *) buf, strlen(buf));
     zero(buf, strlen(buf));
-    free(buf);
+    jose_free(buf);
     return out;
 }

@@ -98,7 +98,7 @@ ios_auto(jose_io_t ***iosp)
     for (size_t i = 0; ios && ios[i]; i++)
         jose_io_auto(&ios[i]);
 
-    free(ios);
+    jose_free(ios);
 }
 
 static jose_io_t *
@@ -183,7 +183,7 @@ jose_jws_sig_io(jose_cfg_t *cfg, json_t *jws, json_t *sig, const json_t *jwk)
         if (json_is_array(sig) && json_array_size(sig) != json_array_size(jwk))
             return NULL;
 
-        ios = calloc(json_array_size(jwk) + 1, sizeof(*ios));
+        ios = jose_calloc(json_array_size(jwk) + 1, sizeof(*ios));
         if (!ios)
             return NULL;
 
@@ -256,7 +256,7 @@ jose_jws_ver_io(jose_cfg_t *cfg, const json_t *jws, const json_t *sig,
         if (json_is_array(sig) && json_array_size(sig) != json_array_size(jwk))
             return NULL;
 
-        ios = calloc(json_array_size(jwk) + 1, sizeof(*ios));
+        ios = jose_calloc(json_array_size(jwk) + 1, sizeof(*ios));
         if (!ios)
             return NULL;
 
@@ -284,7 +284,7 @@ jose_jws_ver_io(jose_cfg_t *cfg, const json_t *jws, const json_t *sig,
         if (!json_is_array(array))
             return jose_jws_ver_io(cfg, jws, jws, jwk, true);
 
-        ios = calloc(json_array_size(array) + 1, sizeof(*ios));
+        ios = jose_calloc(json_array_size(array) + 1, sizeof(*ios));
         if (!ios)
             return NULL;
 

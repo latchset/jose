@@ -26,6 +26,7 @@ progs = [
   'api_b64',
   'api_jws',
   'api_jwe',
+  'api_mem',
 ]
 
 e = environment()
