@@ -15,6 +15,13 @@ LIBJOSE_1.0 {
 		jose_cfg_get_err_misc;
 		jose_cfg_incref;
 		jose_cfg_set_err_func;
+		jose_set_alloc;
+		jose_get_alloc;
+		jose_malloc;
+		jose_calloc;
+		jose_realloc;
+		jose_free;
+		jose_reset_alloc;
 		jose_hook_alg_find;
 		jose_hook_alg_find_any;
 		jose_hook_alg_list;

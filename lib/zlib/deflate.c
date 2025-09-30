@@ -107,7 +107,7 @@ def_free(jose_io_t *io)
 {
     io_t *i = containerof(io, io_t, io);
     deflateEnd(&i->strm);
-    free(i);
+    jose_free(i);
 }
 
 static bool
@@ -130,7 +130,7 @@ inf_free(jose_io_t *io)
 {
     io_t *i = containerof(io, io_t, io);
     inflateEnd(&i->strm);
-    free(i);
+    jose_free(i);
 }
 
 static jose_io_t *
@@ -139,7 +139,7 @@ alg_comp_def(const jose_hook_alg_t *alg, jose_cfg_t *cfg, jose_io_t *next)
     jose_io_auto_t *io = NULL;
     io_t *i = NULL;
 
-    i = calloc(1, sizeof(*i));
+    i = jose_calloc(1, sizeof(*i));
     if (!i)
         return NULL;
 
@@ -165,7 +165,7 @@ alg_comp_inf(const jose_hook_alg_t *alg, jose_cfg_t *cfg, jose_io_t *next)
     jose_io_auto_t *io = NULL;
     io_t *i = NULL;
 
-    i = calloc(1, sizeof(*i));
+    i = jose_calloc(1, sizeof(*i));
     if (!i)
         return NULL;
 

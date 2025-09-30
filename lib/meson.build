@@ -1,14 +1,26 @@
-flags = '-Wl,--version-script=' + meson.current_source_dir() + '/libjose.map'
+flags = []
 code = 'int main() { return 0; }'
 cc = meson.get_compiler('c')
 
-if build_machine.system() == 'freebsd'
-  if not cc.links(code, args: flags + ',--undefined-version' , name: '-Wl,--version-script=...')
+# Handle symbol visibility per platform
+if build_machine.system() == 'darwin'
+  # macOS: Skip symbol visibility restrictions for now
+  # macOS linker doesn't support the same flags as GNU ld
+  flags = []
+elif build_machine.system() == 'freebsd'
+  version_script_flags = '-Wl,--version-script=' + meson.current_source_dir() + '/libjose.map'
+  if not cc.links(code, args: version_script_flags + ',--undefined-version' , name: '-Wl,--version-script=...')
      flags = [ '-export-symbols-regex=^jose_.*' ]
+  else
+     flags = [version_script_flags]
   endif
 else
-  if not cc.links(code, args: flags, name: '-Wl,--version-script=...')
+  # Linux and other systems
+  version_script_flags = '-Wl,--version-script=' + meson.current_source_dir() + '/libjose.map'
+  if not cc.links(code, args: version_script_flags, name: '-Wl,--version-script=...')
      flags = [ '-export-symbols-regex=^jose_.*' ]
+  else
+     flags = [version_script_flags]
   endif
 endif
 

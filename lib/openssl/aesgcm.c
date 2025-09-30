@@ -97,7 +97,7 @@ io_free(jose_io_t *io)
     EVP_CIPHER_CTX_free(i->cctx);
     jose_io_decref(i->next);
     json_decref(i->json);
-    free(i);
+    jose_free(i);
 }
 
 static bool
@@ -305,7 +305,7 @@ alg_encr_enc(const jose_hook_alg_t *alg, jose_cfg_t *cfg, json_t *jwe,
     if (RAND_bytes(iv, sizeof(iv)) <= 0)
         return NULL;
 
-    i = calloc(1, sizeof(*i));
+    i = jose_calloc(1, sizeof(*i));
     if (!i)
         return NULL;
 
@@ -350,7 +350,7 @@ alg_encr_dec(const jose_hook_alg_t *alg, jose_cfg_t *cfg, const json_t *jwe,
     if (jose_b64_dec(json_object_get(jwe, "iv"), iv, sizeof(iv)) != sizeof(iv))
         return NULL;
 
-    i = calloc(1, sizeof(*i));
+    i = jose_calloc(1, sizeof(*i));
     if (!i)
         return NULL;
 

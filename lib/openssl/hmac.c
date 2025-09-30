@@ -28,7 +28,6 @@
 
 typedef struct {
     jose_io_t io;
-
     HMAC_CTX *hctx;
     json_t *obj;
     json_t *sig;
@@ -41,7 +40,7 @@ io_free(jose_io_t *io)
     HMAC_CTX_free(i->hctx);
     json_decref(i->obj);
     json_decref(i->sig);
-    free(i);
+    jose_free(i);
 }
 
 static bool
@@ -240,7 +239,7 @@ alg_sign_sig(const jose_hook_alg_t *alg, jose_cfg_t *cfg, json_t *jws,
     jose_io_auto_t *io = NULL;
     io_t *i = NULL;
 
-    i = calloc(1, sizeof(*i));
+    i = jose_calloc(1, sizeof(*i));
     if (!i)
         return false;
 
@@ -265,7 +264,7 @@ alg_sign_ver(const jose_hook_alg_t *alg, jose_cfg_t *cfg, const json_t *jws,
     jose_io_auto_t *io = NULL;
     io_t *i = NULL;
 
-    i = calloc(1, sizeof(*i));
+    i = jose_calloc(1, sizeof(*i));
     if (!i)
         return false;
 

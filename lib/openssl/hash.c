@@ -20,7 +20,6 @@
 
 typedef struct {
     jose_io_t io;
-
     jose_io_t *next;
     EVP_MD_CTX *emc;
 } io_t;
@@ -54,7 +53,7 @@ hsh_free(jose_io_t *io)
     io_t *i = containerof(io, io_t, io);
     jose_io_decref(i->next);
     EVP_MD_CTX_free(i->emc);
-    free(i);
+    jose_free(i);
 }
 
 static jose_io_t *
@@ -72,7 +71,7 @@ hsh(const jose_hook_alg_t *alg, jose_cfg_t *cfg, jose_io_t *next)
     case 4: md = EVP_sha1();   break;
     }
 
-    i = calloc(1, sizeof(*i));
+    i = jose_calloc(1, sizeof(*i));
     if (!i)
         return NULL;
 
