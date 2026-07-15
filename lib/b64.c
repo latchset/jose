@@ -36,6 +36,23 @@ typedef struct {
 
 static const char *map = JOSE_B64_MAP;
 
+/* Reverse of JOSE_B64_MAP: stored value is (index + 1); 0 means invalid.
+ * Must stay consistent with JOSE_B64_MAP in <jose/b64.h>; tests/api_b64.c
+ * exhaustively verifies this. */
+static const uint8_t unmap[256] = {
+    ['A']= 1,['B']= 2,['C']= 3,['D']= 4,['E']= 5,['F']= 6,['G']= 7,['H']= 8,
+    ['I']= 9,['J']=10,['K']=11,['L']=12,['M']=13,['N']=14,['O']=15,['P']=16,
+    ['Q']=17,['R']=18,['S']=19,['T']=20,['U']=21,['V']=22,['W']=23,['X']=24,
+    ['Y']=25,['Z']=26,
+    ['a']=27,['b']=28,['c']=29,['d']=30,['e']=31,['f']=32,['g']=33,['h']=34,
+    ['i']=35,['j']=36,['k']=37,['l']=38,['m']=39,['n']=40,['o']=41,['p']=42,
+    ['q']=43,['r']=44,['s']=45,['t']=46,['u']=47,['v']=48,['w']=49,['x']=50,
+    ['y']=51,['z']=52,
+    ['0']=53,['1']=54,['2']=55,['3']=56,['4']=57,['5']=58,['6']=59,['7']=60,
+    ['8']=61,['9']=62,
+    ['-']=63,['_']=64,
+};
+
 static size_t
 b64_dlen(size_t elen)
 {
@@ -214,7 +231,6 @@ jose_b64_dec_io(jose_io_t *next)
 size_t
 jose_b64_dec_buf(const void *i, size_t il, void *o, size_t ol)
 {
-    const size_t len = strlen(map);
     const char *e = i;
     uint8_t *d = o;
     uint8_t rem = 0;
@@ -230,13 +246,12 @@ jose_b64_dec_buf(const void *i, size_t il, void *o, size_t ol)
         return SIZE_MAX;
 
     for (size_t io = 0; io < il; io++) {
-        uint8_t v = 0;
+        uint8_t v = unmap[(uint8_t) e[io]];
 
-        for (const char c = e[io]; v < len && c != map[v]; v++)
-            continue;
-
-        if (v >= len)
+        if (v == 0)
             return SIZE_MAX;
+
+        v -= 1; /* recover the real 0..63 value */
 
         switch (io % JOSE_B64_ENC_BLK) {
         case 0:
@@ -339,8 +354,8 @@ size_t
 jose_b64_enc_buf(const void *i, size_t il, void *o, size_t ol)
 {
     const uint8_t *ib = i;
-    uint8_t rem = 0;
     size_t oo = 0;
+    size_t io = 0;
     char *ob = o;
 
     if (!o)
@@ -349,25 +364,30 @@ jose_b64_enc_buf(const void *i, size_t il, void *o, size_t ol)
     if (ol < b64_elen(il))
         return SIZE_MAX;
 
-    for (size_t io = 0; io < il; io++) {
-        uint8_t c = ib[io];
+    /* Consume whole 3-byte blocks: 24 bits -> four 6-bit map[] lookups. */
+    for (; io + JOSE_B64_DEC_BLK <= il; io += JOSE_B64_DEC_BLK) {
+        uint32_t n = (uint32_t) ib[io] << 16
+                   | (uint32_t) ib[io+1] << 8
+                   | (uint32_t) ib[io+2];
 
-        switch (io % 3) {
-        case 0:
-            ob[oo++] = map[c >> 2];
-            ob[oo++] = map[rem = (c & 0b11) << 4];
-            break;
+        ob[oo++] = map[(n >> 18) & 0x3f];
+        ob[oo++] = map[(n >> 12) & 0x3f];
+        ob[oo++] = map[(n >>  6) & 0x3f];
+        ob[oo++] = map[ n        & 0x3f];
+    }
 
-        case 1:
-            ob[oo-1] = map[rem | (c >> 4)];
-            ob[oo++] = map[rem = (c & 0b1111) << 2];
-            break;
+    /* Handle the trailing 1 or 2 bytes (unpadded base64url). */
+    switch (il - io) {
+    case 2:
+        ob[oo++] = map[ib[io] >> 2];
+        ob[oo++] = map[(ib[io] & 0b11) << 4 | (ib[io+1] >> 4)];
+        ob[oo++] = map[(ib[io+1] & 0b1111) << 2];
+        break;
 
-        case 2:
-            ob[oo-1] = map[rem | (c >> 6)];
-            ob[oo++] = map[c & 0b111111];
-            break;
-        }
+    case 1:
+        ob[oo++] = map[ib[io] >> 2];
+        ob[oo++] = map[(ib[io] & 0b11) << 4];
+        break;
     }
 
     return oo;
