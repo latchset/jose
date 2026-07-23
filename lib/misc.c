@@ -19,6 +19,7 @@
 #include "misc.h"
 #include <jose/b64.h>
 #include <jose/cfg.h>
+#include <openssl/crypto.h>
 #include <string.h>
 #include "hooks.h"
 
@@ -42,7 +43,7 @@ encode_protected(json_t *obj)
 void
 zero(void *mem, size_t len)
 {
-    memset(mem, 0, len);
+    OPENSSL_cleanse(mem, len);
 }
 
 /* Decode the base64url-encoded protected header and load it as JSON only

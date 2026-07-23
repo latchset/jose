@@ -315,7 +315,8 @@ jose_openssl_jwk_to_RSA(jose_cfg_t *cfg, const json_t *jwk)
     DP = bn_decode_json(dp);
     DQ = bn_decode_json(dq);
     QI = bn_decode_json(qi);
-    if ((!n || N) && (!e || E) && (!p || P) && (!q || Q) &&
+    if ((!n || N) && (!e || E) && (!d || D) &&
+        (!p || P) && (!q || Q) &&
         (!dp || DP) && (!dq || DQ) && (!qi || QI)) {
         if (RSA_set0_key(rsa, N, E, D) > 0) {
             N = NULL;
@@ -342,11 +343,12 @@ jose_openssl_jwk_to_RSA(jose_cfg_t *cfg, const json_t *jwk)
 
     BN_free(N);
     BN_free(E);
-    BN_free(P);
-    BN_free(Q);
-    BN_free(DP);
-    BN_free(DQ);
-    BN_free(QI);
+    BN_clear_free(D);
+    BN_clear_free(P);
+    BN_clear_free(Q);
+    BN_clear_free(DP);
+    BN_clear_free(DQ);
+    BN_clear_free(QI);
     return NULL;
 }
 

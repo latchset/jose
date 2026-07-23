@@ -39,7 +39,8 @@ typedef enum {
     JOSE_HOOK_ALG_KIND_ENCR,
     JOSE_HOOK_ALG_KIND_COMP,
     JOSE_HOOK_ALG_KIND_EXCH,
-    JOSE_HOOK_ALG_KIND_LAST = JOSE_HOOK_ALG_KIND_EXCH
+    JOSE_HOOK_ALG_KIND_KEM,
+    JOSE_HOOK_ALG_KIND_LAST = JOSE_HOOK_ALG_KIND_KEM
 } jose_hook_alg_kind_t;
 
 typedef struct jose_hook_jwk jose_hook_jwk_t;
@@ -169,6 +170,22 @@ struct jose_hook_alg {
             (*exc)(const jose_hook_alg_t *alg, jose_cfg_t *cfg,
                    const json_t *prv, const json_t *pub);
         } exch;
+
+        struct {
+            const char *prm;
+
+            const char *
+            (*sug)(const jose_hook_alg_t *alg, jose_cfg_t *cfg,
+                   const json_t *jwk);
+
+            json_t *
+            (*enc)(const jose_hook_alg_t *alg, jose_cfg_t *cfg,
+                   const json_t *pub);
+
+            json_t *
+            (*dec)(const jose_hook_alg_t *alg, jose_cfg_t *cfg,
+                   const json_t *prv, const json_t *ct);
+        } kem;
     };
 };
 

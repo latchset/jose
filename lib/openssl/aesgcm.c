@@ -79,7 +79,7 @@ setup(const EVP_CIPHER *cph, jose_cfg_t *cfg, const json_t *jwe,
         if (push(ecc, NULL, &tmp, (uint8_t *) ".", 1) <= 0)
             goto error;
 
-        if (push(ecc, NULL, &tmp, (uint8_t *) aad, prtl) <= 0)
+        if (push(ecc, NULL, &tmp, (uint8_t *) aad, aadl) <= 0)
             goto error;
     }
 
@@ -162,7 +162,7 @@ dec_feed(jose_io_t *io, const void *in, size_t len)
         if (EVP_DecryptUpdate(i->cctx, pt, &l, &ct[j], 1) <= 0)
             goto egress;
 
-        if (i->next->feed(i->next, pt, l) != (size_t) l)
+        if (!i->next->feed(i->next, pt, l))
             goto egress;
     }
 

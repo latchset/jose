@@ -1,0 +1,41 @@
+#!/bin/sh -ex
+
+tmpdir=`mktemp -d 2>/dev/null || mktemp -d -t jose`
+
+onexit() {
+    rm -rf $tmpdir
+}
+
+trap onexit EXIT
+
+# Skip if no KEM algorithms are available
+if ! jose alg -k kem | grep -q ML-KEM; then
+    echo "No ML-KEM algorithms available, skipping"
+    exit 77
+fi
+
+for ALG in ML-KEM-512 ML-KEM-768 ML-KEM-1024; do
+    jose jwk gen -i "{\"alg\":\"$ALG\"}" -o $tmpdir/kem.jwk
+    jose jwk pub -i $tmpdir/kem.jwk -o $tmpdir/kem_pub.jwk
+
+    # Encapsulate with public key
+    jose jwk encap -i $tmpdir/kem_pub.jwk -o $tmpdir/enc.json
+
+    # Verify output has ct and ss fields
+    CT=$(jose fmt -j $tmpdir/enc.json -Og ct -Su-)
+    test -n "$CT"
+    SS=$(jose fmt -j $tmpdir/enc.json -Og ss -Og k -Su-)
+    test -n "$SS"
+
+    # Encapsulate with full key should also work
+    jose jwk encap -i $tmpdir/kem.jwk -o $tmpdir/enc2.json
+    CT2=$(jose fmt -j $tmpdir/enc2.json -Og ct -Su-)
+    test -n "$CT2"
+
+    # Each encapsulation produces different ct and ss
+    test "$CT" != "$CT2"
+done
+
+# Encap should fail with non-KEM key
+jose jwk gen -i '{"alg":"ES256"}' -o $tmpdir/ec.jwk
+! jose jwk encap -i $tmpdir/ec.jwk

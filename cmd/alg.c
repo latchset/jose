@@ -37,6 +37,7 @@ static const struct {
     { "encr", JOSE_HOOK_ALG_KIND_ENCR },
     { "comp", JOSE_HOOK_ALG_KIND_COMP },
     { "exch", JOSE_HOOK_ALG_KIND_EXCH },
+    { "kem",  JOSE_HOOK_ALG_KIND_KEM },
     {}
 };
 

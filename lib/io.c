@@ -83,6 +83,9 @@ malloc_feed(jose_io_t *io, const void *in, size_t len)
     if (len == 0)
         return true;
 
+    if (SIZE_MAX - *i->len < len)
+        return false;
+
     tmp = jose_realloc(*i->buf, *i->len + len);
     if (!tmp)
         return false;

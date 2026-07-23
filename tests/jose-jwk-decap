@@ -1,0 +1,45 @@
+#!/bin/sh -ex
+
+tmpdir=`mktemp -d 2>/dev/null || mktemp -d -t jose`
+
+onexit() {
+    rm -rf $tmpdir
+}
+
+trap onexit EXIT
+
+# Skip if no KEM algorithms are available
+if ! jose alg -k kem | grep -q ML-KEM; then
+    echo "No ML-KEM algorithms available, skipping"
+    exit 77
+fi
+
+for ALG in ML-KEM-512 ML-KEM-768 ML-KEM-1024; do
+    jose jwk gen -i "{\"alg\":\"$ALG\"}" -o $tmpdir/kem.jwk
+    jose jwk pub -i $tmpdir/kem.jwk -o $tmpdir/kem_pub.jwk
+
+    # Encapsulate
+    jose jwk encap -i $tmpdir/kem_pub.jwk -o $tmpdir/enc.json
+    CT=$(jose fmt -j $tmpdir/enc.json -Og ct -Su-)
+    SS1=$(jose fmt -j $tmpdir/enc.json -Og ss -Og k -Su-)
+
+    # Decapsulate with private key
+    jose jwk decap -i $tmpdir/kem.jwk -c "$CT" -o $tmpdir/dec.json
+    SS2=$(jose fmt -j $tmpdir/dec.json -Og k -Su-)
+
+    # Shared secrets must match
+    test "$SS1" = "$SS2"
+
+    # Decap with public-only key should fail
+    ! jose jwk decap -i $tmpdir/kem_pub.jwk -c "$CT"
+
+    # Decap with wrong key should produce different shared secret
+    jose jwk gen -i "{\"alg\":\"$ALG\"}" -o $tmpdir/kem2.jwk
+    jose jwk decap -i $tmpdir/kem2.jwk -c "$CT" -o $tmpdir/dec2.json
+    SS3=$(jose fmt -j $tmpdir/dec2.json -Og k -Su-)
+    test "$SS1" != "$SS3"
+done
+
+# Decap should fail with non-KEM key
+jose jwk gen -i '{"alg":"ES256"}' -o $tmpdir/ec.jwk
+! jose jwk decap -i $tmpdir/ec.jwk -c "AAAA"

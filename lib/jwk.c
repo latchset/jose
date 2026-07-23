@@ -103,6 +103,10 @@ jose_jwk_gen(jose_cfg_t *cfg, json_t *jwk)
             if (json_array_append_new(ops, json_string("deriveKey")) < 0)
                 return false;
             break;
+        case JOSE_HOOK_ALG_KIND_KEM:
+            if (json_array_append_new(ops, json_string("deriveKey")) < 0)
+                return false;
+            break;
         default:
             break;
         }
@@ -435,6 +439,90 @@ jose_jwk_exc(jose_cfg_t *cfg, const json_t *prv, const json_t *pub)
     return NULL;
 }
 
+json_t *
+jose_jwk_kem_enc(jose_cfg_t *cfg, const json_t *pub)
+{
+    const char *alg = NULL;
+    const char *kty = NULL;
+
+    if (json_unpack((json_t *) pub, "{s:s,s?s}", "alg", &alg, "kty", &kty) < 0) {
+        jose_cfg_err(cfg, JOSE_CFG_ERR_JWK_INVALID,
+                     "Public JWK is missing 'alg'");
+        return NULL;
+    }
+
+    if (!kty || strcmp(kty, "AKP") != 0) {
+        jose_cfg_err(cfg, JOSE_CFG_ERR_JWK_INVALID,
+                     "KEM requires kty 'AKP'");
+        return NULL;
+    }
+
+    for (const jose_hook_alg_t *a = jose_hook_alg_list(); a; a = a->next) {
+        if (a->kind != JOSE_HOOK_ALG_KIND_KEM)
+            continue;
+
+        if (strcmp(alg, a->name) != 0)
+            continue;
+
+        if (!jose_jwk_prm(cfg, pub, false, a->kem.prm)) {
+            jose_cfg_err(cfg, JOSE_CFG_ERR_JWK_DENIED,
+                         "Public JWK cannot be used for KEM");
+            return NULL;
+        }
+
+        return a->kem.enc(a, cfg, pub);
+    }
+
+    jose_cfg_err(cfg, JOSE_CFG_ERR_ALG_NOTSUP,
+                 "KEM algorithm %s is unsupported", alg);
+    return NULL;
+}
+
+json_t *
+jose_jwk_kem_dec(jose_cfg_t *cfg, const json_t *prv, const json_t *ct)
+{
+    const char *alg = NULL;
+    const char *kty = NULL;
+
+    if (json_unpack((json_t *) prv, "{s:s,s?s}", "alg", &alg, "kty", &kty) < 0) {
+        jose_cfg_err(cfg, JOSE_CFG_ERR_JWK_INVALID,
+                     "Private JWK is missing 'alg'");
+        return NULL;
+    }
+
+    if (!kty || strcmp(kty, "AKP") != 0) {
+        jose_cfg_err(cfg, JOSE_CFG_ERR_JWK_INVALID,
+                     "KEM requires kty 'AKP'");
+        return NULL;
+    }
+
+    if (!json_object_get(prv, "priv")) {
+        jose_cfg_err(cfg, JOSE_CFG_ERR_JWK_DENIED,
+                     "JWK is missing private key material ('priv')");
+        return NULL;
+    }
+
+    for (const jose_hook_alg_t *a = jose_hook_alg_list(); a; a = a->next) {
+        if (a->kind != JOSE_HOOK_ALG_KIND_KEM)
+            continue;
+
+        if (strcmp(alg, a->name) != 0)
+            continue;
+
+        if (!jose_jwk_prm(cfg, prv, false, a->kem.prm)) {
+            jose_cfg_err(cfg, JOSE_CFG_ERR_JWK_DENIED,
+                         "Private JWK cannot be used for KEM");
+            return NULL;
+        }
+
+        return a->kem.dec(a, cfg, prv, ct);
+    }
+
+    jose_cfg_err(cfg, JOSE_CFG_ERR_ALG_NOTSUP,
+                 "KEM algorithm %s is unsupported", alg);
+    return NULL;
+}
+
 static void __attribute__((constructor))
 constructor(void)
 {
@@ -449,6 +537,10 @@ constructor(void)
     static const char *ec_pub[] = { "x", "y", NULL };
     static const char *ec_prv[] = { "d", NULL };
 
+    static const char *akp_req[] = { "alg", "pub", NULL };
+    static const char *akp_pub[] = { "pub", NULL };
+    static const char *akp_prv[] = { "priv", NULL };
+
     static jose_hook_jwk_t hooks[] = {
         { .kind = JOSE_HOOK_JWK_KIND_TYPE,
           .type = { .kty = "oct", .req = oct_req, .prv = oct_prv } },
@@ -456,6 +548,8 @@ constructor(void)
           .type = { .kty = "RSA", .req = rsa_req, .pub = rsa_pub, .prv = rsa_prv } },
         { .kind = JOSE_HOOK_JWK_KIND_TYPE,
           .type = { .kty = "EC", .req = ec_req, .pub = ec_pub, .prv = ec_prv } },
+        { .kind = JOSE_HOOK_JWK_KIND_TYPE,
+          .type = { .kty = "AKP", .req = akp_req, .pub = akp_pub, .prv = akp_prv } },
         { .kind = JOSE_HOOK_JWK_KIND_OPER,
           .oper = { .pub = "verify", .prv = "sign", .use = "sig" } },
         { .kind = JOSE_HOOK_JWK_KIND_OPER,

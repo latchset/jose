@@ -50,6 +50,8 @@ LIBJOSE_1.0 {
 		jose_jwk_eql;
 		jose_jwk_exc;
 		jose_jwk_gen;
+		jose_jwk_kem_dec;
+		jose_jwk_kem_enc;
 		jose_jwk_prm;
 		jose_jwk_pub;
 		jose_jwk_thp;

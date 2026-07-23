@@ -15,6 +15,8 @@ scripts = [
   'jose-jwe-fmt',
   'jose-jwe-dec',
   'jose-jwe-enc',
+  'jose-jwk-encap',
+  'jose-jwk-decap',
 ]
 
 progs = [
@@ -23,6 +25,7 @@ progs = [
   'alg_encr',
   'alg_wrap',
   'alg_comp',
+  'alg_kem',
   'api_b64',
   'api_jws',
   'api_jwe',

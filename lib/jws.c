@@ -316,7 +316,7 @@ jose_jws_ver_io(jose_cfg_t *cfg, const json_t *jws, const json_t *sig,
         }
 
         halg = kalg;
-    } else if (kalg && strcmp(halg, kalg) < 0) {
+    } else if (kalg && strcmp(halg, kalg) != 0) {
         jose_cfg_err(cfg, JOSE_CFG_ERR_JWK_MISMATCH,
                      "Signing algorithm mismatch (%s != %s)", halg, kalg);
         return NULL;
@@ -332,7 +332,7 @@ jose_jws_ver_io(jose_cfg_t *cfg, const json_t *jws, const json_t *sig,
     if (!jose_jwk_prm(cfg, jwk, false, alg->sign.vprm)) {
         jose_cfg_err(cfg, JOSE_CFG_ERR_JWK_DENIED,
                      "JWK cannot be used to verify");
-        return false;
+        return NULL;
     }
 
     return prefix(alg->sign.ver(alg, cfg, jws, sig, jwk), sig);

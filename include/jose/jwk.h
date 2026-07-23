@@ -195,4 +195,34 @@ jose_jwk_thp_buf(jose_cfg_t *cfg, const json_t *jwk,
 json_t *
 jose_jwk_exc(jose_cfg_t *cfg, const json_t *lcl, const json_t *rem);
 
+/**
+ * Performs KEM encapsulation using a public JWK.
+ *
+ * Returns a JSON object containing the shared secret as an oct JWK
+ * ("ss") and the ciphertext as a base64url string ("ct").
+ *
+ * The returned object contains secret material. Callers handling
+ * sensitive key material should cleanse the "k" value of the "ss"
+ * object before releasing it.
+ *
+ * \param cfg  The configuration context (optional).
+ * \param pub  The public JWK to encapsulate against.
+ * \return     On success, a JSON object. Otherwise, NULL.
+ */
+json_t *
+jose_jwk_kem_enc(jose_cfg_t *cfg, const json_t *pub);
+
+/**
+ * Performs KEM decapsulation using a private JWK and ciphertext.
+ *
+ * Returns the shared secret as an oct JWK.
+ *
+ * \param cfg  The configuration context (optional).
+ * \param prv  The private JWK to decapsulate with.
+ * \param ct   The ciphertext as a base64url JSON string.
+ * \return     On success, a JSON object (oct JWK). Otherwise, NULL.
+ */
+json_t *
+jose_jwk_kem_dec(jose_cfg_t *cfg, const json_t *prv, const json_t *ct);
+
 /** @} */

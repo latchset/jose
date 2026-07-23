@@ -1,1 +1,2 @@
 option('docs', type: 'feature', description: 'Whether to build asciidoc manpages')
+option('mlkem', type: 'feature', value: 'auto', description: 'ML-KEM (FIPS 203) support (requires OpenSSL >= 3.5)')
