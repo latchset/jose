@@ -43,15 +43,11 @@ jq = find_program('jq', required: false)
 
 mans = []
 
-licenses = ['COPYING']
-
 subdir('include')
 subdir('doc')
 subdir('lib')
 subdir('cmd')
 subdir('tests')
-
-install_data(licenses, install_dir: licensedir)
 
 pkg = import('pkgconfig')
 pkg.generate(
