@@ -6,7 +6,7 @@ project('jose', 'c', license: 'APL2',
     'warning_level=2',
     'werror=true'
   ],
-  meson_version: '>=0.47.0',
+  meson_version: '>=0.53.0',
 )
 
 licensedir = join_paths(get_option('prefix'), 'share', 'licenses', meson.project_name())

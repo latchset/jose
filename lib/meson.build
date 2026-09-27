@@ -17,10 +17,20 @@ elif build_machine.system() == 'freebsd'
 else
   # Linux and other systems
   version_script_flags = '-Wl,--version-script=' + meson.current_source_dir() + '/libjose.map'
-  if not cc.links(code, args: version_script_flags, name: '-Wl,--version-script=...')
-     flags = [ '-export-symbols-regex=^jose_.*' ]
+  if cc.get_linker_id() == 'ld.lld'
+    if not cc.links(code, args: version_script_flags + ',--undefined-version',
+                    name: '-Wl,--version-script=... (--undefined-version)')
+      flags = ['-export-symbols-regex=^jose_.*']
+    else
+      flags = [version_script_flags]
+    endif
   else
-     flags = [version_script_flags]
+    if not cc.links(code, args: version_script_flags,
+                    name: '-Wl,--version-script=... (plain)')
+      flags = ['-export-symbols-regex=^jose_.*']
+    else
+      flags = [version_script_flags]
+    endif
   endif
 endif
 
